@@ -28,6 +28,10 @@ import requests
 JST = timezone(timedelta(hours=9))
 
 _OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+# データ提供元が何のツールからのアクセスか判別できるよう、識別可能なUser-Agentを送る
+# (GSIタイル・光害タイル・Nominatimと同じ方針。Open-Meteoは CC BY 4.0、出典表示が必要)。
+_USER_AGENT = "hoshibiyori-cloud-forecast/0.1 (personal astrophotography tool; grid-cell cached, low-volume)"
+ATTRIBUTION = "Weather data by Open-Meteo.com (https://open-meteo.com/), CC BY 4.0; models: JMA MSM, ECMWF IFS"
 _HOURLY_VARS = "cloudcover,cloudcover_low,cloudcover_mid,cloudcover_high"
 
 MSM_MODEL = "jma_msm"
@@ -65,7 +69,7 @@ def _fetch_hourly(lat: float, lon: float, model: str, forecast_days: int, variab
     }
     for attempt in range(1, _FETCH_MAX_RETRIES + 1):
         try:
-            resp = requests.get(_OPEN_METEO_URL, params=params, timeout=20)
+            resp = requests.get(_OPEN_METEO_URL, params=params, timeout=20, headers={"User-Agent": _USER_AGENT})
             resp.raise_for_status()
             return resp.json()["hourly"]
         except requests.RequestException as e:

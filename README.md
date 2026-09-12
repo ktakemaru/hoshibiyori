@@ -50,14 +50,26 @@ Skyfieldの暦ファイル(`de421.bsp`)は初回実行時に自動ダウンロ�
 
 ## データ出典と利用上の注意
 
-- 標高データ: 国土地理院「地理院タイル(標高タイル)」を加工して利用(出典: 国土地理院)。
-- 光害データ: David Lorenz "Light Pollution Atlas"(https://djlorenz.github.io/astronomy/lp/)。ボートルスケールへの変換は非公式の簡易近似。
-- 気象予報: Open-Meteo(https://open-meteo.com/)経由の気象庁MSM・ECMWF IFS。気圧面別雲量は相対湿度からの近似値である点に注意。
-- 天気図: 気象庁ホームページ。
-- 地点情報: OpenStreetMap contributors(Overpass API・Nominatim)。
+本ソフトウェア自体はMITライセンス(`LICENSE`)だが、実行時に取得・表示する各データにはそれぞれの提供元の条件が適用される。生成されるレポート(`report.html`)のフッターにも同じ出典表示を自動で含めている。
 
-いずれのデータ提供元に対しても、タイル単位のディスクキャッシュとポライトネス・ディレイ、識別可能なUser-Agentによる節度あるアクセスを維持すること。公開サービス化する前に確認すべき事項は`CLAUDE.md`の各「公開時の留意点」セクションを参照。
+| データ | 提供元 | 条件・表示 |
+|---|---|---|
+| 気象予報(雲量・気圧面・ジオポテンシャル高度) | [Open-Meteo.com](https://open-meteo.com/)(気象庁MSM・ECMWF IFSの数値予報を配信) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。「Weather data by Open-Meteo.com」の表示 |
+| 標高(地形地平線) | [国土地理院 地理院タイル(標高タイル)](https://maps.gsi.go.jp/development/ichiran.html) | [国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)に基づき「**出典：国土地理院 地理院タイル(標高タイル)を加工して作成**」と表示 |
+| 光害(人工夜空輝度) | David Lorenz, [Light Pollution Atlas](https://djlorenz.github.io/astronomy/lp/) | 個人運営サイト。明示的なライセンス表記なし。出典表示を行い、**公開サービスへ組み込む前に著者への利用可否確認が必要**(未実施)。ボートルスケール値は非公式の簡易近似 |
+| 地上天気図・予想天気図 | [気象庁ホームページ](https://www.jma.go.jp/) | [気象庁ホームページ利用規約](https://www.jma.go.jp/jma/kishou/info/coment.html)に基づき出典表示 |
+| 候補地点(OSM展望データ)・地名(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | [ODbL](https://opendatacommons.org/licenses/odbl/)。Nominatimは[利用規約](https://operations.osmfoundation.org/policies/nominatim/)(1リクエスト/秒以下・識別可能なUser-Agent・結果のキャッシュ)を遵守 |
+| 天体位置 | JPL DE421 暦([Skyfield](https://rhodesmill.org/skyfield/)経由で自動取得) | パブリックドメイン(NASA/JPL) |
+| 星空撮影名所(curated) | 星空撮影の専門家・愛好家サイト、自治体観光サイト等のWeb調査 | 地名・座標のみを収録。説明文は独自に要約 |
+
+**アクセスの節度**: いずれの提供元に対しても、タイル/格子セル単位のディスクキャッシュ、新規取得時のポライトネス・ディレイ、識別可能なUser-Agentを維持している。これらを無効化しないこと。
+
+**免責**: 本プロジェクトは数値予報データを個人の星景撮影計画のために整理・表示するツールであり、気象庁その他の機関による予報・警報ではない。予報の的中を保証せず、現地での判断は利用者自身の責任で行うこと。気象業務法上の「予報業務」として第三者に提供するものではない。
 
 ## ステータス
 
 ステップ1〜7まで実装・検証済み。個人利用の検証段階であり、公開サービスではない。今後の課題は`CLAUDE.md`「今後の課題」参照。
+
+## ライセンス
+
+本ソフトウェアのソースコードは[MIT License](LICENSE)で公開する。バナー画像(`assets/`)を含むリポジトリ内の独自コンテンツも同じ扱いとする。実行時に取得する外部データには上記「データ出典と利用上の注意」の各提供元の条件が別途適用される。

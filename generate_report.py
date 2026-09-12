@@ -829,9 +829,16 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
   {tier2}
   {tier3}
   <footer class="page-footer">
-    <p>候補地点データ: stargazing_spots.json(星空撮影名所84件+OSM展望データ751件)。
-    雲量: Open-Meteo(JMA MSM/ECMWF IFS025) ・ 光害: David Lorenz Light Pollution Atlas ・
-    地形: 国土地理院 標高タイル。</p>
+    <p class="attribution">出典・データ提供:
+    気象予報 <a href="https://open-meteo.com/">Open-Meteo.com</a>(CC BY 4.0、気象庁MSM・ECMWF IFSの数値予報を配信) ・
+    地形 <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院 地理院タイル(標高タイル)</a>を加工して作成 ・
+    光害 David Lorenz, <a href="https://djlorenz.github.io/astronomy/lp/">Light Pollution Atlas</a>
+    (ボートルスケール値は非公式の簡易近似) ・
+    天気図 <a href="https://www.jma.go.jp/">気象庁ホームページ</a> ・
+    候補地点・地名 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>(ODbL) ・
+    天体位置 JPL DE421 暦(Skyfield経由)。</p>
+    <p class="attribution">本レポートは数値予報データを個人の星景撮影計画のために整理・表示したものであり、
+    気象庁その他の機関による予報・警報ではありません。気圧面別の雲量は相対湿度からの近似値です。</p>
   </footer>
 </div>
 </body>
