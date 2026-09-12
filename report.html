@@ -149,7 +149,7 @@ h1, h2, h3 { font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS M
   <header class="page-header">
     <div class="eyebrow">hoshibiyori 探索モード</div>
     <h1>星の日和 探索レポート</h1>
-    <p class="target-line">対象天体: 天の川銀河中心 ・ 生成日時: 2026-09-13 07:47 JST</p>
+    <p class="target-line">対象天体: 天の川銀河中心 ・ 生成日時: 2026-09-13 08:26 JST</p>
   </header>
   
     <section class="tier tier1">
@@ -259,15 +259,15 @@ h1, h2, h3 { font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS M
         <h3>地上天気図(気象庁)</h3>
         <div class="wmap-row">
           <figure class="wmap-card">
-            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0801_now.png" alt="JMA地上天気図(実況)" loading="lazy">
+            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0836_now.png" alt="JMA地上天気図(実況)" loading="lazy">
             <figcaption>実況</figcaption>
           </figure>
           <figure class="wmap-card">
-            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0801_plus24h.png" alt="JMA地上天気図(24時間後の予想)" loading="lazy">
+            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0836_plus24h.png" alt="JMA地上天気図(24時間後の予想)" loading="lazy">
             <figcaption>24時間後の予想</figcaption>
           </figure>
           <figure class="wmap-card">
-            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0801_plus48h.png" alt="JMA地上天気図(48時間後の予想)" loading="lazy">
+            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0836_plus48h.png" alt="JMA地上天気図(48時間後の予想)" loading="lazy">
             <figcaption>48時間後の予想</figcaption>
           </figure></div>
         <p class="wmap-commentary">台風24号(実況時点で992hPa)が南方海上をゆっくり北上しており、日本の南岸には前線が停滞しています。48時間後には熱帯低気圧に弱まりながら本州へ近づく見込みで、日本海側には新たな低気圧が発生し前線を伴う予想です。この期間は太平洋側を中心に雲や雨の影響を受けやすく、天気の変化に注意してください。一方、北日本や日本海側は高気圧の勢力下で比較的安定した空模様が期待できます。</p>
@@ -974,9 +974,16 @@ h1, h2, h3 { font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS M
           </div></div></div>
     </section>
   <footer class="page-footer">
-    <p>候補地点データ: stargazing_spots.json(星空撮影名所84件+OSM展望データ751件)。
-    雲量: Open-Meteo(JMA MSM/ECMWF IFS025) ・ 光害: David Lorenz Light Pollution Atlas ・
-    地形: 国土地理院 標高タイル。</p>
+    <p class="attribution">出典・データ提供:
+    気象予報 <a href="https://open-meteo.com/">Open-Meteo.com</a>(CC BY 4.0、気象庁MSM・ECMWF IFSの数値予報を配信) ・
+    地形 <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院 地理院タイル(標高タイル)</a>を加工して作成 ・
+    光害 David Lorenz, <a href="https://djlorenz.github.io/astronomy/lp/">Light Pollution Atlas</a>
+    (ボートルスケール値は非公式の簡易近似) ・
+    天気図 <a href="https://www.jma.go.jp/">気象庁ホームページ</a> ・
+    候補地点・地名 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>(ODbL) ・
+    天体位置 JPL DE421 暦(Skyfield経由)。</p>
+    <p class="attribution">本レポートは数値予報データを個人の星景撮影計画のために整理・表示したものであり、
+    気象庁その他の機関による予報・警報ではありません。気圧面別の雲量は相対湿度からの近似値です。</p>
   </footer>
 </div>
 </body>
