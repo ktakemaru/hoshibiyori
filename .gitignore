@@ -1,0 +1,28 @@
+# --- Python ---
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# --- Secrets / local config (reserved) ---
+.env
+.env.*
+
+# --- Runtime caches of external data (regenerable; access-politeness rules in CLAUDE.md) ---
+# 国土地理院 標高タイル(約23GB)
+step2_terrain/dem_cache/
+# Light Pollution Atlas バイナリタイル
+step3_light_pollution/tile_cache/
+# Open-Meteo 格子セルキャッシュ(TTL付き)
+step5_cloud_forecast/cloud_cache/
+# 気象庁天気図スクリーンショット
+step5_cloud_forecast/weather_map_cache/
+
+# --- Skyfield ephemeris (17MB, auto-downloaded on first use) ---
+*.bsp
+
+# --- Backups taken before batch data edits ---
+*.bak
+*.bak2
+*.bak_*
+stargazing_spots.json.bak_*.json

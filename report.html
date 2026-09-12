@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星の日和 探索レポート</title>
+<style>
+
+:root {
+  --bg: #f5f2ea; --surface: #ffffff; --surface-alt: #ebe6d8;
+  --text: #1c1e2e; --text-muted: #666a80; --border: #ddd6c4;
+  --accent: #3d3178; --accent-soft: #ece8f9; --gold: #a8752e;
+  --shadow: 0 1px 2px rgba(28,30,46,.06), 0 4px 14px rgba(28,30,46,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0f1c; --surface: #171a2c; --surface-alt: #1f2340;
+    --text: #eae8f3; --text-muted: #9a9dbb; --border: #2b2f4d;
+    --accent: #ab9de6; --accent-soft: #262a4d; --gold: #dcae66;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body {
+  color: var(--text);
+  font-family: "Yu Gothic", "Hiragino Sans", "Meiryo", sans-serif;
+  line-height: 1.6;
+}
+.mono { font-family: Consolas, "SF Mono", monospace; font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS Mincho", serif; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
+
+.page-header { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 24px; }
+.page-header .eyebrow { font-size: .72rem; letter-spacing: .14em; color: var(--text-muted); text-transform: uppercase; }
+.page-header h1 { font-size: clamp(1.6rem, 4vw, 2.1rem); margin: 4px 0; }
+.target-line { color: var(--text-muted); font-size: .88rem; margin: 0; }
+
+.tier { position: relative; margin: 0 0 40px; padding: 20px 20px 20px 56px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+.tier-label {
+  position: absolute; left: 14px; top: 20px; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
+  font-family: Consolas, monospace; font-weight: 700; font-size: .95rem;
+}
+.tier h2 { font-size: 1.15rem; margin: 0 0 10px; }
+.summary-text { color: var(--text); font-size: .92rem; background: var(--accent-soft); padding: 10px 14px; border-radius: 10px; }
+
+.moon-timeline { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-top: 14px; }
+.moon-tick { flex: 0 0 62px; text-align: center; }
+.moon-date { font-size: .68rem; color: var(--text-muted); font-family: Consolas, monospace; }
+.moon-icon { font-size: 1.4rem; margin: 2px 0; }
+.moon-bar-track { height: 5px; background: var(--surface-alt); border-radius: 3px; overflow: hidden; }
+.moon-bar-fill { height: 100%; background: var(--gold); }
+.moon-detail { font-size: .62rem; color: var(--text-muted); margin-top: 2px; }
+
+.empty-note { color: var(--text-muted); background: var(--surface-alt); padding: 12px 16px; border-radius: 10px; font-size: .9rem; }
+
+.wmap-block { margin-bottom: 24px; padding: 14px 16px; background: var(--surface-alt); border-radius: 10px; }
+.wmap-block h3 { font-size: .95rem; margin: 0 0 10px; }
+.wmap-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.wmap-card { margin: 0; flex: 0 0 auto; text-align: center; }
+.wmap-card img { display: block; width: 220px; max-width: 60vw; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.wmap-card figcaption { font-size: .72rem; color: var(--text-muted); margin-top: 4px; }
+.wmap-commentary { font-size: .88rem; margin: 12px 0 6px; }
+.wmap-caveat { font-size: .68rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
+.wmap-stale-warning {
+  font-size: .82rem; font-weight: 700; margin: 0; padding: 8px 12px; line-height: 1.5;
+  background: #fdecea; color: #8a2c1d; border: 1px solid #e5a79c; border-radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wmap-stale-warning { background: #402320; color: #f3b3a4; border-color: #7a3a30; }
+}
+:root[data-theme="dark"] .wmap-stale-warning { background: #402320; color: #f3b3a4; border-color: #7a3a30; }
+
+.cand-group { margin-bottom: 28px; }
+.cand-group:last-child { margin-bottom: 0; }
+.group-title { font-size: 1.02rem; margin: 0 0 4px; }
+.group-note { font-size: .78rem; color: var(--text-muted); margin: 0 0 12px; }
+.weather-note { font-size: .85rem; color: var(--text); background: var(--accent-soft);
+  padding: 8px 12px; border-radius: 8px; margin: 0 0 14px; }
+
+.sky-guide { margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.sky-guide .guide-list { list-style: none; margin: 10px 0 0; padding: 14px 16px; display: grid; gap: 8px;
+  font-size: .88rem; background: var(--surface-alt); border-radius: 10px; }
+.guide-list b { color: var(--accent); }
+
+.tier2-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+.cand-grid { display: grid; gap: 10px; }
+.cand-card { display: grid; grid-template-columns: auto 1fr; gap: 14px;
+  background: var(--surface-alt); border-radius: 10px; padding: 12px 14px; }
+.cand-rank { font-family: Consolas, monospace; font-weight: 700; font-size: 1.1rem; color: var(--accent); padding-top: 2px; }
+.cand-body h3 { font-size: 1rem; margin: 0 0 4px; }
+.cand-muni { font-size: .78rem; color: var(--text-muted); font-family: "Yu Gothic", sans-serif; font-weight: 400; }
+.cand-badges { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.badge { font-size: .68rem; padding: 2px 8px; border-radius: 999px; }
+.badge.score { background: var(--accent); color: #fff; font-family: Consolas, monospace; }
+.badge.origin { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); }
+.badge.dist { background: var(--surface); border: 1px solid var(--border); color: var(--gold); font-family: Consolas, monospace; }
+.badge.nv { background: var(--gold); color: #fff; }
+.nv-group .cand-rank { font-size: 1.2rem; }
+.cand-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin: 0 0 8px; font-size: .8rem; }
+.cand-stats dt { color: var(--text-muted); display: inline; }
+.cand-stats dd { display: inline; margin: 0 0 0 4px; }
+.cand-stats div { grid-column: span 1; }
+.btn-maps { display: inline-block; font-size: .78rem; padding: 6px 12px; border-radius: 8px;
+  background: var(--accent); color: #fff; text-decoration: none; }
+
+.map-panel { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.schema-map { width: 100%; max-width: 320px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
+.map-bg { fill: var(--surface-alt); }
+.grid-line { stroke: var(--border); stroke-width: 1; }
+.ref-dot { fill: var(--text-muted); }
+.ref-label { font-size: 9px; fill: var(--text-muted); font-family: "Yu Gothic", sans-serif; }
+.pin-link { cursor: pointer; }
+.pin { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+.pin-num { font-size: 9px; fill: #fff; text-anchor: middle; font-family: Consolas, monospace; font-weight: 700; }
+.map-caption { font-size: .7rem; color: var(--text-muted); text-align: center; margin: 0; }
+
+.msm-note { font-size: .82rem; color: var(--accent); background: var(--accent-soft); display: inline-block;
+  padding: 4px 12px; border-radius: 999px; margin: 0 0 14px; }
+.calendar-scroll { overflow-x: auto; }
+.calendar-row { display: flex; gap: 10px; min-width: max-content; padding-bottom: 8px; }
+.cal-col { flex: 0 0 190px; background: var(--surface-alt); border-radius: 10px; padding: 12px; }
+.cal-date { font-family: Consolas, monospace; font-weight: 700; font-size: .95rem; }
+.cal-weekday { font-weight: 400; color: var(--text-muted); font-size: .75rem; margin-left: 4px; }
+.cal-icon { font-size: 1.5rem; margin: 4px 0; }
+.cal-moonfree { font-size: .7rem; color: var(--text-muted); margin-bottom: 8px; font-family: Consolas, monospace; }
+.cal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cal-list li { border-top: 1px solid var(--border); padding-top: 8px; }
+.cal-site-name { font-size: .85rem; font-weight: 700; }
+.cal-site-muni { font-size: .68rem; color: var(--text-muted); font-weight: 400; }
+.cal-site-badge { font-size: .65rem; color: var(--accent); margin: 2px 0 4px; }
+.cal-chance { font-size: .72rem; color: var(--text); }
+.cal-empty { font-size: .78rem; color: var(--text-muted); }
+
+.page-footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: .74rem; color: var(--text-muted); }
+
+@media (max-width: 820px) {
+  .tier2-layout { grid-template-columns: 1fr; }
+  .map-panel { order: -1; }
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <div class="eyebrow">hoshibiyori 探索モード</div>
+    <h1>星の日和 探索レポート</h1>
+    <p class="target-line">対象天体: 天の川銀河中心 ・ 生成日時: 2026-09-13 07:47 JST</p>
+  </header>
+  
+    <section class="tier tier1">
+      <div class="tier-label">1</div>
+      <h2>概況 &mdash; 直近14夜の月齢タイムライン</h2>
+      <p class="summary-text">直近の精密予報期間は平均視界遮蔽雲量19%で、最有力は2026-09-13の千畳敷カール(スコア124)です。 中期(見込み)期間は参考晴天率が平均18%程度の夜が点在しています。</p>
+      <div class="moon-timeline">
+          <div class="moon-tick">
+            <div class="moon-date">09/13</div>
+            <div class="moon-icon">🌒</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:71%"></div></div>
+            <div class="moon-detail">8.5時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/14</div>
+            <div class="moon-icon">🌒</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:71%"></div></div>
+            <div class="moon-detail">8.5時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/15</div>
+            <div class="moon-icon">🌒</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:69%"></div></div>
+            <div class="moon-detail">8.2時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/16</div>
+            <div class="moon-icon">🌒</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:62%"></div></div>
+            <div class="moon-detail">7.5時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/17</div>
+            <div class="moon-icon">🌓</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:56%"></div></div>
+            <div class="moon-detail">6.8時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/18</div>
+            <div class="moon-icon">🌓</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:50%"></div></div>
+            <div class="moon-detail">6.0時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/19</div>
+            <div class="moon-icon">🌓</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:44%"></div></div>
+            <div class="moon-detail">5.2時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/20</div>
+            <div class="moon-icon">🌓</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:35%"></div></div>
+            <div class="moon-detail">4.2時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/21</div>
+            <div class="moon-icon">🌔</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:29%"></div></div>
+            <div class="moon-detail">3.5時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/22</div>
+            <div class="moon-icon">🌔</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:19%"></div></div>
+            <div class="moon-detail">2.2時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/23</div>
+            <div class="moon-icon">🌔</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:10%"></div></div>
+            <div class="moon-detail">1.2時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/24</div>
+            <div class="moon-icon">🌔</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:2%"></div></div>
+            <div class="moon-detail">0.2時間</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/25</div>
+            <div class="moon-icon">🌕</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:0%"></div></div>
+            <div class="moon-detail">無月時間帯なし</div>
+          </div>
+          <div class="moon-tick">
+            <div class="moon-date">09/26</div>
+            <div class="moon-icon">🌕</div>
+            <div class="moon-bar-track"><div class="moon-bar-fill" style="width:0%"></div></div>
+            <div class="moon-detail">無月時間帯なし</div>
+          </div></div>
+      
+        <div class="sky-guide">
+          <h3 class="group-title">🌌 この時期の見どころ</h3>
+          <p class="group-note">対象地点固有の地形は考慮しない一般的な目安です(地平線から15&deg;以上を「見える」の基準、
+          時刻は30分単位に丸めています)。直近数日はほぼ同じ見え方のため今夜の分を代表として表示しています。
+          実際に見えるかどうかは地形・雲量に左右されます。</p>
+          <ul class="guide-list"><li><b>天の川銀河中心</b>: そろそろ見納めの時期です。19:30〜21:00頃(南南西の空、最高高度は19:30頃に約24&deg;)</li><li><b>夏の大三角</b>: 見頃です。19:30〜02:00頃(ほぼ天頂、最高高度は20:00頃に約86&deg;)</li><li><b>カシオペヤ座</b>: そろそろ見頃に入ってくる時期です。19:30〜04:00頃(北の空、最高高度は01:00頃に約64&deg;)</li></ul>
+        </div>
+    </section>
+  
+    <section class="tier tier2">
+      <div class="tier-label">2</div>
+      <h2>直近・行動用 &mdash; 精密予報(MSM)圏内</h2>
+      
+      <div class="wmap-block">
+        <h3>地上天気図(気象庁)</h3>
+        <div class="wmap-row">
+          <figure class="wmap-card">
+            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0801_now.png" alt="JMA地上天気図(実況)" loading="lazy">
+            <figcaption>実況</figcaption>
+          </figure>
+          <figure class="wmap-card">
+            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0801_plus24h.png" alt="JMA地上天気図(24時間後の予想)" loading="lazy">
+            <figcaption>24時間後の予想</figcaption>
+          </figure>
+          <figure class="wmap-card">
+            <img src="step5_cloud_forecast/weather_map_cache/jma_weathermap_2026-09-13_0801_plus48h.png" alt="JMA地上天気図(48時間後の予想)" loading="lazy">
+            <figcaption>48時間後の予想</figcaption>
+          </figure></div>
+        <p class="wmap-commentary">台風24号(実況時点で992hPa)が南方海上をゆっくり北上しており、日本の南岸には前線が停滞しています。48時間後には熱帯低気圧に弱まりながら本州へ近づく見込みで、日本海側には新たな低気圧が発生し前線を伴う予想です。この期間は太平洋側を中心に雲や雨の影響を受けやすく、天気の変化に注意してください。一方、北日本や日本海側は高気圧の勢力下で比較的安定した空模様が期待できます。</p>
+        <p class="wmap-stale-warning">⚠️ この解説文は約157時間前(2026-09-06 19時取得分)の天気図をもとにしたものです。最新の図と食い違っている可能性があります。</p>
+      </div>
+      
+        <div class="cand-group">
+          <h3 class="group-title">気軽コース TOP10</h3>
+          <p class="group-note">東京から直線距離250km圏内(車で概ね4〜5時間の目安)・離島や本格的な登山・リフト等の交通機関を要する地点は除く。</p>
+          <p class="weather-note">🌤 気軽コース圏内(東京から250km圏内)の平均視界遮蔽雲量は48%、条件(30%以下)を満たす組み合わせは85/330件でした。地域差が大きく、場所によって明暗が分かれる見込みです。首都圏近郊は総じて候補が絞られやすいので、晴れる方角が偏っている夜はこの期間だけ「硬派コース」側の遠方候補もあわせてご検討ください。</p>
+          <div class="tier2-layout">
+            <div class="cand-grid">
+          <div class="cand-card">
+            <div class="cand-rank">1</div>
+            <div class="cand-body">
+              <h3>大菩薩峠<span class="cand-muni">（甲州市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 122</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線83km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:21〜03:51(翌)(狙い目 19:21)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均4%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.18 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.7458,138.8475" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">2</div>
+            <div class="cand-body">
+              <h3>那須高原（駒止の滝展望台）<span class="cand-muni">（那須町）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 119</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線162km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:19〜03:49(翌)(狙い目 19:19)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均12%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.54 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=37.1264,139.9678" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">3</div>
+            <div class="cand-body">
+              <h3>天城高原<span class="cand-muni">（伊豆市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 118</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線112km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:19〜03:49(翌)(狙い目 19:19)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均7%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.36 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=34.871659,139.023935" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">4</div>
+            <div class="cand-body">
+              <h3>白駒の池<span class="cand-muni">（佐久穂町・小海町）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 117</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線133km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:24〜03:54(翌)(狙い目 19:24)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均7%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.48 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=36.05147,138.36229" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">5</div>
+            <div class="cand-body">
+              <h3>石廊崎<span class="cand-muni">（南伊豆町）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 117</span>
+                <span class="badge origin">星空撮影名所(集合知ベース、検証済み地点データと統合)</span>
+                <span class="badge dist">東京から直線146km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:20〜03:50(翌)(狙い目 19:20)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均18%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.73 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=34.602778,138.845278" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">6</div>
+            <div class="cand-body">
+              <h3>富士山五合目（富士スバルライン）<span class="cand-muni">（富士宮市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 116</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線100km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:21〜03:51(翌)(狙い目 19:21)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均8%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.11 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.3606,138.7306" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">7</div>
+            <div class="cand-body">
+              <h3>恵那山ウェルネスキャンプ場<span class="cand-muni">（中津川市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 116</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線200km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:26〜03:56(翌)(狙い目 19:26)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均13%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.41 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.4372,137.5817" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">8</div>
+            <div class="cand-body">
+              <h3>茶臼山高原<span class="cand-muni">（豊根村）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 116</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線198km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:25〜03:55(翌)(狙い目 19:25)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均16%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.51 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.227569,137.655597" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">9</div>
+            <div class="cand-body">
+              <h3>奥只見ダム<span class="cand-muni">（魚沼市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 116</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線172km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:22〜03:52(翌)(狙い目 19:22)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均18%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.81 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=37.1514,139.1867" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">10</div>
+            <div class="cand-body">
+              <h3>野島埼灯台<span class="cand-muni">（南房総市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 115</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線87km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:16〜03:46(翌)(狙い目 19:16)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均11%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.18 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=34.90173,139.888385" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div></div>
+            <div class="map-panel">
+              
+    <svg viewBox="0 0 320 380" class="schema-map" role="img" aria-label="候補地点の模式図(実座標の地図ではありません)">
+      <rect x="0" y="0" width="320" height="380" class="map-bg"/>
+      <line x1="0" y1="95" x2="320" y2="95" class="grid-line"/><line x1="0" y1="190" x2="320" y2="190" class="grid-line"/><line x1="0" y1="285" x2="320" y2="285" class="grid-line"/>
+      <line x1="80" y1="0" x2="80" y2="380" class="grid-line"/><line x1="160" y1="0" x2="160" y2="380" class="grid-line"/><line x1="240" y1="0" x2="240" y2="380" class="grid-line"/>
+      <circle cx="248.3" cy="197.8" r="2.5" class="ref-dot"/><text x="253.3" y="200.8" class="ref-label">東京</text><circle cx="81.8" cy="231.3" r="2.5" class="ref-dot"/><text x="86.8" y="234.3" class="ref-label">名古屋</text><circle cx="205.0" cy="52.3" r="2.5" class="ref-dot"/><text x="210.0" y="55.3" class="ref-label">新潟</text>
+      
+          <a href="https://www.google.com/maps?q=35.7458,138.8475" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="194.8" cy="193.6" r="10" class="pin"/>
+            <text x="194.8" y="193.6" class="pin-num" dy=".33em">1</text>
+          </a>
+          <a href="https://www.google.com/maps?q=37.1264,139.9678" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="259.9" cy="103.1" r="10" class="pin"/>
+            <text x="259.9" y="103.1" class="pin-num" dy=".33em">2</text>
+          </a>
+          <a href="https://www.google.com/maps?q=34.871659,139.023935" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="205.0" cy="250.8" r="10" class="pin"/>
+            <text x="205.0" y="250.8" class="pin-num" dy=".33em">3</text>
+          </a>
+          <a href="https://www.google.com/maps?q=36.05147,138.36229" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="166.5" cy="173.5" r="10" class="pin"/>
+            <text x="166.5" y="173.5" class="pin-num" dy=".33em">4</text>
+          </a>
+          <a href="https://www.google.com/maps?q=34.602778,138.845278" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="194.6" cy="268.4" r="10" class="pin"/>
+            <text x="194.6" y="268.4" class="pin-num" dy=".33em">5</text>
+          </a>
+          <a href="https://www.google.com/maps?q=35.3606,138.7306" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="188.0" cy="218.8" r="10" class="pin"/>
+            <text x="188.0" y="218.8" class="pin-num" dy=".33em">6</text>
+          </a>
+          <a href="https://www.google.com/maps?q=35.4372,137.5817" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="121.1" cy="213.8" r="10" class="pin"/>
+            <text x="121.1" y="213.8" class="pin-num" dy=".33em">7</text>
+          </a>
+          <a href="https://www.google.com/maps?q=35.227569,137.655597" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="125.4" cy="227.5" r="10" class="pin"/>
+            <text x="125.4" y="227.5" class="pin-num" dy=".33em">8</text>
+          </a>
+          <a href="https://www.google.com/maps?q=37.1514,139.1867" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="214.5" cy="101.5" r="10" class="pin"/>
+            <text x="214.5" y="101.5" class="pin-num" dy=".33em">9</text>
+          </a>
+          <a href="https://www.google.com/maps?q=34.90173,139.888385" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="255.3" cy="248.9" r="10" class="pin"/>
+            <text x="255.3" y="248.9" class="pin-num" dy=".33em">10</text>
+          </a>
+    </svg>
+              <p class="map-caption">緯度経度に基づく模式図(実座標の地図ではありません)。番号ピンをクリックすると実際のGoogleマップが新しいタブで開きます。</p>
+            </div>
+          </div>
+        </div>
+      
+        <div class="cand-group">
+          <h3 class="group-title">硬派コース TOP10</h3>
+          <p class="group-note">距離・アクセス方法を問わず、条件(月・地形・光害)だけで見た全国TOP。遠征・登山・離島渡航が前提の地点も含む。</p>
+          
+          <div class="tier2-layout">
+            <div class="cand-grid">
+          <div class="cand-card">
+            <div class="cand-rank">1</div>
+            <div class="cand-body">
+              <h3>千畳敷カール<span class="cand-muni">（駒ヶ根市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 124</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線177km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:26〜03:56(翌)(狙い目 19:26)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均9%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.60 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.7761,137.8131" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">2</div>
+            <div class="cand-body">
+              <h3>大菩薩峠<span class="cand-muni">（甲州市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 122</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線83km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:21〜03:51(翌)(狙い目 19:21)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均4%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.18 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.7458,138.8475" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">3</div>
+            <div class="cand-body">
+              <h3>三浦湾展望台<span class="cand-muni">（神津島村）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 121</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線175km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:18〜03:48(翌)(狙い目 19:18)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均11%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.57 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=34.192385,139.144698" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">4</div>
+            <div class="cand-body">
+              <h3>那須高原（駒止の滝展望台）<span class="cand-muni">（那須町）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 119</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線162km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:19〜03:49(翌)(狙い目 19:19)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均12%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.54 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=37.1264,139.9678" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">5</div>
+            <div class="cand-body">
+              <h3>天城高原<span class="cand-muni">（伊豆市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 118</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線112km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:19〜03:49(翌)(狙い目 19:19)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均7%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.36 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=34.871659,139.023935" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">6</div>
+            <div class="cand-body">
+              <h3>日光白根山ロープウェイ山頂駅<span class="cand-muni">（日光市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 117</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線130km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:21〜03:51(翌)(狙い目 19:21)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均15%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.62 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=36.8083,139.3789" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">7</div>
+            <div class="cand-body">
+              <h3>白駒の池<span class="cand-muni">（佐久穂町・小海町）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 117</span>
+                <span class="badge origin">星空撮影名所(集合知ベース)</span>
+                <span class="badge dist">東京から直線133km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:24〜03:54(翌)(狙い目 19:24)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均7%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.48 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=36.05147,138.36229" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">8</div>
+            <div class="cand-body">
+              <h3>石廊崎<span class="cand-muni">（南伊豆町）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 117</span>
+                <span class="badge origin">星空撮影名所(集合知ベース、検証済み地点データと統合)</span>
+                <span class="badge dist">東京から直線146km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:20〜03:50(翌)(狙い目 19:20)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均18%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.73 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=34.602778,138.845278" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">9</div>
+            <div class="cand-body">
+              <h3>富士山五合目（富士スバルライン）<span class="cand-muni">（富士宮市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 116</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線100km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:21〜03:51(翌)(狙い目 19:21)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均8%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.11 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.3606,138.7306" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card">
+            <div class="cand-rank">10</div>
+            <div class="cand-body">
+              <h3>恵那山ウェルネスキャンプ場<span class="cand-muni">（中津川市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge score">スコア 116</span>
+                <span class="badge origin">星空撮影名所(外部リストより追加、説明文なし)</span>
+                <span class="badge dist">東京から直線200km</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>見頃</dt><dd>19:26〜03:56(翌)(狙い目 19:26)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均13%</dd></div>
+                <div><dt>実効的な空の明るさ</dt><dd>21.41 mag/arcsec&sup2;</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.4372,137.5817" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div></div>
+            <div class="map-panel">
+              
+    <svg viewBox="0 0 320 380" class="schema-map" role="img" aria-label="候補地点の模式図(実座標の地図ではありません)">
+      <rect x="0" y="0" width="320" height="380" class="map-bg"/>
+      <line x1="0" y1="95" x2="320" y2="95" class="grid-line"/><line x1="0" y1="190" x2="320" y2="190" class="grid-line"/><line x1="0" y1="285" x2="320" y2="285" class="grid-line"/>
+      <line x1="80" y1="0" x2="80" y2="380" class="grid-line"/><line x1="160" y1="0" x2="160" y2="380" class="grid-line"/><line x1="240" y1="0" x2="240" y2="380" class="grid-line"/>
+      <circle cx="248.3" cy="197.8" r="2.5" class="ref-dot"/><text x="253.3" y="200.8" class="ref-label">東京</text><circle cx="81.8" cy="231.3" r="2.5" class="ref-dot"/><text x="86.8" y="234.3" class="ref-label">名古屋</text><circle cx="205.0" cy="52.3" r="2.5" class="ref-dot"/><text x="210.0" y="55.3" class="ref-label">新潟</text>
+      
+          <a href="https://www.google.com/maps?q=35.7761,137.8131" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="134.6" cy="191.6" r="10" class="pin"/>
+            <text x="134.6" y="191.6" class="pin-num" dy=".33em">1</text>
+          </a>
+          <a href="https://www.google.com/maps?q=35.7458,138.8475" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="194.8" cy="193.6" r="10" class="pin"/>
+            <text x="194.8" y="193.6" class="pin-num" dy=".33em">2</text>
+          </a>
+          <a href="https://www.google.com/maps?q=34.192385,139.144698" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="212.1" cy="295.3" r="10" class="pin"/>
+            <text x="212.1" y="295.3" class="pin-num" dy=".33em">3</text>
+          </a>
+          <a href="https://www.google.com/maps?q=37.1264,139.9678" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="259.9" cy="103.1" r="10" class="pin"/>
+            <text x="259.9" y="103.1" class="pin-num" dy=".33em">4</text>
+          </a>
+          <a href="https://www.google.com/maps?q=34.871659,139.023935" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="205.0" cy="250.8" r="10" class="pin"/>
+            <text x="205.0" y="250.8" class="pin-num" dy=".33em">5</text>
+          </a>
+          <a href="https://www.google.com/maps?q=36.8083,139.3789" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="225.7" cy="123.9" r="10" class="pin"/>
+            <text x="225.7" y="123.9" class="pin-num" dy=".33em">6</text>
+          </a>
+          <a href="https://www.google.com/maps?q=36.05147,138.36229" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="166.5" cy="173.5" r="10" class="pin"/>
+            <text x="166.5" y="173.5" class="pin-num" dy=".33em">7</text>
+          </a>
+          <a href="https://www.google.com/maps?q=34.602778,138.845278" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="194.6" cy="268.4" r="10" class="pin"/>
+            <text x="194.6" y="268.4" class="pin-num" dy=".33em">8</text>
+          </a>
+          <a href="https://www.google.com/maps?q=35.3606,138.7306" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="188.0" cy="218.8" r="10" class="pin"/>
+            <text x="188.0" y="218.8" class="pin-num" dy=".33em">9</text>
+          </a>
+          <a href="https://www.google.com/maps?q=35.4372,137.5817" target="_blank" rel="noopener" class="pin-link">
+            <circle cx="121.1" cy="213.8" r="10" class="pin"/>
+            <text x="121.1" y="213.8" class="pin-num" dy=".33em">10</text>
+          </a>
+    </svg>
+              <p class="map-caption">緯度経度に基づく模式図(実座標の地図ではありません)。番号ピンをクリックすると実際のGoogleマップが新しいタブで開きます。</p>
+            </div>
+          </div>
+        </div>
+      
+        <div class="cand-group nv-group">
+          <h3 class="group-title">🌃 星空観賞向きスポット(天の川撮影には不向き)</h3>
+          <p class="group-note">夜景で有名な高台など、光害が強く天の川の淡い構造は写りにくい(光害LPIが
+          撮影向きの基準を超える)ため気軽/硬派コースの候補からは除外した地点です。ただし晴れていれば
+          肉眼で星や明るい天体・夜景と星空を組み合わせた撮影を楽しむには十分な条件です。</p>
+          <div class="cand-grid">
+          <div class="cand-card nv-card">
+            <div class="cand-rank">🌃</div>
+            <div class="cand-body">
+              <h3>高尾山<span class="cand-muni">（八王子市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge nv">星空観賞向き(撮影には不向き)</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>晴れ間</dt><dd>19:20〜03:50(翌)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均6%</dd></div>
+                <div><dt>光害LPI</dt><dd>10.18(天の川撮影の目安は5.0以下)</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.631094,139.256094" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card nv-card">
+            <div class="cand-rank">🌃</div>
+            <div class="cand-body">
+              <h3>菜の花台<span class="cand-muni">（秦野市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge nv">星空観賞向き(撮影には不向き)</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>晴れ間</dt><dd>19:19〜03:49(翌)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-13</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均13%</dd></div>
+                <div><dt>光害LPI</dt><dd>6.49(天の川撮影の目安は5.0以下)</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.410402,139.210634" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div>
+          <div class="cand-card nv-card">
+            <div class="cand-rank">🌃</div>
+            <div class="cand-body">
+              <h3>長井海手公園 ソレイユの丘<span class="cand-muni">（三浦市）</span></h3>
+              <div class="cand-badges">
+                <span class="badge nv">星空観賞向き(撮影には不向き)</span>
+              </div>
+              <dl class="cand-stats">
+                <div><dt>晴れ間</dt><dd>19:16〜03:00(翌)</dd></div>
+                <div><dt>日付</dt><dd>2026-09-14</dd></div>
+                <div><dt>視界遮蔽雲量</dt><dd>平均20%</dd></div>
+                <div><dt>光害LPI</dt><dd>6.62(天の川撮影の目安は5.0以下)</dd></div>
+              </dl>
+              <a class="btn-maps" href="https://www.google.com/maps?q=35.195,139.6381" target="_blank" rel="noopener">📍 Googleマップで開く</a>
+            </div>
+          </div></div>
+        </div>
+    </section>
+  
+    <section class="tier tier3">
+      <div class="tier-label">3</div>
+      <h2>計画用 &mdash; 見込み(ECMWF圏内)カレンダー</h2>
+      <p class="msm-note">精密予報(MSM)圏内: 今夜から</p>
+      <div class="calendar-scroll"><div class="calendar-row">
+          <div class="cal-col">
+            <div class="cal-date">09/16<span class="cal-weekday">(水)</span></div>
+            <div class="cal-icon">🌒</div>
+            <div class="cal-moonfree">無月7.5h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">八丈富士<span class="cal-site-muni">（八丈町）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(集合知ベース) ・ スコア130</div>
+                    <div class="cal-chance">→ 晴れれば 20:24〜22:24 にチャンス（参考晴天率 約0%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">白山<span class="cal-site-muni">（白山市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(集合知ベース) ・ スコア129</div>
+                    <div class="cal-chance">→ 晴れれば 20:26〜22:41 にチャンス（参考晴天率 約100%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/17<span class="cal-weekday">(木)</span></div>
+            <div class="cal-icon">🌓</div>
+            <div class="cal-moonfree">無月6.8h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">白雲台<span class="cal-site-muni">（佐渡市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(集合知ベース) ・ スコア125</div>
+                    <div class="cal-chance">→ 晴れれば 20:51〜22:21 にチャンス（参考晴天率 約0%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">白山<span class="cal-site-muni">（白山市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(集合知ベース) ・ スコア124</div>
+                    <div class="cal-chance">→ 晴れれば 21:09〜22:39 にチャンス（参考晴天率 約0%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/18<span class="cal-weekday">(金)</span></div>
+            <div class="cal-icon">🌓</div>
+            <div class="cal-moonfree">無月6.0h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">白山<span class="cal-site-muni">（白山市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(集合知ベース) ・ スコア119</div>
+                    <div class="cal-chance">→ 晴れれば 21:52〜22:37 にチャンス（参考晴天率 約0%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">奥只見ダム<span class="cal-site-muni">（魚沼市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア118</div>
+                    <div class="cal-chance">→ 晴れれば 21:44〜03:59(翌) にチャンス（参考晴天率 約0%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/19<span class="cal-weekday">(土)</span></div>
+            <div class="cal-icon">🌓</div>
+            <div class="cal-moonfree">無月5.2h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">佐渡島・白木峰展望台<span class="cal-site-muni">（佐渡市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア114</div>
+                    <div class="cal-chance">→ 晴れれば 22:32〜04:02(翌) にチャンス（参考晴天率 約0%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">奥只見ダム<span class="cal-site-muni">（魚沼市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア114</div>
+                    <div class="cal-chance">→ 晴れれば 22:42〜03:57(翌) にチャンス（参考晴天率 約0%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/20<span class="cal-weekday">(日)</span></div>
+            <div class="cal-icon">🌓</div>
+            <div class="cal-moonfree">無月4.2h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">能登半島・白米千枚田<span class="cal-site-muni">（輪島市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア111</div>
+                    <div class="cal-chance">→ 晴れれば 23:35〜04:05(翌) にチャンス（参考晴天率 約67%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">佐渡島・白木峰展望台<span class="cal-site-muni">（佐渡市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア111</div>
+                    <div class="cal-chance">→ 晴れれば 23:30〜04:00(翌) にチャンス（参考晴天率 約67%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/21<span class="cal-weekday">(月)</span></div>
+            <div class="cal-icon">🌔</div>
+            <div class="cal-moonfree">無月3.5h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">奥只見ダム<span class="cal-site-muni">（魚沼市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア108</div>
+                    <div class="cal-chance">→ 晴れれば 00:39〜03:54 にチャンス（参考晴天率 約100%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">能登半島・白米千枚田<span class="cal-site-muni">（輪島市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア108</div>
+                    <div class="cal-chance">→ 晴れれば 00:48〜04:03 にチャンス（参考晴天率 約0%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/22<span class="cal-weekday">(火)</span></div>
+            <div class="cal-icon">🌔</div>
+            <div class="cal-moonfree">無月2.2h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">奥只見ダム<span class="cal-site-muni">（魚沼市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア105</div>
+                    <div class="cal-chance">→ 晴れれば 01:37〜03:52 にチャンス（参考晴天率 約0%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">能登半島・白米千枚田<span class="cal-site-muni">（輪島市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア105</div>
+                    <div class="cal-chance">→ 晴れれば 01:47〜04:02 にチャンス（参考晴天率 約0%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/23<span class="cal-weekday">(水)</span></div>
+            <div class="cal-icon">🌔</div>
+            <div class="cal-moonfree">無月1.2h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">奥只見ダム<span class="cal-site-muni">（魚沼市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア102</div>
+                    <div class="cal-chance">→ 晴れれば 02:36〜03:51 にチャンス（参考晴天率 約100%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">能登半島・白米千枚田<span class="cal-site-muni">（輪島市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア102</div>
+                    <div class="cal-chance">→ 晴れれば 02:45〜04:00 にチャンス（参考晴天率 約100%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/24<span class="cal-weekday">(木)</span></div>
+            <div class="cal-icon">🌔</div>
+            <div class="cal-moonfree">無月0.2h</div>
+            <ul class="cal-list">
+                  <li>
+                    <div class="cal-site-name">奥只見ダム<span class="cal-site-muni">（魚沼市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア99</div>
+                    <div class="cal-chance">→ 晴れれば 03:49〜04:04 にチャンス（参考晴天率 約0%）</div>
+                  </li>
+                  <li>
+                    <div class="cal-site-name">能登半島・白米千枚田<span class="cal-site-muni">（輪島市）</span></div>
+                    <div class="cal-site-badge">星空撮影名所(外部リストより追加、説明文なし) ・ スコア99</div>
+                    <div class="cal-chance">→ 晴れれば 03:58〜04:13 にチャンス（参考晴天率 約0%）</div>
+                  </li></ul>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/25<span class="cal-weekday">(金)</span></div>
+            <div class="cal-icon">🌕</div>
+            <div class="cal-moonfree">&mdash;</div>
+            <p class="cal-empty">この夜は無月時間帯が確保できず、候補地点の評価を省略しています。</p>
+          </div>
+          <div class="cal-col">
+            <div class="cal-date">09/26<span class="cal-weekday">(土)</span></div>
+            <div class="cal-icon">🌕</div>
+            <div class="cal-moonfree">&mdash;</div>
+            <p class="cal-empty">この夜は無月時間帯が確保できず、候補地点の評価を省略しています。</p>
+          </div></div></div>
+    </section>
+  <footer class="page-footer">
+    <p>候補地点データ: stargazing_spots.json(星空撮影名所84件+OSM展望データ751件)。
+    雲量: Open-Meteo(JMA MSM/ECMWF IFS025) ・ 光害: David Lorenz Light Pollution Atlas ・
+    地形: 国土地理院 標高タイル。</p>
+  </footer>
+</div>
+</body>
+</html>

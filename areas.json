@@ -1,0 +1,58 @@
+{
+  "_note": "山域4件はyamabiyori(C:\\mountain-weather\\mountain_weather_core.py)の山頂座標リストを読み取り専用で参照し、名称の近い山頂群をクラスタリングして得た範囲(raw_bbox_from_yamabiyori)を、麓の展望地点・湖畔・天文台まで含むよう広げた(bbox)。yamabiyori自体には山域境界(bbox/polygon)の定義は存在せず、個々の山頂座標(75件)と大まかな地方タグ(関東甲信/伊豆/北陸信越/東北南部の4種類のみ)しかなかったため、値をそのまま複製するのではなく、山頂クラスタから範囲を導出している。海岸部3件(伊豆半島・房総半島・三浦半島)はyamabiyoriに該当データが無いため一般地理知識から新規に定義した。",
+  "areas": [
+    {
+      "id": "yatsugatake",
+      "name": "八ヶ岳山域",
+      "type": "mountain",
+      "bbox": {"lat_min": 35.80, "lat_max": 36.20, "lon_min": 138.20, "lon_max": 138.50},
+      "raw_bbox_from_yamabiyori": {"lat_min": 35.9417, "lat_max": 36.1214, "lon_min": 138.3167, "lon_max": 138.3728},
+      "widening_note": "南に約0.13度(~15km)拡張し、稜線上の山頂だけでなく南麓の天文台・清里・野辺山周辺を含めた。東西も約0.05〜0.13度拡張。"
+    },
+    {
+      "id": "fuji_goko",
+      "name": "富士五湖(富士山周辺)",
+      "type": "mountain",
+      "bbox": {"lat_min": 35.15, "lat_max": 35.65, "lon_min": 138.45, "lon_max": 138.95},
+      "raw_bbox_from_yamabiyori": {"lat_min": 35.2381, "lat_max": 35.5522, "lon_min": 138.5439, "lon_max": 138.9178},
+      "widening_note": "全方向に約0.05〜0.10度拡張し、山頂だけでなく各湖畔(精進湖・本栖湖等)や須走口五合目など裾野の地点を含めた。"
+    },
+    {
+      "id": "nikko",
+      "name": "日光",
+      "type": "mountain",
+      "bbox": {"lat_min": 36.60, "lat_max": 36.90, "lon_min": 139.30, "lon_max": 139.60},
+      "raw_bbox_from_yamabiyori": {"lat_min": 36.7619, "lat_max": 36.7983, "lon_min": 139.3742, "lon_max": 139.4939},
+      "widening_note": "yamabiyoriには日光白根山・男体山の2山頂しか無く、元の範囲は極端に狭かった(緯度で約0.04度四方)。中禅寺湖・華厳の滝・戦場ヶ原などを含む実用的な範囲まで大幅に拡張(緯度±0.1〜0.16度、経度±0.07〜0.11度)。"
+    },
+    {
+      "id": "oku_tama_chichibu",
+      "name": "奥多摩・奥秩父",
+      "type": "mountain",
+      "bbox": {"lat_min": 35.70, "lat_max": 36.05, "lon_min": 138.55, "lon_max": 139.20},
+      "raw_bbox_from_yamabiyori": {"lat_min": 35.7486, "lat_max": 36.0233, "lon_min": 138.5947, "lon_max": 139.1495},
+      "widening_note": "全方向に約0.03〜0.05度の小幅な拡張のみ(元々の山頂分布がある程度広かったため)。"
+    },
+    {
+      "id": "izu_peninsula",
+      "name": "伊豆半島",
+      "type": "coastal",
+      "bbox": {"lat_min": 34.55, "lat_max": 35.25, "lon_min": 138.75, "lon_max": 139.15},
+      "widening_note": "yamabiyoriに該当データ無し。一般地理知識に基づき新規定義(下田・石廊崎から熱海・伊東までの半島全域を包含)。"
+    },
+    {
+      "id": "boso_peninsula",
+      "name": "房総半島",
+      "type": "coastal",
+      "bbox": {"lat_min": 34.90, "lat_max": 35.75, "lon_min": 139.80, "lon_max": 140.50},
+      "widening_note": "yamabiyoriに該当データ無し。一般地理知識に基づき新規定義(館山・野島崎から銚子までの半島全域を包含)。"
+    },
+    {
+      "id": "miura_peninsula",
+      "name": "三浦半島",
+      "type": "coastal",
+      "bbox": {"lat_min": 35.10, "lat_max": 35.35, "lon_min": 139.55, "lon_max": 139.75},
+      "widening_note": "yamabiyoriに該当データ無し。一般地理知識に基づき新規定義(横須賀・三浦市・城ヶ島周辺を包含)。"
+    }
+  ]
+}

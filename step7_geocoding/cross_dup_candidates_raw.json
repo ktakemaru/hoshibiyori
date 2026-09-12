@@ -1,0 +1,548 @@
+[
+  {
+    "curated": {
+      "id": "curated:006",
+      "name": "戦場ヶ原・大間々台駐車場",
+      "prefecture": "栃木県",
+      "municipality": "日光市",
+      "lat": 36.778887,
+      "lon": 139.442674,
+      "description": "標高約1400m、冬季も除雪あり",
+      "nominatim_display_name": "戦場ヶ原, 日光市, 栃木県, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 698.0,
+        "id": "viewpoint:2722740213",
+        "source": "viewpoint",
+        "name": "戦場ヶ原展望台",
+        "lat": 36.7771996,
+        "lon": 139.4502222,
+        "ele": null,
+        "municipality": "日光市"
+      },
+      {
+        "distance_m": 1064.2,
+        "id": "viewpoint:2722740187",
+        "source": "viewpoint",
+        "name": "湯滝",
+        "lat": 36.770187,
+        "lon": 139.4476526,
+        "ele": null,
+        "municipality": "日光市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:008",
+      "name": "湯ノ湖",
+      "prefecture": "栃木県",
+      "municipality": "日光市",
+      "lat": 36.800588,
+      "lon": 139.423699,
+      "description": "静かな湖畔の撮影地",
+      "nominatim_display_name": "湯ノ湖, 日光市, 栃木県, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 611.9,
+        "id": "viewpoint:2722740189",
+        "source": "viewpoint",
+        "name": "湯ノ湖・湯滝展望台",
+        "lat": 36.7966312,
+        "lon": 139.4284748,
+        "ele": null,
+        "municipality": "日光市"
+      },
+      {
+        "distance_m": 746.8,
+        "id": "viewpoint:2722740203",
+        "source": "viewpoint",
+        "name": "湯滝展望台",
+        "lat": 36.7950063,
+        "lon": 139.4283632,
+        "ele": null,
+        "municipality": "日光市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:016",
+      "name": "秩父ミューズパーク",
+      "prefecture": "埼玉県",
+      "municipality": "秩父市・小鹿野町",
+      "lat": 35.992984,
+      "lon": 139.051788,
+      "description": "丘陵地の展望スポット",
+      "nominatim_display_name": "秩父ミューズパーク, 秩父市, 秩父郡, 埼玉県, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 1415.2,
+        "id": "viewpoint:7975951211",
+        "source": "viewpoint",
+        "name": "旅立ちの丘",
+        "lat": 36.0036315,
+        "lon": 139.060406,
+        "ele": null,
+        "municipality": "秩父市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:018",
+      "name": "羊山公園",
+      "prefecture": "埼玉県",
+      "municipality": "秩父市",
+      "lat": 35.98532,
+      "lon": 139.088313,
+      "description": "武甲山上に昇る天の川",
+      "nominatim_display_name": "羊山公園, 秩父市, 秩父郡, 埼玉県, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 521.7,
+        "id": "viewpoint:4695055197",
+        "source": "viewpoint",
+        "name": "展望広場",
+        "lat": 35.9898293,
+        "lon": 139.0899138,
+        "ele": null,
+        "municipality": "秩父市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:020",
+      "name": "栃本広場",
+      "prefecture": "埼玉県",
+      "municipality": "秩父市",
+      "lat": 35.94542,
+      "lon": 138.862237,
+      "description": "秩父奥地の展望地",
+      "nominatim_display_name": "栃本, 秩父市, 埼玉県, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 95.0,
+        "id": "viewpoint:8815678319",
+        "source": "viewpoint",
+        "name": "栃本関所跡",
+        "lat": 35.9446856,
+        "lon": 138.8627763,
+        "ele": null,
+        "municipality": "秩父市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:022",
+      "name": "九十九里ビーチタワー",
+      "prefecture": "千葉県",
+      "municipality": "九十九里町",
+      "lat": 35.507483,
+      "lon": 140.435671,
+      "description": "巻貝形展望台、7月以降に天の川",
+      "nominatim_display_name": "九十九里ビーチタワー, 九十九里有料道路, 真亀新田, 九十九里町, 山武郡, 千葉県, 283-0114, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 904.9,
+        "id": "viewpoint:5830742286",
+        "source": "viewpoint",
+        "name": "サンライズ九十九里",
+        "lat": 35.5008159,
+        "lon": 140.4299383,
+        "ele": null,
+        "municipality": "九十九里町"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:024",
+      "name": "野島埼灯台",
+      "prefecture": "千葉県",
+      "municipality": "南房総市",
+      "lat": 34.90173,
+      "lon": 139.888385,
+      "description": "県最南端の灯台",
+      "nominatim_display_name": "野島埼灯台, 国道410号, 白浜町白浜, 南房総市, 千葉県, 295-0102, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 1170.6,
+        "id": "viewpoint:10649576605",
+        "source": "viewpoint",
+        "name": "白浜城跡第二展望台",
+        "lat": 34.9122549,
+        "lon": 139.8886769,
+        "ele": null,
+        "municipality": "南房総市"
+      },
+      {
+        "distance_m": 1255.3,
+        "id": "viewpoint:10649576634",
+        "source": "viewpoint",
+        "name": "白浜城跡第一展望台",
+        "lat": 34.9128624,
+        "lon": 139.8906709,
+        "ele": null,
+        "municipality": "南房総市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:028",
+      "name": "奥多摩湖ダムサイトパーキング",
+      "prefecture": "東京都",
+      "municipality": "奥多摩町",
+      "lat": 35.789945,
+      "lon": 139.051295,
+      "description": "定番の星空撮影地",
+      "nominatim_display_name": "小河内ダム, 奥多摩町, 西多摩郡, 東京都, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 14.5,
+        "id": "viewpoint:2838920901",
+        "source": "viewpoint",
+        "name": "小河内ダム展望塔",
+        "lat": 35.790062,
+        "lon": 139.0512235,
+        "ele": null,
+        "municipality": "東京都"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:031",
+      "name": "高尾山",
+      "prefecture": "東京都",
+      "municipality": "八王子市",
+      "lat": 35.631094,
+      "lon": 139.256094,
+      "description": "都心近郊の星空スポット",
+      "nominatim_display_name": "高尾山, 高尾山線, 高尾町, 八王子市, 東京都, 193-0844, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 710.1,
+        "id": "viewpoint:702326976",
+        "source": "viewpoint",
+        "name": "金比羅台",
+        "lat": 35.6355018,
+        "lon": 139.2617795,
+        "ele": null,
+        "municipality": "八王子市"
+      },
+      {
+        "distance_m": 1375.3,
+        "id": "viewpoint:945081916",
+        "source": "viewpoint",
+        "name": "高尾山　大見晴園地",
+        "lat": 35.6245849,
+        "lon": 139.2431553,
+        "ele": null,
+        "municipality": "八王子市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:035",
+      "name": "安房埼灯台",
+      "prefecture": "神奈川県",
+      "municipality": "三浦市(城ヶ島)",
+      "lat": 35.129126,
+      "lon": 139.630059,
+      "description": "南側が開け天の川撮影の貴重なスポット",
+      "nominatim_display_name": "安房崎灯台, 城ヶ島大橋, 向ヶ崎町, 三崎町城ヶ島, 三浦市, 神奈川県, 238-0298, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 472.5,
+        "id": "viewpoint:3983444477",
+        "source": "viewpoint",
+        "name": "第２展望台",
+        "lat": 35.1308718,
+        "lon": 139.6253216,
+        "ele": null,
+        "municipality": "三浦市"
+      },
+      {
+        "distance_m": 933.5,
+        "id": "viewpoint:4200311006",
+        "source": "viewpoint",
+        "name": "ウミウ展望台",
+        "lat": 35.1328072,
+        "lon": 139.6208339,
+        "ele": null,
+        "municipality": "三浦市"
+      },
+      {
+        "distance_m": 1124.1,
+        "id": "viewpoint:11896359569",
+        "source": "viewpoint",
+        "name": "第二展望台",
+        "lat": 35.132541,
+        "lon": 139.6184244,
+        "ele": null,
+        "municipality": "三浦市"
+      },
+      {
+        "distance_m": 1384.7,
+        "id": "viewpoint:13531576207",
+        "source": "viewpoint",
+        "name": "みはらし広場",
+        "lat": 35.1333632,
+        "lon": 139.6157408,
+        "ele": null,
+        "municipality": "三浦市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:037",
+      "name": "ヤビツ峠",
+      "prefecture": "神奈川県",
+      "municipality": "秦野市",
+      "lat": 35.427816,
+      "lon": 139.219339,
+      "description": "丹沢の高地で光害が少ない",
+      "nominatim_display_name": "ヤビツ峠, 秦野市, 神奈川県, 259-1107, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 1418.4,
+        "id": "viewpoint:2068140284",
+        "source": "viewpoint",
+        "name": "富士見台",
+        "lat": 35.4355402,
+        "lon": 139.2317976,
+        "ele": null,
+        "municipality": "秦野市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:040",
+      "name": "本栖湖",
+      "prefecture": "山梨県",
+      "municipality": "身延町・富士河口湖町",
+      "lat": 35.464306,
+      "lon": 138.585505,
+      "description": "逆さ富士で有名、星景の名所",
+      "nominatim_display_name": "本栖湖, 富士河口湖町, 南都留郡, 山梨県, 401-0392, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 1392.9,
+        "id": "viewpoint:3571951598",
+        "source": "viewpoint",
+        "name": "千円札富士山のビューポイント",
+        "lat": 35.474015,
+        "lon": 138.5757863,
+        "ele": null,
+        "municipality": "身延町"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:041",
+      "name": "精進湖 他手合浜",
+      "prefecture": "山梨県",
+      "municipality": "富士河口湖町",
+      "lat": 35.488742,
+      "lon": 138.60663,
+      "description": "富士山と天の川",
+      "nominatim_display_name": "精進湖, 富士河口湖町, 南都留郡, 山梨県, 401-0392, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 428.0,
+        "id": "test:精進湖 他手合浜",
+        "source": "test_site",
+        "name": "精進湖 他手合浜",
+        "lat": 35.491916,
+        "lon": 138.603955,
+        "ele": null,
+        "municipality": "富士河口湖町"
+      },
+      {
+        "distance_m": 1082.7,
+        "id": "viewpoint:4663300558",
+        "source": "viewpoint",
+        "name": "パノラマ台",
+        "lat": 35.4824156,
+        "lon": 138.5975404,
+        "ele": null,
+        "municipality": "富士河口湖町"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:042",
+      "name": "山中湖パノラマ台",
+      "prefecture": "山梨県",
+      "municipality": "山中湖村",
+      "lat": 35.412607,
+      "lon": 138.909461,
+      "description": "富士山シルエットと湖畔の灯り",
+      "nominatim_display_name": "パノラマ台, 山中湖小山線, 山中湖村, 南都留郡, 山梨県, 401-5052, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 1.7,
+        "id": "viewpoint:1668712785",
+        "source": "viewpoint",
+        "name": "パノラマ台",
+        "lat": 35.4126109,
+        "lon": 138.9094791,
+        "ele": null,
+        "municipality": "山中湖村"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:043",
+      "name": "河口湖",
+      "prefecture": "山梨県",
+      "municipality": "富士河口湖町",
+      "lat": 35.51306,
+      "lon": 138.744824,
+      "description": "富士山と星空の定番構図",
+      "nominatim_display_name": "河口湖, 富士河口湖町, 南都留郡, 山梨県, 401-0392, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 1128.2,
+        "id": "viewpoint:13340401001",
+        "source": "viewpoint",
+        "name": "扇崎",
+        "lat": 35.5126461,
+        "lon": 138.7323701,
+        "ele": null,
+        "municipality": "富士河口湖町"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:044",
+      "name": "美し森展望台",
+      "prefecture": "山梨県",
+      "municipality": "北杜市(清里高原)",
+      "lat": 35.939651,
+      "lon": 138.420884,
+      "description": "八ヶ岳ふもとの星空スポット",
+      "nominatim_display_name": "美し森展望台, 山梨県道615号美し森清里線, 北杜市, 山梨県, 407-0311, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 0.0,
+        "id": "viewpoint:4504139310",
+        "source": "viewpoint",
+        "name": "美し森展望台",
+        "lat": 35.9396514,
+        "lon": 138.420884,
+        "ele": null,
+        "municipality": "北杜市"
+      },
+      {
+        "distance_m": 1057.5,
+        "id": "viewpoint:302618757",
+        "source": "viewpoint",
+        "name": "東沢大橋展望台",
+        "lat": 35.931562,
+        "lon": 138.4147071,
+        "ele": null,
+        "municipality": "北杜市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:089",
+      "name": "田貫湖",
+      "prefecture": "静岡県",
+      "municipality": "富士宮市",
+      "lat": 35.344103,
+      "lon": 138.561279,
+      "description": "富士山を望む湖畔",
+      "nominatim_display_name": "田貫湖, 富士宮市, 静岡県, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 305.5,
+        "id": "viewpoint:12599162701",
+        "source": "viewpoint",
+        "name": "Mirador Lake Tanuki (muelle)",
+        "lat": 35.3457664,
+        "lon": 138.5585977,
+        "ele": null,
+        "municipality": "富士宮市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:090",
+      "name": "爪木崎",
+      "prefecture": "静岡県",
+      "municipality": "下田市",
+      "lat": 34.659512,
+      "lon": 138.986153,
+      "description": "白い灯台のシルエットと天の川",
+      "nominatim_display_name": "爪木崎, 下田市, 静岡県, 415-8501, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 190.3,
+        "id": "viewpoint:5318043371",
+        "source": "viewpoint",
+        "name": "見晴台",
+        "lat": 34.6594776,
+        "lon": 138.9840726,
+        "ele": null,
+        "municipality": "下田市"
+      }
+    ]
+  },
+  {
+    "curated": {
+      "id": "curated:093",
+      "name": "石廊崎",
+      "prefecture": "静岡県",
+      "municipality": "南伊豆町",
+      "lat": 34.601951,
+      "lon": 138.846047,
+      "description": "あいあい岬、伊豆半島最南端、天の川が海に沈む日本屈指のスポット",
+      "nominatim_display_name": "石廊崎, 南伊豆町, 賀茂郡, 静岡県, 415-0303, 日本"
+    },
+    "near": [
+      {
+        "distance_m": 115.8,
+        "id": "test:石廊崎",
+        "source": "test_site",
+        "name": "石廊崎",
+        "lat": 34.602778,
+        "lon": 138.845278,
+        "ele": null,
+        "municipality": "南伊豆町"
+      }
+    ]
+  }
+]

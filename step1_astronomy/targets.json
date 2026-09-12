@@ -1,0 +1,67 @@
+{
+  "targets": [
+    {
+      "id": "galactic_center",
+      "name": "天の川銀河中心",
+      "name_en": "Galactic Center (Sgr A*)",
+      "ra_hours": 17.760011,
+      "dec_deg": -29.007806,
+      "best_season": "夏(6〜8月)",
+      "best_months": [6, 7, 8]
+    },
+    {
+      "id": "big_dipper",
+      "name": "北斗七星",
+      "name_en": "Big Dipper (Alioth, epsilon UMa)",
+      "ra_hours": 12.900486,
+      "dec_deg": 55.959833,
+      "best_season": "周年(日本付近では周極星)。春(3〜5月)の宵に最も見やすい",
+      "best_months": [3, 4, 5]
+    },
+    {
+      "id": "cassiopeia",
+      "name": "カシオペヤ座",
+      "name_en": "Cassiopeia (gamma Cas)",
+      "ra_hours": 0.945139,
+      "dec_deg": 60.716667,
+      "best_season": "周年(日本付近では周極星)。秋〜冬(10〜1月)の宵に最も見やすい",
+      "best_months": [10, 11, 12, 1]
+    },
+    {
+      "id": "orion",
+      "name": "オリオン座",
+      "name_en": "Orion (epsilon Ori, Alnilam)",
+      "ra_hours": 5.603558,
+      "dec_deg": -1.201917,
+      "best_season": "冬(12〜2月)",
+      "best_months": [12, 1, 2]
+    },
+    {
+      "id": "summer_triangle",
+      "name": "夏の大三角",
+      "name_en": "Summer Triangle (Vega/Deneb/Altair centroid)",
+      "ra_hours": 19.717519,
+      "dec_deg": 30.977407,
+      "best_season": "夏〜秋(7〜10月)",
+      "best_months": [7, 8, 9, 10]
+    },
+    {
+      "id": "winter_triangle",
+      "name": "冬の大三角",
+      "name_en": "Winter Triangle (Sirius/Betelgeuse/Procyon centroid)",
+      "ra_hours": 6.775680,
+      "dec_deg": -1.361355,
+      "best_season": "冬(12〜2月)",
+      "best_months": [12, 1, 2]
+    },
+    {
+      "id": "pleiades",
+      "name": "すばる",
+      "name_en": "Pleiades (M45)",
+      "ra_hours": 3.790000,
+      "dec_deg": 24.116667,
+      "best_season": "秋〜冬(11〜1月)",
+      "best_months": [11, 12, 1]
+    }
+  ]
+}

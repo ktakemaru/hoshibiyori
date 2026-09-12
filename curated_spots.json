@@ -1,0 +1,971 @@
+{
+  "_note": "2026-09-06にWeb検索で調査した関東甲信越・中部地方の星空・星景撮影名所のうち、Nominatim(OpenStreetMap)への順ジオコーディングで位置が確認でき、かつ市区町村の突合検証も行った地点のリスト。areas.json(bboxベースの広域エリア)とは独立したデータで、個別スポット(点)の候補地一覧としてhoshibiyoriの元データに用いる想定。生成過程: step7_geocoding/curated_spots_source.json(調査結果の地名一覧、調査時点の市区町村記載)→step7_geocoding/forward_geocode_curated.py(順ジオコーディング、Nominatim利用規約に準拠したUser-Agent・1.1秒間隔・キャッシュを実装)→都道府県一致チェック→市区町村一致チェック(この過程で「里美牧場」が無関係施設への誤マッチと判明し手動確認へ、「中間平緑地公園」は調査時点の市区町村記載(秩父市)が誤りで実際は寄居町と判明、他3件も同様に市区町村を修正)→step7_geocoding/curated_spots_geocoded.json(全99件の処理結果、失敗分含む)。本ファイルはそのうち検証済みの地点のみを抽出したもの。nominatim_display_nameはOSM側の表記で、座標が意図した場所と一致しているかの再検証に利用できる。検証は都道府県・市区町村レベルの機械的突合のみであり、番地レベルの正確性や地平線条件は別途(step2_terrain)確認が必要。",
+  "source_method": "web_search + nominatim_forward_geocoding + municipality_crosscheck",
+  "total_investigated": 99,
+  "confirmed_count": 84,
+  "pending_count": 15,
+  "spots": [
+    {
+      "id": "curated:001",
+      "name": "神磯の鳥居・大洗海岸",
+      "prefecture": "茨城県",
+      "municipality": "大洗町",
+      "lat": 36.314963,
+      "lon": 140.589524,
+      "description": "冬〜早春に鳥居の背後から昇る天の川",
+      "nominatim_display_name": "神磯の鳥居, 大洗海岸通り, 旭町, 東光台, 大洗町, 東茨城郡, 茨城県, 311-1301, 日本"
+    },
+    {
+      "id": "curated:005",
+      "name": "鵜の岬海岸",
+      "prefecture": "茨城県",
+      "municipality": "日立市",
+      "lat": 36.662972,
+      "lon": 140.713083,
+      "description": "太平洋を望む星空撮影地",
+      "nominatim_display_name": "鵜の岬公園, 日立市, 茨城県, 319-1393, 日本"
+    },
+    {
+      "id": "curated:006",
+      "name": "戦場ヶ原",
+      "prefecture": "栃木県",
+      "municipality": "日光市",
+      "lat": 36.778887,
+      "lon": 139.442674,
+      "description": "標高約1400m、冬季も除雪あり",
+      "nominatim_display_name": "戦場ヶ原, 日光市, 栃木県, 日本"
+    },
+    {
+      "id": "curated:007",
+      "name": "那須高原",
+      "prefecture": "栃木県",
+      "municipality": "那須町",
+      "lat": 37.074705,
+      "lon": 140.005252,
+      "description": "那須連山を望む高原",
+      "nominatim_display_name": "那須高原, 那須町, 那須郡, 栃木県, 325-0301, 日本"
+    },
+    {
+      "id": "curated:008",
+      "name": "湯ノ湖",
+      "prefecture": "栃木県",
+      "municipality": "日光市",
+      "lat": 36.800583,
+      "lon": 139.423694,
+      "description": "静かな湖畔の撮影地",
+      "nominatim_display_name": "湯ノ湖, 日光市, 栃木県, 日本"
+    },
+    {
+      "id": "curated:009",
+      "name": "中禅寺湖・千手ケ浜",
+      "prefecture": "栃木県",
+      "municipality": "日光市",
+      "lat": 36.736861,
+      "lon": 139.476861,
+      "description": "湖越しの星空",
+      "nominatim_display_name": "中禅寺湖, 日光市, 栃木県, 321-1661, 日本"
+    },
+    {
+      "id": "curated:011",
+      "name": "野反湖",
+      "prefecture": "群馬県",
+      "municipality": "中之条町",
+      "lat": 36.706853,
+      "lon": 138.645761,
+      "description": "「天空の湖」と呼ばれる名所",
+      "nominatim_display_name": "野反湖, 中之条町, 吾妻郡, 群馬県, 日本"
+    },
+    {
+      "id": "curated:012",
+      "name": "倉渕水沼公園・くらぶちこども天文台",
+      "prefecture": "群馬県",
+      "municipality": "高崎市",
+      "lat": 36.416452,
+      "lon": 138.778379,
+      "description": "公認天文台併設",
+      "nominatim_display_name": "くらぶちこども天文台, 渋川松井田線, 倉渕町水沼, 高崎市, 群馬県, 日本"
+    },
+    {
+      "id": "curated:013",
+      "name": "赤城大沼",
+      "prefecture": "群馬県",
+      "municipality": "前橋市",
+      "lat": 36.552714,
+      "lon": 139.178721,
+      "description": "赤城山中腹の湖",
+      "nominatim_display_name": "大沼, 前橋市, 群馬県, 日本"
+    },
+    {
+      "id": "curated:014",
+      "name": "新坂平駐車場",
+      "prefecture": "群馬県",
+      "municipality": "前橋市(赤城山)",
+      "lat": 36.541640,
+      "lon": 139.167629,
+      "description": "開けた高原駐車場",
+      "nominatim_display_name": "新坂平, 前橋赤城線, 前橋市, 群馬県, 日本"
+    },
+    {
+      "id": "curated:016",
+      "name": "秩父ミューズパーク",
+      "prefecture": "埼玉県",
+      "municipality": "秩父市・小鹿野町",
+      "lat": 36.001249,
+      "lon": 139.064806,
+      "description": "丘陵地の展望スポット",
+      "nominatim_display_name": "秩父ミューズパーク, 秩父市, 秩父郡, 埼玉県, 日本"
+    },
+    {
+      "id": "curated:017",
+      "name": "堂平天文台",
+      "prefecture": "埼玉県",
+      "municipality": "ときがわ町",
+      "lat": 36.006079,
+      "lon": 139.190388,
+      "description": "91cm反射望遠鏡、旧国立天文台施設",
+      "nominatim_display_name": "堂平天文台, 林道堂平山線, ときがわ町, 比企郡, 埼玉県, 日本"
+    },
+    {
+      "id": "curated:018",
+      "name": "羊山公園",
+      "prefecture": "埼玉県",
+      "municipality": "秩父市",
+      "lat": 35.986886,
+      "lon": 139.089827,
+      "description": "武甲山上に昇る天の川",
+      "nominatim_display_name": "羊山公園, 秩父市, 秩父郡, 埼玉県, 日本"
+    },
+    {
+      "id": "curated:019",
+      "name": "中間平緑地公園",
+      "prefecture": "埼玉県",
+      "municipality": "寄居町",
+      "lat": 36.101522,
+      "lon": 139.161720,
+      "description": "光害の少ない高台公園",
+      "nominatim_display_name": "中間平緑地公園, 寄居町, 大里郡, 埼玉県, 日本"
+    },
+    {
+      "id": "curated:020",
+      "name": "栃本広場",
+      "prefecture": "埼玉県",
+      "municipality": "秩父市",
+      "lat": 35.948730,
+      "lon": 138.864324,
+      "description": "秩父奥地の展望地",
+      "nominatim_display_name": "栃本, 秩父市, 埼玉県, 日本"
+    },
+    {
+      "id": "curated:021",
+      "name": "犬吠埼灯台",
+      "prefecture": "千葉県",
+      "municipality": "銚子市",
+      "lat": 35.707913,
+      "lon": 140.868526,
+      "description": "太平洋に突き出た灯台と星空",
+      "nominatim_display_name": "犬吠埼燈台, 銚子公園線, 犬吠埼, 銚子市, 千葉県, 288-0012, 日本"
+    },
+    {
+      "id": "curated:022",
+      "name": "九十九里ビーチタワー",
+      "prefecture": "千葉県",
+      "municipality": "九十九里町",
+      "lat": 35.507509,
+      "lon": 140.435851,
+      "description": "巻貝形展望台、7月以降に天の川",
+      "nominatim_display_name": "九十九里ビーチタワー, 九十九里有料道路, 真亀新田, 九十九里町, 山武郡, 千葉県, 283-0114, 日本"
+    },
+    {
+      "id": "curated:023",
+      "name": "大山千枚田",
+      "prefecture": "千葉県",
+      "municipality": "鴨川市",
+      "lat": 35.130583,
+      "lon": 139.975109,
+      "description": "棚田と星空のコラボ",
+      "nominatim_display_name": "大山千枚田, 釜沼, 鴨川市, 千葉県, 日本"
+    },
+    {
+      "id": "curated:024",
+      "name": "野島埼灯台",
+      "prefecture": "千葉県",
+      "municipality": "南房総市",
+      "lat": 34.90173,
+      "lon": 139.888385,
+      "description": "県最南端の灯台",
+      "nominatim_display_name": "野島埼灯台, 国道410号, 白浜町白浜, 南房総市, 千葉県, 295-0102, 日本"
+    },
+    {
+      "id": "curated:025",
+      "name": "東浪見釣ヶ崎海岸",
+      "prefecture": "千葉県",
+      "municipality": "一宮町",
+      "lat": 35.336137,
+      "lon": 140.395038,
+      "description": "鳥居を絡めた星景撮影で人気",
+      "nominatim_display_name": "釣ヶ崎海岸, 6961-1, 九十九里ビーチライン, 東浪見, 一宮町, 長生郡, 千葉県, 299-4303, 日本"
+    },
+    {
+      "id": "curated:026",
+      "name": "八幡岬公園",
+      "prefecture": "千葉県",
+      "municipality": "勝浦市",
+      "lat": 35.135909,
+      "lon": 140.311339,
+      "description": "三方を海に囲まれた断崖の高台",
+      "nominatim_display_name": "八幡岬公園, 浜勝浦, 勝浦市, 千葉県, 299-5233, 日本"
+    },
+    {
+      "id": "curated:027",
+      "name": "月の沙漠記念公園",
+      "prefecture": "千葉県",
+      "municipality": "御宿町",
+      "lat": 35.183960,
+      "lon": 140.356793,
+      "description": "海沿いの記念公園",
+      "nominatim_display_name": "日・西・墨三国交通発祥記念之碑（メキシコ塔）, 月の砂漠通り, 新町, 御宿町, 夷隅郡, 千葉県, 299-5199, 日本"
+    },
+    {
+      "id": "curated:028",
+      "name": "奥多摩湖ダムサイトパーキング",
+      "prefecture": "東京都",
+      "municipality": "奥多摩町",
+      "lat": 35.792384,
+      "lon": 139.047383,
+      "description": "定番の星空撮影地",
+      "nominatim_display_name": "小河内ダム, 奥多摩町, 西多摩郡, 東京都, 日本"
+    },
+    {
+      "id": "curated:029",
+      "name": "月夜見第二駐車場",
+      "prefecture": "東京都",
+      "municipality": "檜原村",
+      "lat": 35.758248,
+      "lon": 139.047156,
+      "description": "開けた展望駐車場",
+      "nominatim_display_name": "月夜見第二駐車場, 川野上川乗線, 河内, 檜原村, 西多摩郡, 東京都, 190-0202, 日本"
+    },
+    {
+      "id": "curated:030",
+      "name": "日原鍾乳洞",
+      "prefecture": "東京都",
+      "municipality": "奥多摩町",
+      "lat": 35.852521,
+      "lon": 139.041000,
+      "description": "山間の集落エリア(日原地区)の目印地点",
+      "nominatim_display_name": "日原鍾乳洞, 日原街道, 奥多摩町, 西多摩郡, 東京都, 日本"
+    },
+    {
+      "id": "curated:031",
+      "name": "高尾山",
+      "prefecture": "東京都",
+      "municipality": "八王子市",
+      "lat": 35.631094,
+      "lon": 139.256094,
+      "description": "都心近郊の星空スポット",
+      "nominatim_display_name": "高尾山, 高尾山線, 高尾町, 八王子市, 東京都, 193-0844, 日本"
+    },
+    {
+      "id": "curated:032",
+      "name": "三浦湾展望台",
+      "prefecture": "東京都",
+      "municipality": "神津島村",
+      "lat": 34.192385,
+      "lon": 139.144698,
+      "description": "国際ダークスカイ協会認定の星空保護区",
+      "nominatim_display_name": "三浦湾展望台, 神戸山多幸線支線, 金長, 神津島村, 大島支庁, 東京都, 100-0601, 日本"
+    },
+    {
+      "id": "curated:034",
+      "name": "八丈富士",
+      "prefecture": "東京都",
+      "municipality": "八丈町",
+      "lat": 33.137349,
+      "lon": 139.767181,
+      "description": "静かな夜空が広がる景勝地の目印地点",
+      "nominatim_display_name": "八丈富士, 八丈町, 八丈支庁, 東京都, 日本"
+    },
+    {
+      "id": "curated:035",
+      "name": "安房埼灯台",
+      "prefecture": "神奈川県",
+      "municipality": "三浦市(城ヶ島)",
+      "lat": 35.129126,
+      "lon": 139.630059,
+      "description": "南側が開け天の川撮影の貴重なスポット",
+      "nominatim_display_name": "安房崎灯台, 城ヶ島大橋, 向ヶ崎町, 三崎町城ヶ島, 三浦市, 神奈川県, 238-0298, 日本"
+    },
+    {
+      "id": "curated:036",
+      "name": "丹沢湖",
+      "prefecture": "神奈川県",
+      "municipality": "山北町",
+      "lat": 35.417618,
+      "lon": 139.048172,
+      "description": "丹沢山系奥地の湖",
+      "nominatim_display_name": "丹沢湖, 山北町, 足柄上郡, 神奈川県, 日本"
+    },
+    {
+      "id": "curated:037",
+      "name": "菜の花台",
+      "prefecture": "神奈川県",
+      "municipality": "秦野市",
+      "lat": 35.410402,
+      "lon": 139.210634,
+      "description": "ヤビツ峠から少し下った展望台。峠自体は樹林に囲まれ視界がないため、実際の星空撮影名所はこちら",
+      "nominatim_display_name": "ヤビツ峠, 秦野市, 神奈川県, 259-1107, 日本"
+    },
+    {
+      "id": "curated:038",
+      "name": "真鶴半島",
+      "prefecture": "神奈川県",
+      "municipality": "真鶴町",
+      "lat": 35.141360,
+      "lon": 139.160470,
+      "description": "神奈川で数少ない天の川が見えるエリア",
+      "nominatim_display_name": "真鶴, 真鶴半島公園線, 真鶴, 真鶴町, 足柄下郡, 神奈川県, 259-0201, 日本"
+    },
+    {
+      "id": "curated:039",
+      "name": "大観山展望台",
+      "prefecture": "神奈川県",
+      "municipality": "箱根町",
+      "lat": 35.184892,
+      "lon": 139.048905,
+      "description": "芦ノ湖と星空の展望地",
+      "nominatim_display_name": "大観山, 箱根町, 足柄下郡, 神奈川県, 250-0398, 日本"
+    },
+    {
+      "id": "curated:040",
+      "name": "本栖湖",
+      "prefecture": "山梨県",
+      "municipality": "身延町・富士河口湖町",
+      "lat": 35.464306,
+      "lon": 138.585505,
+      "description": "逆さ富士で有名、星景の名所",
+      "nominatim_display_name": "本栖湖, 富士河口湖町, 南都留郡, 山梨県, 401-0392, 日本"
+    },
+    {
+      "id": "curated:041",
+      "name": "精進湖 他手合浜",
+      "prefecture": "山梨県",
+      "municipality": "富士河口湖町",
+      "lat": 35.488742,
+      "lon": 138.60663,
+      "description": "富士山と天の川",
+      "nominatim_display_name": "精進湖, 富士河口湖町, 南都留郡, 山梨県, 401-0392, 日本"
+    },
+    {
+      "id": "curated:042",
+      "name": "山中湖パノラマ台",
+      "prefecture": "山梨県",
+      "municipality": "山中湖村",
+      "lat": 35.412607,
+      "lon": 138.909461,
+      "description": "富士山シルエットと湖畔の灯り",
+      "nominatim_display_name": "パノラマ台, 山中湖小山線, 山中湖村, 南都留郡, 山梨県, 401-5052, 日本"
+    },
+    {
+      "id": "curated:043",
+      "name": "河口湖",
+      "prefecture": "山梨県",
+      "municipality": "富士河口湖町",
+      "lat": 35.51306,
+      "lon": 138.744824,
+      "description": "富士山と星空の定番構図",
+      "nominatim_display_name": "河口湖, 富士河口湖町, 南都留郡, 山梨県, 401-0392, 日本"
+    },
+    {
+      "id": "curated:044",
+      "name": "美し森展望台",
+      "prefecture": "山梨県",
+      "municipality": "北杜市(清里高原)",
+      "lat": 35.939651,
+      "lon": 138.420884,
+      "description": "八ヶ岳ふもとの星空スポット",
+      "nominatim_display_name": "美し森展望台, 山梨県道615号美し森清里線, 北杜市, 山梨県, 407-0311, 日本"
+    },
+    {
+      "id": "curated:046",
+      "name": "みずがき山自然公園",
+      "prefecture": "山梨県",
+      "municipality": "北杜市",
+      "lat": 35.896362,
+      "lon": 138.573704,
+      "description": "開けた高原の静寂スポット",
+      "nominatim_display_name": "みずがき山自然公園, 林道みずがき線, 北杜市, 山梨県, 日本"
+    },
+    {
+      "id": "curated:047",
+      "name": "甘利山",
+      "prefecture": "山梨県",
+      "municipality": "韮崎市",
+      "lat": 35.683379,
+      "lon": 138.382106,
+      "description": "標高の高い穴場スポット",
+      "nominatim_display_name": "甘利山, 韮崎市, 山梨県, 日本"
+    },
+    {
+      "id": "curated:048",
+      "name": "ヘブンスそのはら",
+      "prefecture": "長野県",
+      "municipality": "阿智村",
+      "lat": 35.455275,
+      "lon": 137.668634,
+      "description": "環境省認定「日本一の星空」",
+      "nominatim_display_name": "ヘブンスそのはら, 富士見台公園線, 園原, 智里, 阿智村, 下伊那郡, 長野県, 395-0304, 日本"
+    },
+    {
+      "id": "curated:049",
+      "name": "美ヶ原高原",
+      "prefecture": "長野県",
+      "municipality": "松本市・上田市・長和町",
+      "lat": 36.230724,
+      "lon": 138.140291,
+      "description": "標高約2000mの丘陵から昇る天の川",
+      "nominatim_display_name": "道の駅美ヶ原高原美術館, 美ヶ原公園西内線, 上田市, 長野県, 386-0507, 日本"
+    },
+    {
+      "id": "curated:051",
+      "name": "横手山ドライブイン",
+      "prefecture": "長野県",
+      "municipality": "山ノ内町(志賀高原)",
+      "lat": 36.669102,
+      "lon": 138.518649,
+      "description": "日本国道最高地点付近",
+      "nominatim_display_name": "横手山ドライブイン, 国道292号, 山ノ内町, 下高井郡, 長野県, 日本"
+    },
+    {
+      "id": "curated:052",
+      "name": "車山山頂",
+      "prefecture": "長野県",
+      "municipality": "茅野市",
+      "lat": 36.103068,
+      "lon": 138.198514,
+      "description": "360°パノラマの展望テラス",
+      "nominatim_display_name": "車山山頂, ビーナスライン, 茅野市, 長野県, 日本"
+    },
+    {
+      "id": "curated:053",
+      "name": "白樺湖",
+      "prefecture": "長野県",
+      "municipality": "茅野市・立科町",
+      "lat": 36.105776,
+      "lon": 138.237963,
+      "description": "蓼科山を望む湖畔",
+      "nominatim_display_name": "白樺湖, 茅野市, 北佐久郡, 長野県, 日本"
+    },
+    {
+      "id": "curated:054",
+      "name": "乗鞍高原",
+      "prefecture": "長野県",
+      "municipality": "松本市",
+      "lat": 36.122174,
+      "lon": 137.627015,
+      "description": "肉眼でも天の川が見える",
+      "nominatim_display_name": "乗鞍高原, 乗鞍岳線, 千石平, 松本市, 長野県, 390-1511, 日本"
+    },
+    {
+      "id": "curated:055",
+      "name": "美ヶ原自然保護センター",
+      "prefecture": "長野県",
+      "municipality": "松本市(ビーナスライン沿い)",
+      "lat": 36.234112,
+      "lon": 138.106634,
+      "description": "ビーナスライン沿いの星空ビュースポットの目印地点",
+      "nominatim_display_name": "美ヶ原公園線, 大字入山辺, 松本市, 長野県, 日本"
+    },
+    {
+      "id": "curated:056",
+      "name": "白駒の池",
+      "prefecture": "長野県",
+      "municipality": "佐久穂町・小海町",
+      "lat": 36.051470,
+      "lon": 138.362290,
+      "description": "標高2115mの天然湖畔",
+      "nominatim_display_name": "白駒の池, メルヘン街道, 佐久穂町, 南佐久郡, 長野県, 日本"
+    },
+    {
+      "id": "curated:058",
+      "name": "妙高高原",
+      "prefecture": "新潟県",
+      "municipality": "妙高市",
+      "lat": 36.872201,
+      "lon": 138.212196,
+      "description": "標高の高い高原エリア",
+      "nominatim_display_name": "妙高高原, 妙高高原公園線, 兼俣, 妙高市, 新潟県, 949-2106, 日本"
+    },
+    {
+      "id": "curated:061",
+      "name": "星峠の棚田",
+      "prefecture": "新潟県",
+      "municipality": "十日町市",
+      "lat": 37.124235,
+      "lon": 138.529651,
+      "description": "南の空が開け光害が少ない棚田",
+      "nominatim_display_name": "星峠の棚田, 国道403号, 峠, 星峠, 十日町市, 新潟県, 942-1536, 日本"
+    },
+    {
+      "id": "curated:062",
+      "name": "苗場スキー場",
+      "prefecture": "新潟県",
+      "municipality": "湯沢町",
+      "lat": 36.795024,
+      "lon": 138.778756,
+      "description": "苗場HOSHIZORAテラス、ゴンドラでアクセスする星空テラス",
+      "nominatim_display_name": "苗場スキー場, 湯沢町, 南魚沼郡, 新潟県, 日本"
+    },
+    {
+      "id": "curated:063",
+      "name": "弥彦山",
+      "prefecture": "新潟県",
+      "municipality": "弥彦村",
+      "lat": 37.708678,
+      "lon": 138.821349,
+      "description": "日本海側を望む山",
+      "nominatim_display_name": "弥彦山ロープウェー 山麓駅, 杜の道, 大字弥彦, 弥彦村, 西蒲原郡, 新潟県, 959-0323, 日本"
+    },
+    {
+      "id": "curated:064",
+      "name": "ドンデン高原",
+      "prefecture": "新潟県",
+      "municipality": "佐渡市",
+      "lat": 38.138318,
+      "lon": 138.390423,
+      "description": "佐渡島の代表的星空スポット",
+      "nominatim_display_name": "ドンデン山荘, 佐渡縦貫線, 佐渡市, 新潟県, 日本"
+    },
+    {
+      "id": "curated:065",
+      "name": "白雲台",
+      "prefecture": "新潟県",
+      "municipality": "佐渡市",
+      "lat": 38.066262,
+      "lon": 138.292768,
+      "description": "大都市の灯りが届かない離島の星空",
+      "nominatim_display_name": "白雲台乙和池相川線;大佐渡スカイライン, 相川銀山町, 佐渡市, 新潟県, 日本"
+    },
+    {
+      "id": "curated:066",
+      "name": "立山室堂平",
+      "prefecture": "富山県",
+      "municipality": "立山町",
+      "lat": 36.577192,
+      "lon": 137.595794,
+      "description": "標高2450m、日本屈指の高所スポット",
+      "nominatim_display_name": "室堂, 立山有料道路, 立山町, 中新川郡, 富山県, 930-1414, 日本"
+    },
+    {
+      "id": "curated:067",
+      "name": "立山弥陀ヶ原",
+      "prefecture": "富山県",
+      "municipality": "立山町",
+      "lat": 36.567248,
+      "lon": 137.557484,
+      "description": "ラムサール条約登録の高原湿地",
+      "nominatim_display_name": "弥陀ヶ原, 立山有料道路, 芦峅寺, 立山町, 中新川郡, 富山県, 930-1412, 日本"
+    },
+    {
+      "id": "curated:068",
+      "name": "ホテル立山",
+      "prefecture": "富山県",
+      "municipality": "立山町",
+      "lat": 36.577567,
+      "lon": 137.595254,
+      "description": "「星にいちばん近いリゾート」",
+      "nominatim_display_name": "ホテル立山, 立山有料道路, 立山町, 中新川郡, 富山県, 930-1414, 日本"
+    },
+    {
+      "id": "curated:069",
+      "name": "立山山麓スキー場",
+      "prefecture": "富山県",
+      "municipality": "富山市",
+      "lat": 36.568143,
+      "lon": 137.430321,
+      "description": "アクセスしやすい高原エリア",
+      "nominatim_display_name": "立山山麓スキー場, 富山市, 富山県, 日本"
+    },
+    {
+      "id": "curated:070",
+      "name": "相倉合掌造り集落",
+      "prefecture": "富山県",
+      "municipality": "南砺市(五箇山)",
+      "lat": 36.430688,
+      "lon": 136.914051,
+      "description": "集落景観と星空",
+      "nominatim_display_name": "相倉, 南砺市, 富山県, 939-1914, 日本"
+    },
+    {
+      "id": "curated:071",
+      "name": "剱沢キャンプ場",
+      "prefecture": "富山県",
+      "municipality": "立山町",
+      "lat": 36.603517,
+      "lon": 137.616585,
+      "description": "剱岳を望む山岳キャンプ地",
+      "nominatim_display_name": "劔沢キャンプサイト, 長次郎谷, 立山町, 中新川郡, 富山県, 930-1414, 日本"
+    },
+    {
+      "id": "curated:072",
+      "name": "柳田星の観察館満天星",
+      "prefecture": "石川県",
+      "municipality": "能登町",
+      "lat": 37.335398,
+      "lon": 137.136789,
+      "description": "県内最大60cm反射望遠鏡",
+      "nominatim_display_name": "石川県柳田星の観察館 満天星, ロ1-1, 上町, 能登町, 鳳珠郡, 石川県, 928-0312, 日本"
+    },
+    {
+      "id": "curated:073",
+      "name": "恋路海岸",
+      "prefecture": "石川県",
+      "municipality": "能登町",
+      "lat": 37.371792,
+      "lon": 137.238098,
+      "description": "能登半島屈指の星空スポット",
+      "nominatim_display_name": "恋路, 能登町, 鳳珠郡, 石川県, 927-0601, 日本"
+    },
+    {
+      "id": "curated:074",
+      "name": "見附島",
+      "prefecture": "石川県",
+      "municipality": "珠洲市",
+      "lat": 37.396137,
+      "lon": 137.247322,
+      "description": "周辺に明かりがほとんどない海沿い",
+      "nominatim_display_name": "見附島, 宝立町鵜飼, 珠洲市, 石川県, 日本"
+    },
+    {
+      "id": "curated:075",
+      "name": "白山",
+      "prefecture": "石川県",
+      "municipality": "白山市",
+      "lat": 36.155046,
+      "lon": 136.771467,
+      "description": "日本三名山、山頂付近から満天の星",
+      "nominatim_display_name": "白山, 白山市, 石川県, 日本"
+    },
+    {
+      "id": "curated:076",
+      "name": "銀河の里キゴ山",
+      "prefecture": "石川県",
+      "municipality": "金沢市",
+      "lat": 36.524037,
+      "lon": 136.753986,
+      "description": "定期無料天体観察会を実施",
+      "nominatim_display_name": "キゴ山, 金沢市, 石川県, 日本"
+    },
+    {
+      "id": "curated:077",
+      "name": "南六呂師",
+      "prefecture": "福井県",
+      "municipality": "大野市",
+      "lat": 36.022434,
+      "lon": 136.598015,
+      "description": "環境省「日本一美しい星空」選出歴、星空保護区認定",
+      "nominatim_display_name": "南六呂師, 大野市, 福井県, 912-0131, 日本"
+    },
+    {
+      "id": "curated:078",
+      "name": "九頭竜湖",
+      "prefecture": "福井県",
+      "municipality": "大野市",
+      "lat": 35.904482,
+      "lon": 136.661545,
+      "description": "山間の人造湖、光害がほとんどない",
+      "nominatim_display_name": "九頭竜湖, 国道158号, 板倉, 大野市, 福井県, 912-0205, 日本"
+    },
+    {
+      "id": "curated:080",
+      "name": "三方五湖レインボーライン山頂公園",
+      "prefecture": "福井県",
+      "municipality": "美浜町・若狭町",
+      "lat": 35.602442,
+      "lon": 135.870411,
+      "description": "360度パノラマの高台",
+      "nominatim_display_name": "三方五湖レインボーライン線, 日向, 美浜町, 三方郡, 福井県, 919-1455, 日本"
+    },
+    {
+      "id": "curated:082",
+      "name": "ひるがの高原",
+      "prefecture": "岐阜県",
+      "municipality": "郡上市",
+      "lat": 36.005823,
+      "lon": 136.91336,
+      "description": "360度開けた高原、天の川撮影の定番",
+      "nominatim_display_name": "ひるがの高原, 郡上市, 岐阜県, 501-4297, 日本"
+    },
+    {
+      "id": "curated:083",
+      "name": "乗鞍畳平",
+      "prefecture": "岐阜県",
+      "municipality": "高山市",
+      "lat": 36.124539,
+      "lon": 137.553627,
+      "description": "乗鞍スカイライン終点、標高2700m級の名所",
+      "nominatim_display_name": "乗鞍山頂(畳平), お花畑周回コース, 高山市, 岐阜県, 日本"
+    },
+    {
+      "id": "curated:084",
+      "name": "白川郷",
+      "prefecture": "岐阜県",
+      "municipality": "白川村",
+      "lat": 36.257345,
+      "lon": 136.906832,
+      "description": "合掌造り集落と星空のコラボ",
+      "nominatim_display_name": "白川郷, であい橋, 荻町, 白川村, 大野郡, 岐阜県, 501-5627, 日本"
+    },
+    {
+      "id": "curated:086",
+      "name": "新穂高ロープウェイ",
+      "prefecture": "岐阜県",
+      "municipality": "高山市",
+      "lat": 36.275245,
+      "lon": 137.591285,
+      "description": "標高2156mからの星空",
+      "nominatim_display_name": "新穂高ロープウェイ, 北アルプス大橋, 高山市, 岐阜県, 506-1421, 日本"
+    },
+    {
+      "id": "curated:087",
+      "name": "郡上八幡城",
+      "prefecture": "岐阜県",
+      "municipality": "郡上市",
+      "lat": 35.753083,
+      "lon": 136.961445,
+      "description": "城下町と星空の目印地点",
+      "nominatim_display_name": "郡上八幡城, 国道472号, 八幡町小野七丁目, 八幡町小野, 郡上市, 岐阜県, 501-4297, 日本"
+    },
+    {
+      "id": "curated:088",
+      "name": "朝霧高原",
+      "prefecture": "静岡県",
+      "municipality": "富士宮市",
+      "lat": 35.385236,
+      "lon": 138.57218,
+      "description": "富士山と天の川を一緒に撮影できる高原",
+      "nominatim_display_name": "朝霧高原, 国道139号, 富士宮市, 静岡県, 418-0109, 日本"
+    },
+    {
+      "id": "curated:089",
+      "name": "田貫湖",
+      "prefecture": "静岡県",
+      "municipality": "富士宮市",
+      "lat": 35.344103,
+      "lon": 138.561279,
+      "description": "富士山を望む湖畔",
+      "nominatim_display_name": "田貫湖, 富士宮市, 静岡県, 日本"
+    },
+    {
+      "id": "curated:090",
+      "name": "爪木崎",
+      "prefecture": "静岡県",
+      "municipality": "下田市",
+      "lat": 34.659512,
+      "lon": 138.986153,
+      "description": "白い灯台のシルエットと天の川",
+      "nominatim_display_name": "爪木崎, 下田市, 静岡県, 415-8501, 日本"
+    },
+    {
+      "id": "curated:091",
+      "name": "天城高原",
+      "prefecture": "静岡県",
+      "municipality": "伊豆市",
+      "lat": 34.871659,
+      "lon": 139.023935,
+      "description": "満天の星と天の川、西天城高原含む",
+      "nominatim_display_name": "天城高原ゴルフコース, 遠笠林道, 伊豆市, 静岡県, 410-2507, 日本"
+    },
+    {
+      "id": "curated:092",
+      "name": "弓ヶ浜",
+      "prefecture": "静岡県",
+      "municipality": "南伊豆町",
+      "lat": 34.632796,
+      "lon": 138.888757,
+      "description": "天の川がきれいに見える海岸",
+      "nominatim_display_name": "弓ヶ浜, 南伊豆町, 賀茂郡, 静岡県, 415-0303, 日本"
+    },
+    {
+      "id": "curated:093",
+      "name": "石廊崎",
+      "prefecture": "静岡県",
+      "municipality": "南伊豆町",
+      "lat": 34.601951,
+      "lon": 138.846047,
+      "description": "あいあい岬、伊豆半島最南端、天の川が海に沈む日本屈指のスポット",
+      "nominatim_display_name": "石廊崎, 南伊豆町, 賀茂郡, 静岡県, 415-0303, 日本"
+    },
+    {
+      "id": "curated:094",
+      "name": "寸又峡",
+      "prefecture": "静岡県",
+      "municipality": "川根本町",
+      "lat": 35.174699,
+      "lon": 138.118059,
+      "description": "環境省調査「澄んだ星空 全国第2位」の秘境温泉地",
+      "nominatim_display_name": "寸又峡温泉;美女づくりの湯, 日向山コース, 川根本町, 榛原郡, 静岡県, 428-0411, 日本"
+    },
+    {
+      "id": "curated:095",
+      "name": "伊良湖岬",
+      "prefecture": "愛知県",
+      "municipality": "田原市",
+      "lat": 34.583598,
+      "lon": 137.02043,
+      "description": "渥美半島最先端、灯台上に立ち上がる天の川",
+      "nominatim_display_name": "伊良湖岬, 田原豊橋自転車道線, 田原市, 愛知県, 441-3492, 日本"
+    },
+    {
+      "id": "curated:096",
+      "name": "茶臼山高原",
+      "prefecture": "愛知県",
+      "municipality": "豊根村",
+      "lat": 35.227569,
+      "lon": 137.655597,
+      "description": "愛知県最高標高付近、月イチの星空観察会",
+      "nominatim_display_name": "茶臼山, 豊根村, 北設楽郡, 愛知県, 日本"
+    },
+    {
+      "id": "curated:097",
+      "name": "つぐ高原グリーンパーク",
+      "prefecture": "愛知県",
+      "municipality": "北設楽郡設楽町",
+      "lat": 35.20035,
+      "lon": 137.604806,
+      "description": "「星と森ノTERRACE」、つぐ高原天文台併設",
+      "nominatim_display_name": "道の駅　つぐ高原グリーンパーク, 設楽町, 北設楽郡, 愛知県, 日本"
+    },
+    {
+      "id": "curated:098",
+      "name": "スターフォーレスト御園",
+      "prefecture": "愛知県",
+      "municipality": "東栄町",
+      "lat": 35.118029,
+      "lon": 137.718911,
+      "description": "定期観察会を開催する星空観察拠点",
+      "nominatim_display_name": "スターフォレスト御園, 御園浦川停車場線, 御園, 東栄町, 北設楽郡, 愛知県, 449-0499, 日本"
+    }
+  ],
+  "pending_manual_geocoding": [
+    {
+      "id": "curated:002",
+      "name": "里美牧場",
+      "prefecture": "茨城県",
+      "municipality": "常陸太田市",
+      "description": "標高約800m、肉眼でも天の川が見える高原",
+      "note": "複数クエリで該当なし、または無関係施設への誤マッチ(小料理 美川/水戸市)を検出したため手動確認に変更"
+    },
+    {
+      "id": "curated:003",
+      "name": "さくら宇宙公園",
+      "prefecture": "茨城県",
+      "municipality": "高萩市",
+      "description": "パラボラアンテナと天の川の組み合わせ",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:004",
+      "name": "高戸小浜海岸",
+      "prefecture": "茨城県",
+      "municipality": "北茨城市",
+      "description": "光害の少ない海岸線",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:010",
+      "name": "星野河川公園",
+      "prefecture": "栃木県",
+      "municipality": "那珂川町",
+      "description": "那珂川沿いの穴場スポット",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:015",
+      "name": "ぐんま天文台",
+      "prefecture": "群馬県",
+      "municipality": "高山村",
+      "description": "150cm反射望遠鏡を持つ公開天文台",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:033",
+      "name": "三宅島灯台(伊ヶ谷灯台)",
+      "prefecture": "東京都",
+      "municipality": "三宅村",
+      "description": "明かりの少ない海沿い",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:045",
+      "name": "乙女高原",
+      "prefecture": "山梨県",
+      "municipality": "山梨市牧丘町",
+      "description": "標高1200mの芝生広場、光害なし",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:050",
+      "name": "平沢峠",
+      "prefecture": "長野県",
+      "municipality": "南牧村(野辺山高原)",
+      "description": "「日本三選星名所」の一つ",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:057",
+      "name": "高峰高原",
+      "prefecture": "長野県",
+      "municipality": "小諸市",
+      "description": "上信越国立公園内の高原",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:059",
+      "name": "妙高サンシャインランド",
+      "prefecture": "新潟県",
+      "municipality": "妙高市中郷区",
+      "description": "池に映る天の川、観覧車越しの構図",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:060",
+      "name": "光ヶ原高原",
+      "prefecture": "新潟県",
+      "municipality": "上越市板倉区",
+      "description": "上越屈指の星空スポット",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:079",
+      "name": "スターランドさかだに",
+      "prefecture": "福井県",
+      "municipality": "大野市",
+      "description": "夏の晴天時に満天の星と天の川",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:081",
+      "name": "道の駅池田はっぴぃ農園",
+      "prefecture": "福井県",
+      "municipality": "池田町",
+      "description": "フォーシーズンテラス、道の駅併設の星空テラス",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:085",
+      "name": "大平御嶽展望台",
+      "prefecture": "岐阜県",
+      "municipality": "下呂市",
+      "description": "御嶽山と天の川を同時に撮影",
+      "note": "該当なし"
+    },
+    {
+      "id": "curated:099",
+      "name": "面ノ木峠",
+      "prefecture": "愛知県",
+      "municipality": "豊田市・北設楽郡設楽町",
+      "description": "高標高で街灯りが少ない(天狗棚含む)",
+      "note": "該当なし"
+    }
+  ]
+}
