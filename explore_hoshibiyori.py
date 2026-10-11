@@ -48,7 +48,8 @@ from light_pollution import LightPollutionTileStore  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
 from moon_brightness import combine_sky_brightness  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
-from grid_cache import GridCloudCache  # noqa: E402
+from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache  # noqa: E402
+from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 
@@ -702,7 +703,28 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
         print("\n  該当なし")
 
 
-def main() -> None:
+def main() -> int:
+    """終了コード: 0=完了(取得失敗があれば警告を表示)、2=取得失敗が多すぎる/429。"""
+    cache = GridCloudCache()
+    try:
+        _explore(cache)
+    except OpenMeteoDailyLimitError as e:
+        print(f"\n[中止] {e}")
+        print("  " + cache.summary().console_line())
+        return 2
+    summary = cache.summary()
+    print(f"予報取得の集計: {summary.console_line()}")
+    if summary.status == "abort":
+        print(f"[異常] 失敗セル率が閾値({FAILED_CELL_RATE_ABORT:.0%})以上です。上の結果は予報が欠けており、候補の漏れがあります。")
+        for f in cache.failures[:10]:
+            print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
+        return 2
+    if summary.status == "partial":
+        print("[注意] 一部の予報が取得できていないため、候補から漏れている地点・夜がある可能性があります。")
+    return 0
+
+
+def _explore(cache: GridCloudCache) -> None:
     t_start = time.time()
 
     ts = load.timescale()
@@ -715,7 +737,6 @@ def main() -> None:
           f" + 参考候補(OSM展望データ) {len(reference_sites)}件 = 計{len(sites)}件を読み込み"
           f"(うち地形地平線データあり: {sum(1 for s in sites if s['horizon_csv'])}件)\n")
 
-    cache = GridCloudCache()
     lp_store = LightPollutionTileStore(cache_dir=str(ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
 
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
@@ -757,4 +778,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

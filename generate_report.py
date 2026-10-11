@@ -41,7 +41,8 @@ from skyfield.api import load  # noqa: E402
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_datetime  # noqa: E402
 from light_pollution import LightPollutionTileStore  # noqa: E402
-from grid_cache import GridCloudCache  # noqa: E402
+from grid_cache import FAILED_CELL_RATE_ABORT, FetchSummary, GridCloudCache  # noqa: E402
+from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
 
 from explore_hoshibiyori import (  # noqa: E402
@@ -377,7 +378,18 @@ def build_period_summary(finals: list[FinalCandidate], outlooks: list[OutlookCan
     return " ".join(parts)
 
 
-def main() -> None:
+def main() -> int:
+    """終了コード: 0=出力済み(取得失敗があれば警告バナー付き)、2=取得失敗が多すぎる/429のためreport.htmlを更新せず中止。"""
+    cache = GridCloudCache()
+    try:
+        return _generate(cache)
+    except OpenMeteoDailyLimitError as e:
+        print(f"\n[中止] {e}。{OUTPUT_PATH.name}は更新していません。")
+        print("  " + cache.summary().console_line())
+        return 2
+
+
+def _generate(cache: GridCloudCache) -> int:
     t_start = datetime.now(JST)
     ts = load.timescale()
     eph = load(str(ROOT / "step1_astronomy" / "de421.bsp"))
@@ -390,7 +402,6 @@ def main() -> None:
     sites = [s for s in all_sites if is_primary_origin(s["origin"])]
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
 
-    cache = GridCloudCache()
     lp_store = LightPollutionTileStore(cache_dir=str(ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
 
     print(f"候補地点: {len(sites)}件を読み込み(curated由来のみ、viewpoint参考データ{len(all_sites)-len(sites)}件は対象外)")
@@ -474,6 +485,16 @@ def main() -> None:
         print(f"[天気図] 取得に失敗したためスキップします: {e}")
         weather_map_html = ""
 
+    summary = cache.summary()
+    print(f"\n予報取得の集計: {summary.console_line()}")
+    if summary.status == "abort":
+        print(f"[中止] 失敗セル率が閾値({FAILED_CELL_RATE_ABORT:.0%})以上のため、{OUTPUT_PATH.name}は更新しません"
+              "(予報が欠けた状態のレポートは候補の漏れに気づけず誤解を招くため)。")
+        for f in cache.failures[:10]:
+            print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
+        return 2
+    fetch_warning_html = render_fetch_warning(summary) if summary.status == "partial" else ""
+
     html_out = render_html(
         target=target, generated_at=t_start, all_nights=all_nights, night_icons=night_icons,
         regimes=regimes, msm_index=msm_index, msm_nights_count=len(msm_nights),
@@ -481,6 +502,7 @@ def main() -> None:
         sky_guide=sky_guide,
         tier3_nights=tier3_nights, outlooks_by_date=outlooks_by_date, summary_text=summary_text,
         weather_map_html=weather_map_html, night_view_items=night_view_items,
+        fetch_warning_html=fetch_warning_html,
     )
     OUTPUT_PATH.write_text(html_out, encoding="utf-8")
 
@@ -488,6 +510,15 @@ def main() -> None:
     print(f"\n完了。{OUTPUT_PATH} に出力しました(所要時間 {(t_end - t_start).total_seconds()/60:.1f}分)。")
     print(f"格子セルキャッシュ: API呼び出し(実際にOpen-Meteoへ通信){cache.call_count}回 / "
           f"キャッシュヒット{cache.cache_hit_count}回(うちディスクキャッシュ{cache.disk_hit_count}回)")
+    return 0
+
+
+def render_fetch_warning(summary: FetchSummary) -> str:
+    return (
+        '<p class="fetch-warning" style="border:1px solid var(--gold);background:var(--surface-alt);'
+        'border-radius:10px;padding:10px 14px;font-size:.88rem;">'
+        f'⚠ 一部の予報が取得できていないため、候補から漏れている地点・夜がある可能性があります'
+        f'(取得セル{summary.total_cells}件中{summary.failed}件が失敗)。時間をおいて再生成すると解消する場合があります。</p>')
 
 
 def render_tier1(all_nights, night_icons, summary_text, sky_guide: dict | None = None) -> str:
@@ -802,7 +833,7 @@ def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index) -> str:
 def render_html(target, generated_at, all_nights, night_icons, regimes, msm_index, msm_nights_count,
                  tier2_casual, tier2_hardcore, casual_weather_note, sky_guide,
                  tier3_nights, outlooks_by_date, summary_text, weather_map_html: str = "",
-                 night_view_items: list[dict] | None = None) -> str:
+                 night_view_items: list[dict] | None = None, fetch_warning_html: str = "") -> str:
     tier1 = render_tier1(all_nights, night_icons, summary_text, sky_guide)
     tier2 = render_tier2(tier2_casual, tier2_hardcore, msm_index, msm_nights_count, casual_weather_note,
                           weather_map_html, night_view_items)
@@ -825,6 +856,7 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
     <h1>星の日和 探索レポート</h1>
     <p class="target-line">対象天体: {html.escape(target.name)} ・ 生成日時: {generated_at.strftime('%Y-%m-%d %H:%M')} JST</p>
   </header>
+  {fetch_warning_html}
   {tier1}
   {tier2}
   {tier3}
@@ -986,4 +1018,4 @@ h1, h2, h3 { font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS M
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

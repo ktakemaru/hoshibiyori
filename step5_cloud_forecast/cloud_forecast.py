@@ -54,10 +54,26 @@ _FETCH_MAX_RETRIES = 3
 _FETCH_RETRY_BACKOFF_SEC = 2.0
 
 
-def _fetch_hourly(lat: float, lon: float, model: str, forecast_days: int, variables: str = _HOURLY_VARS) -> dict[str, list] | None:
+class OpenMeteoDailyLimitError(RuntimeError):
+    """Open-Meteoが429(日次などの利用上限)を返したことを表す。以降の取得は意味が無いので中止する。"""
+
+
+@dataclass
+class FetchOutcome:
+    """1回の取得結果。成功なら hourly に時系列、失敗なら hourly=None と理由が入る。"""
+    hourly: dict[str, list] | None
+    reason: str | None = None  # 失敗理由(人間向けの短い文字列)
+    rate_limited: bool = False  # HTTP 429 を受けた場合 True(リトライしない)
+
+
+def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: int,
+                           variables: str = _HOURLY_VARS) -> FetchOutcome:
     """Open-Meteoを呼び出す。761件規模のバッチ処理では一時的な接続エラーが起こり得るため、
-    短い間隔で数回リトライする。それでも失敗した場合はNoneを返し(例外は投げない)、
-    呼び出し元(GridCloudCache)がそのセルをスキップできるようにする。
+    5xxと接続エラーは短い間隔で数回リトライする。HTTP 429(利用上限)はリトライしても
+    回復しないため、即座に rate_limited=True で返す(2026-10-12、yamabiyori v1.7.0の
+    「全滅時は終了コード2」を元に、失敗理由を保持する形で独自拡張)。
+    それでも失敗した場合は例外を投げず FetchOutcome(hourly=None, ...) を返し、
+    呼び出し元(GridCloudCache)がそのセルをスキップ・集計できるようにする。
     """
     params = {
         "latitude": lat,
@@ -70,15 +86,23 @@ def _fetch_hourly(lat: float, lon: float, model: str, forecast_days: int, variab
     for attempt in range(1, _FETCH_MAX_RETRIES + 1):
         try:
             resp = requests.get(_OPEN_METEO_URL, params=params, timeout=20, headers={"User-Agent": _USER_AGENT})
+            if resp.status_code == 429:
+                print(f"    [警告] Open-Meteoが429(利用上限)を返しました(lat={lat},lon={lon},model={model})。リトライしません")
+                return FetchOutcome(None, reason="HTTP 429 (daily limit)", rate_limited=True)
             resp.raise_for_status()
-            return resp.json()["hourly"]
+            return FetchOutcome(resp.json()["hourly"])
         except requests.RequestException as e:
             if attempt == _FETCH_MAX_RETRIES:
                 print(f"    [警告] Open-Meteo取得失敗(lat={lat},lon={lon},model={model}): {e} "
                       f"-> {_FETCH_MAX_RETRIES}回リトライ後も失敗、このセルをスキップします")
-                return None
+                return FetchOutcome(None, reason=f"{type(e).__name__}: {e}")
             time.sleep(_FETCH_RETRY_BACKOFF_SEC * attempt)
-    return None
+    return FetchOutcome(None, reason="unknown")
+
+
+def _fetch_hourly(lat: float, lon: float, model: str, forecast_days: int, variables: str = _HOURLY_VARS) -> dict[str, list] | None:
+    """_fetch_hourly_detailed の後方互換ラッパー。失敗時はNoneを返す。"""
+    return _fetch_hourly_detailed(lat, lon, model, forecast_days, variables).hourly
 
 
 def _to_dict_by_time(hourly: dict[str, list] | None) -> dict[datetime, dict]:

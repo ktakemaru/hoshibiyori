@@ -28,7 +28,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from cloud_forecast import ECMWF_MODEL, MSM_MODEL, _fetch_hourly
+from dataclasses import dataclass
+
+from cloud_forecast import ECMWF_MODEL, MSM_MODEL, OpenMeteoDailyLimitError, _fetch_hourly_detailed
 
 GRID_STEP_DEG = {
     MSM_MODEL: {"lat": 0.05, "lon": 0.0625},
@@ -37,11 +39,48 @@ GRID_STEP_DEG = {
 
 _DEFAULT_CACHE_DIR = Path(__file__).parent / "cloud_cache"
 
+# 取得失敗セル率(失敗セル数÷この実行で要求したユニークセル数)がこの値以上なら、
+# レポートを出さずに異常終了(終了コード2)する。未満で1件以上の失敗なら警告付きで出力する。
+# 値はユーザー承認済みの暫定値(2026-10-12)で、運用しながら調整してよい。
+FAILED_CELL_RATE_ABORT = 0.20
+
 # モデルの実際の更新頻度に合わせたディスクキャッシュの有効期限(秒)。
 CACHE_TTL_SEC = {
     MSM_MODEL: 3 * 3600,
     ECMWF_MODEL: 6 * 3600,
 }
+
+
+@dataclass
+class FailedCell:
+    model: str
+    lat: float
+    lon: float
+    reason: str
+
+
+@dataclass
+class FetchSummary:
+    total_cells: int  # この実行で要求したユニークセル数(成功+失敗、キャッシュヒット含む)
+    api_calls: int
+    cache_hits: int
+    failed: int
+    rate_limited: bool
+
+    @property
+    def failed_rate(self) -> float:
+        return self.failed / self.total_cells if self.total_cells else 0.0
+
+    @property
+    def status(self) -> str:
+        """"ok"(失敗なし) / "partial"(警告付きで出力) / "abort"(出力せず終了コード2)。"""
+        if self.rate_limited or (self.failed and self.failed_rate >= FAILED_CELL_RATE_ABORT):
+            return "abort"
+        return "partial" if self.failed else "ok"
+
+    def console_line(self) -> str:
+        return (f"取得セル{self.total_cells}件 / API呼び出し{self.api_calls}回 / "
+                f"キャッシュヒット{self.cache_hits}回 / 失敗{self.failed}件({self.failed_rate:.1%})")
 
 
 def grid_cell(lat: float, lon: float, model: str) -> tuple[float, float]:
@@ -80,6 +119,8 @@ class GridCloudCache:
         self.call_count = 0
         self.cache_hit_count = 0
         self.disk_hit_count = 0
+        self.failures: list[FailedCell] = []
+        self.rate_limited = False
         self.disk_cache_enabled = disk_cache
         self.cache_dir = Path(cache_dir)
         if self.disk_cache_enabled:
@@ -126,9 +167,23 @@ class GridCloudCache:
                 return cached
 
         cell_lat, cell_lon = cell
-        hourly = _fetch_hourly(cell_lat, cell_lon, model, forecast_days, variables=variables)
+        outcome = _fetch_hourly_detailed(cell_lat, cell_lon, model, forecast_days, variables=variables)
+        hourly = outcome.hourly
         self._cache[key] = hourly
         self.call_count += 1
+        if hourly is None:
+            self.failures.append(FailedCell(model, cell_lat, cell_lon, outcome.reason or "unknown"))
+            if outcome.rate_limited:
+                self.rate_limited = True
+                raise OpenMeteoDailyLimitError(
+                    "Open-Meteoが429(利用上限)を返したため、以降の取得を中止します")
         if self.disk_cache_enabled:
             self._write_disk(key, hourly)
         return hourly
+
+    def summary(self) -> FetchSummary:
+        return FetchSummary(
+            total_cells=len(self._cache), api_calls=self.call_count,
+            cache_hits=self.cache_hit_count, failed=len(self.failures),
+            rate_limited=self.rate_limited,
+        )
