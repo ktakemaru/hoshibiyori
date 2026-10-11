@@ -69,7 +69,7 @@ class FetchOutcome:
 def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: int,
                            variables: str = _HOURLY_VARS) -> FetchOutcome:
     """Open-Meteoを呼び出す。761件規模のバッチ処理では一時的な接続エラーが起こり得るため、
-    5xxと接続エラーは短い間隔で数回リトライする。HTTP 429(利用上限)はリトライしても
+    5xx・408・接続エラーは短い間隔で数回リトライする。429以外の4xxも回復しないため即座に失敗として返す。HTTP 429(利用上限)はリトライしても
     回復しないため、即座に rate_limited=True で返す(2026-10-12、yamabiyori v1.7.0の
     「全滅時は終了コード2」を元に、失敗理由を保持する形で独自拡張)。
     それでも失敗した場合は例外を投げず FetchOutcome(hourly=None, ...) を返し、
@@ -89,6 +89,11 @@ def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: in
             if resp.status_code == 429:
                 print(f"    [警告] Open-Meteoが429(利用上限)を返しました(lat={lat},lon={lon},model={model})。リトライしません")
                 return FetchOutcome(None, reason="HTTP 429 (daily limit)", rate_limited=True)
+            if 400 <= resp.status_code < 500 and resp.status_code != 408:
+                # 429以外の4xx(400/401/403/404等)はリクエスト側の問題でリトライしても回復しない。
+                # 408(Request Timeout)だけは一時的な事象のため、5xxや接続エラーと同様にリトライする。
+                print(f"    [警告] Open-Meteoが{resp.status_code}を返しました(lat={lat},lon={lon},model={model})。リトライしません")
+                return FetchOutcome(None, reason=f"client_error (HTTP {resp.status_code})")
             resp.raise_for_status()
             return FetchOutcome(resp.json()["hourly"])
         except requests.RequestException as e:

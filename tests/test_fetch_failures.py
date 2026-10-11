@@ -53,6 +53,22 @@ class FetchHourlyDetailedTest(unittest.TestCase):
         self.assertEqual(g.call_count, 1)
         sleep.assert_not_called()
 
+    def test_400_is_client_error_without_retry(self, sleep):
+        with mock.patch("cloud_forecast.requests.get", return_value=_resp(400)) as g:
+            out = self.call()
+        self.assertIsNone(out.hourly)
+        self.assertFalse(out.rate_limited)
+        self.assertTrue(out.reason.startswith("client_error"))
+        self.assertEqual(g.call_count, 1)
+        sleep.assert_not_called()
+
+    def test_408_is_retried(self, sleep):
+        with mock.patch("cloud_forecast.requests.get", side_effect=[_resp(408), _resp(200)]) as g:
+            out = self.call()
+        self.assertEqual(out.hourly, OK_HOURLY)
+        self.assertEqual(g.call_count, 2)
+        self.assertEqual(sleep.call_count, 1)
+
     def test_500_then_success(self, sleep):
         with mock.patch("cloud_forecast.requests.get", side_effect=[_resp(500), _resp(500), _resp(200)]) as g:
             out = self.call()
@@ -129,6 +145,16 @@ class SummaryStatusTest(unittest.TestCase):
 
     def test_threshold_constant(self):
         self.assertEqual(grid_cache.FAILED_CELL_RATE_ABORT, 0.20)
+
+
+
+class FetchWarningRenderTest(unittest.TestCase):
+    def test_warning_text_and_counts(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        import generate_report  # noqa: E402
+        html_out = generate_report.render_fetch_warning(FetchSummary(50, 50, 0, 5, False))
+        self.assertIn("一部の予報が取得できていない", html_out)
+        self.assertIn("50件中5件", html_out)
 
 
 if __name__ == "__main__":
