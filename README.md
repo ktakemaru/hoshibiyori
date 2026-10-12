@@ -46,6 +46,14 @@ pip install skyfield requests pillow
 python generate_report.py   # report.html を生成(初回はAPI取得のため10〜30分)
 ```
 
+依存パッケージ: `skyfield`・`requests`・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(未導入なら天気図セクションは省略される)。開発・検証は Python 3.15 RC(`py`ランチャー経由)で行っており、Python 3.13に`requests`等が入っていない環境では3.15側で実行すること。
+
+テスト(ネットワーク不使用、標準ライブラリのunittest):
+
+```bash
+py -X utf8 -m unittest discover -s tests
+```
+
 Skyfieldの暦ファイル(`de421.bsp`)は初回実行時に自動ダウンロードされる。外部データ(DEMタイル・光害タイル・雲量予報・天気図)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
 
 ## データ出典と利用上の注意

@@ -201,6 +201,8 @@ class RenderSectionTest(unittest.TestCase):
         self.assertIn("現況の雲の様子(参考)", out)
         self.assertIn("2026-10-12 21:00 JST", out)
         self.assertIn("予報ではありません", out)
+        self.assertIn("海岸線・県境の重ね合わせはありません", out)
+        self.assertIn("白く塗りつぶされた矩形部分", out)
         self.assertIn("出典：気象庁ホームページ (https://www.jma.go.jp/bosai/map.html)", out)
 
 
