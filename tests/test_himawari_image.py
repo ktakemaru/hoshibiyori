@@ -99,8 +99,13 @@ class WindowTest(unittest.TestCase):
         self.assertEqual(span, 3)
 
     def test_basetime_to_jst(self):
-        self.assertIs(hi.BASETIME_TZ, timezone.utc)  # 未確認の前提(スモークテストで確定)。変えたらここも更新
+        self.assertIs(hi.BASETIME_TZ, timezone.utc)  # 2026-10-12のスモークテストで確定した値
         self.assertEqual(hi.basetime_to_jst("20261012120000").strftime("%Y-%m-%d %H:%M"), "2026-10-12 21:00")
+
+    def test_basetime_to_jst_pinned_to_live_observation(self):
+        # 実測: 2026-10-12 00:47:12 UTC(=09:47 JST)に取得した最新basetimeは 20261012004000。
+        # UTCとして読めば7分前で、表示は 09:40 JST になる(JSTと誤解すると 00:40 JST=9時間前になる)。
+        self.assertEqual(hi.basetime_to_jst("20261012004000").strftime("%Y-%m-%d %H:%M"), "2026-10-12 09:40")
 
 
 @mock.patch("himawari_image.time.sleep")

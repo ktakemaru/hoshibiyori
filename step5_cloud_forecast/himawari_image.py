@@ -21,9 +21,11 @@ cloud_forecast.pyと同じ方針(429は即中止、429以外の4xxはリトラ�
 targetTimes取得1回+モザイクのタイル数(2x2なら4枚)だけを取得し、同一basetimeのタイルは
 ディスクキャッシュから再利用する(ループ処理はしない)。
 
-basetimeのタイムゾーン: JMAのパス中の時刻は一般にUTCだが、yamabiyori側のdocstringは
-JSTと記載していた。**未確認**のため BASETIME_TZ に切り出してあり、スモークテストで
-現在時刻と突き合わせて確定する(確定前は表示の「JST」時刻に9時間のずれがあり得る)。
+basetimeのタイムゾーン: **UTC**(2026-10-12のスモークテストで確定)。targetTimes_jp.json の
+最新basetime 20261012004000 を、取得時刻(2026-10-12 00:47 UTC = 09:47 JST、サーバーの
+Dateヘッダーとも一致)と比べると、UTCとして読めば7.2分前、JSTとして読めば547分前(約9時間前)
+となり、UTCだけが「数分前の最新画像」として成立する。yamabiyori側のdocstringは
+JSTと記載しているが、実測はUTCだった(yamabiyoriは変更していない)。
 """
 from __future__ import annotations
 
@@ -37,7 +39,7 @@ from pathlib import Path
 import requests
 
 JST = timezone(timedelta(hours=9))
-# basetimeを解釈するタイムゾーン。スモークテストで実測して確定する(モジュールdocstring参照)。
+# basetimeを解釈するタイムゾーン。UTCで確定(2026-10-12のスモークテストで実測。モジュールdocstring参照)。
 BASETIME_TZ = timezone.utc
 
 BASE_URL = "https://www.jma.go.jp/bosai/himawari/data/satimg"
