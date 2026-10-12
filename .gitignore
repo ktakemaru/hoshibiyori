@@ -17,6 +17,8 @@ step3_light_pollution/tile_cache/
 step5_cloud_forecast/cloud_cache/
 # 気象庁天気図スクリーンショット
 step5_cloud_forecast/weather_map_cache/
+# 気象衛星ひまわりのタイル・モザイク
+step5_cloud_forecast/himawari_cache/
 
 # --- Skyfield ephemeris (17MB, auto-downloaded on first use) ---
 *.bsp

@@ -54,6 +54,8 @@ from explore_hoshibiyori import (  # noqa: E402
     compute_site_night_window,
 )
 from jma_weather_map import fetch_jma_weather_map  # noqa: E402
+from himawari_image import ATTRIBUTION as HIMAWARI_ATTRIBUTION, HimawariImage, fetch_regional_image, regional_view  # noqa: E402
+from areas import load_areas  # noqa: E402
 
 OUTPUT_PATH = ROOT / "report.html"
 TOP_N_TIER2 = 10
@@ -494,6 +496,8 @@ def _generate(cache: GridCloudCache) -> int:
             print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
         return 2
     fetch_warning_html = render_fetch_warning(summary) if summary.status == "partial" else ""
+    # 気象衛星ひまわりの実況画像は参考表示のみ(スコア・足切りには使わない)。失敗しても画像セクションを省くだけ。
+    weather_map_html += build_himawari_html()
 
     html_out = render_html(
         target=target, generated_at=t_start, all_nights=all_nights, night_icons=night_icons,
@@ -511,6 +515,42 @@ def _generate(cache: GridCloudCache) -> int:
     print(f"格子セルキャッシュ: API呼び出し(実際にOpen-Meteoへ通信){cache.call_count}回 / "
           f"キャッシュヒット{cache.cache_hit_count}回(うちディスクキャッシュ{cache.disk_hit_count}回)")
     return 0
+
+
+def build_himawari_html() -> str:
+    """areas.jsonの全範囲を覆う広域1枚の赤外画像を取得してセクションHTMLにする。失敗時は空文字(省略)。"""
+    try:
+        center_lat, center_lon, span = regional_view(
+            [(a.lat_min, a.lat_max, a.lon_min, a.lon_max) for a in load_areas()])
+        image = fetch_regional_image(center_lat, center_lon, imgtype="ir", span=span)
+    except Exception as e:
+        print(f"[ひまわり] 取得に失敗したため画像セクションを省略します: {e}")
+        return ""
+    if image is None:
+        print("[ひまわり] タイルを1枚も取得できなかったため画像セクションを省略します")
+        return ""
+    print(f"[ひまわり] 基準時刻 {image.basetime_jst:%Y-%m-%d %H:%M} JST / "
+          f"タイル{image.tiles_ok}/{image.tiles_total}枚取得({image.span}x{image.span})")
+    return render_himawari_section(image)
+
+
+def render_himawari_section(image: HimawariImage) -> str:
+    rel_src = image.path.relative_to(ROOT).as_posix()
+    base_label = f"{image.basetime_jst:%Y-%m-%d %H:%M} JST"
+    return f"""
+      <div class="wmap-block">
+        <h3>現況の雲の様子(参考) &mdash; 気象衛星ひまわり 赤外画像</h3>
+        <div class="wmap-row">
+          <figure class="wmap-card">
+            <img src="{html.escape(rel_src)}" alt="気象衛星ひまわり赤外画像(関東甲信越・中部周辺)" loading="lazy">
+            <figcaption>基準時刻 {html.escape(base_label)}(実況。予報ではありません)</figcaption>
+          </figure>
+        </div>
+        <p class="wmap-caveat">レポート生成時点の最新の実況画像で、これから先の天気を示すものではありません。
+        赤外画像は雲の温度(雲頂の高さ)を映したもので、夜間は低層雲・霧と地面との温度差が小さく見分けにくいため、
+        晴れ曇りの断定には使わず参考に留めてください。候補地点の評価・順位には使っていません。
+        {html.escape(HIMAWARI_ATTRIBUTION)}</p>
+      </div>"""
 
 
 def render_fetch_warning(summary: FetchSummary) -> str:
@@ -867,6 +907,7 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
     光害 David Lorenz, <a href="https://djlorenz.github.io/astronomy/lp/">Light Pollution Atlas</a>
     (ボートルスケール値は非公式の簡易近似) ・
     天気図 <a href="https://www.jma.go.jp/">気象庁ホームページ</a> ・
+    気象衛星ひまわり画像 出典：気象庁ホームページ (<a href="https://www.jma.go.jp/bosai/map.html">https://www.jma.go.jp/bosai/map.html</a>) ・
     候補地点・地名 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>(ODbL) ・
     天体位置 JPL DE421 暦(Skyfield経由)。</p>
     <p class="attribution">本レポートは数値予報データを個人の星景撮影計画のために整理・表示したものであり、

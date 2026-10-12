@@ -42,7 +42,7 @@
 Python 3.13以降を想定(開発環境は3.15 RC)。
 
 ```bash
-pip install skyfield requests
+pip install skyfield requests pillow
 python generate_report.py   # report.html を生成(初回はAPI取得のため10〜30分)
 ```
 
@@ -58,6 +58,7 @@ Skyfieldの暦ファイル(`de421.bsp`)は初回実行時に自動ダウンロ�
 | 標高(地形地平線) | [国土地理院 地理院タイル(標高タイル)](https://maps.gsi.go.jp/development/ichiran.html) | [国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)に基づき「**出典：国土地理院 地理院タイル(標高タイル)を加工して作成**」と表示 |
 | 光害(人工夜空輝度) | David Lorenz, [Light Pollution Atlas](https://djlorenz.github.io/astronomy/lp/) | 個人運営サイト。明示的なライセンス表記なし。出典表示を行い、**公開サービスへ組み込む前に著者への利用可否確認が必要**(未実施)。ボートルスケール値は非公式の簡易近似 |
 | 地上天気図・予想天気図 | [気象庁ホームページ](https://www.jma.go.jp/) | [気象庁ホームページ利用規約](https://www.jma.go.jp/jma/kishou/info/coment.html)に基づき出典表示 |
+| 気象衛星ひまわり画像(現況の雲の様子・参考表示のみ) | [気象庁ホームページ](https://www.jma.go.jp/bosai/map.html) | [気象庁ホームページ利用規約](https://www.jma.go.jp/jma/kishou/info/coment.html)に基づき「出典：気象庁ホームページ (https://www.jma.go.jp/bosai/map.html)」と表示。画像は実況で予報ではなく、スコアには使わない。Pillowが必要 |
 | 候補地点(OSM展望データ)・地名(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | [ODbL](https://opendatacommons.org/licenses/odbl/)。Nominatimは[利用規約](https://operations.osmfoundation.org/policies/nominatim/)(1リクエスト/秒以下・識別可能なUser-Agent・結果のキャッシュ)を遵守 |
 | 天体位置 | JPL DE421 暦([Skyfield](https://rhodesmill.org/skyfield/)経由で自動取得) | パブリックドメイン(NASA/JPL) |
 | 星空撮影名所(curated) | 星空撮影の専門家・愛好家サイト、自治体観光サイト等のWeb調査 | 地名・座標のみを収録。説明文は独自に要約 |
