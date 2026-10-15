@@ -47,7 +47,7 @@
 
 ## セットアップ
 
-Python 3.13以降を想定(開発・動作確認は3.15 RC。3.13は構文上の推定で、実機での全体動作は未確認)。
+Python 3.13以降を想定(開発・動作確認は3.15 RC。3.13は依存の導入・`check_setup.py`・単体テストまで確認済みで、`generate_report.py`の通し実行は未確認)。
 
 ```powershell
 py -m venv .venv

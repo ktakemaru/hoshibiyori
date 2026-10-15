@@ -29,7 +29,7 @@ py -m venv .venv
 ```
 - Skyfield の暦 `step1_astronomy/de421.bsp`(約17MB)は、無い場合の初回実行時に自動ダウンロードされる(JPL へ通信)。単体テストには不要。
 - Playwright は任意(無ければ天気図セクションを省略)。
-- Python の動作確認は 3.15 RC のみが前提。他の版は `check_setup.py` で警告する。
+- Python は 3.15 RC で通し実行を確認。3.13 は依存の導入・`check_setup.py`・単体テストまで確認(通し実行は未確認)。
 
 ## 5. 実行(ユーザーが頼んだときだけ)
 - `py generate_report.py`(引数なし): **10〜30分・Open-Meteo API 約220回**(候補146件で実測約21分。候補数に比例して増える)。固定の `report.html`(**git 管理**)を上書きする。終了コード: 0=出力済み、2=失敗セル率20%以上または HTTP 429(`report.html` は更新しない)。
