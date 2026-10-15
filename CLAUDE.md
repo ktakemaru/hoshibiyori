@@ -459,3 +459,28 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - 理由: Codexがcloneしてセットアップからテストまで迷わず進められるようにするため。本ファイルは約64KBで、Codexの指示ファイル読み込み上限
   (`project_doc_max_bytes`、既定32KiB。公式ドキュメントの記述)を超えるため、共通ルールを短い`AGENTS.md`に分けた。
 - 発見: READMEの依存にnumpyが無かった(`gsi_dem.py`・`light_pollution.py`が使用)。`requirements.txt`で補った。
+
+## 星空ガイドと星空シミュレーター(2026-10-15、Claude Code固有の運用と開発記録)
+
+共通の手順は`AGENTS.md`「10. 星空ガイド」、書き方は`docs/sky_guide_style.md`。ここはClaude Code固有の事項と開発記録。
+
+### Artifactとして公開する(Claude Code固有)
+- 描画したHTML(`out/…html`)は、Artifactツールが使える環境ではArtifactとして公開してよい。**題は「<地点名> 星空ガイド」**。
+- 同じ地点・同じ夜の再実行は新規に作らず、既存のArtifactを更新する(Artifactの`list`で探す)。見本のArtifact(戦場ヶ原 2026-10-09)は上書きしない。
+- 公開前に、位置が特定できる私的な情報(自宅・非公開の撮影地など)を載せていないことを確認する。公開はユーザーが頼んだときだけ。
+  **この整備の段階では公開していない。**
+
+### 開発記録
+- 10/9に作った見本(`docs/examples/`にコピー、読み取り専用)の生成手順がリポジトリに残っておらず再現できなかったため、「数値JSON → 解説JSON → 描画」の3層に分けて作り直した。
+  コードは`skyguide/`(`astro.py`数値、`build.py`数値JSON、`render.py`描画・検査、`template.html`/`sky_guide.css`/`sky_guide.js`テンプレート)と
+  `scripts/make_sky_guide.py`・`scripts/render_sky_guide.py`・`scripts/extract_sky_guide_sample.py`(見本→ゴールデン抽出)。
+- 既存ロジックは変更していない(`step1_astronomy`・`step2_terrain`・`step4_moonlight`・`explore_hoshibiyori.find_astro_dark_events`・`step5_cloud_forecast`を呼ぶだけ)。
+  新規コード: 恒星カタログ`skyguide/objects.json`(J2000の手入力値。Hipparcosとの機械照合は未実施、見本との差で確認)、惑星・銀河面・月相・出来事・ピーク検出。
+- 見本の再現(戦場ヶ原 2026-10-09): 恒星・惑星・銀河中心・天の川の帯の方位・高度は見本と0.2°以内(恒星0.1°、惑星0.0°、天の川の帯0.0°、銀河中心 方位0.2°)、
+  稜線`HZ`は`step2_terrain/horizon_curated006_50km.csv`(1桁に丸め)と完全一致、暗くなる時間は18:40〜04:18で一致。
+- 見本の一般化: 月(月相つき)をシミュレーターに描き読み出しもデータから出す、時刻の本数・スライダー範囲・初期位置・雲量の棒の本数をデータから決める、
+  構図カードの時刻が`times`になければエラー、雲量を省略するときは理由をページに表示。
+- 見本の不確かな点: 月が固定表示(地平線の下)・雲量の棒12時間固定・スライダーmax固定は一般化済み。ほかに、解説の「1時すぎに木星が昇る」は稜線を越えるのが01:57で
+  実際は2時前(`events`で確認)、パノラマの山名ラベルは見本では方位74°に置かれるがピーク検出では72°(同じピーク、数値JSON由来の方位に統一)。
+- 通信なしで通るテスト: `tests/test_sky_guide.py`。天文計算のテストは`de421.bsp`が無い環境(CI)ではスキップする。ブラウザ描画テストは
+  `HOSHIBIYORI_BROWSER_TESTS=1`のときだけ実行(Playwright+Chromium、外部フォントへは接続しない)。
