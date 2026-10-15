@@ -484,3 +484,6 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
   実際は2時前(`events`で確認)、パノラマの山名ラベルは見本では方位74°に置かれるがピーク検出では72°(同じピーク、数値JSON由来の方位に統一)。
 - 通信なしで通るテスト: `tests/test_sky_guide.py`。天文計算のテストは`de421.bsp`が無い環境(CI)ではスキップする。ブラウザ描画テストは
   `HOSHIBIYORI_BROWSER_TESTS=1`のときだけ実行(Playwright+Chromium、外部フォントへは接続しない)。
+- 解説の時刻の言い回しの機械照合(`skyguide/check_text.py`、`scripts/check_sky_guide_text.py`、`render_sky_guide.py`が既定で実行): 「N時すぎ」=N:00〜N:29、「N時前」=N:00の30分前〜、
+  「N時M分ごろ」=±10分、「N時ごろ」=±30分、「N時台」=1時間。見本の「0時すぎに火星、1時すぎに木星」は、稜線越えが00:53・01:57で合っておらず(正しくは「1時前」「2時前」)、
+  ゴールデンは元のまま回帰テスト(5か所を検出)に使い、訂正例は`docs/examples/`に置いた。

@@ -14,7 +14,7 @@
 # 1. 数値JSON(通信しない。雲量はキャッシュにあれば入り、無ければ理由つきで省略される)
 .\.venv\Scripts\python.exe -X utf8 scripts\make_sky_guide.py --spot 戦場ヶ原 --date 2026-10-09 --json-out out\senjogahara_data.json
 # 2. 解説JSONを out\senjogahara_commentary.json に書く(下記)
-# 3. 描画
+# 3. 描画(解説の時刻の言い回しの機械照合つき。食い違いがあれば出力されない)
 .\.venv\Scripts\python.exe -X utf8 scripts\render_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html
 ```
 
@@ -50,8 +50,25 @@
 - `horizon_deg[方位]`: 方位1°ごとの稜線の仰角。`peak_candidates`: 稜線の極大(山名は付いていない)。
 - 雲量: `cloud.hours`(あれば)。
 
-注意: `events` の「稜線の上」は稜線(`horizon_deg`)を基準にしている。「昇る時刻」は地平線ではなく稜線を越える時刻で、見本の「1時すぎ」のような
-言い方は数値と食い違うことがある(見本の木星は稜線を越えるのが01:57)。**時刻は `events` の `start` をそのまま使う。**
+### 時刻の言い回しの規則(機械照合される)
+
+`events` の「稜線の上」は稜線(`horizon_deg`)を基準にしている。「昇る時刻」は地平線ではなく稜線を越える時刻、「沈む・隠れる時刻」は稜線に隠れる時刻。
+解説の文に「◯◯が昇る・沈む・隠れる」と時刻の言い回しを書くと、描画の前に `events` と**機械照合**される(`scripts/check_sky_guide_text.py`。`render_sky_guide.py` も既定で実行し、
+食い違いがあれば出力しない)。言い回しの範囲は次のとおり。
+
+| 言い回し | 実際の時刻の範囲 |
+|---|---|
+| N時M分ごろ | N:M の前後10分以内 |
+| N時すぎ | N:00 以上 N:30 未満 |
+| N時前 | N:00 の30分前以上 N:00 未満 |
+| N時ごろ | N:00 の前後30分以内 |
+| N時台 | N:00 以上 N+1:00 未満 |
+
+- 例: 稜線を越える時刻が 01:57 の木星は「2時前」。「1時すぎ」ではない。00:53 の火星は「1時前」(「0時すぎ」ではない)。
+  見本の元の文章はこの2か所が合っておらず、訂正した解説例が `docs/examples/senjogahara_20261009_commentary_corrected.json`(元のゴールデンは回帰テスト用に元のまま)。
+- 迷ったら、`events` の時刻をそのまま書く(「00:53に稜線を越える」など)。
+- 照合の対象外(検査されないので、`events` と `frames` から取って書く): 天体名のない文、昇る・沈む・隠れる等の動詞のない文、`events` にない天体
+  (等級2.0より暗い恒星)、高度・方位の数値、「N時に」「N時から」の言い方。
 
 ## 山の名前
 
