@@ -66,3 +66,13 @@ py -m venv .venv
 - main へ直接 push しない(PR 経由)。GitHub の設定変更は個別に承認を得る。
 - `git add -A` は使わず、ファイルを指定する。キャッシュ(`dem_cache/`・`tile_cache/`・`cloud_cache/`・`weather_map_cache/`・`himawari_cache/`)、`*.bsp`、`.bak` 系をコミットしない。`.gitignore` は行末コメント非対応(コメントは独立した行に書く)。
 - HTML を共有するときは、まずファイルを直接送る方法を案内する。
+
+## 10. 星空ガイド(星空シミュレーター付き)
+「◯◯の星空」「星空ガイド」と頼まれたら、**必ずシミュレーター付きのガイド**を作る。書き方は `docs/sky_guide_style.md`。
+1. 数値JSON: `scripts/make_sky_guide.py --spot <地点> --date <夜の開始日> --json-out out/…_data.json`(既定は通信しない。数値は既存ロジックが計算する。**数値を自分で書かない**)
+2. 解説JSON(`hoshibiyori-skyguide-commentary/1`)を書く。文中の数値は数値JSONの `events` と `frames` から取る。山名は `basis`(確認済み/推定)を付ける
+3. 描画: `scripts/render_sky_guide.py --data … --commentary … --out out/…html`。`out/` に保存して場所を伝える。描画は解説の時刻の言い回し(「N時すぎ」等)を `events` と機械照合し、食い違いがあれば出力しない
+- **HTMLは手で書かない**(テンプレートに2つのJSONを差し込む)。必須要素(シミュレーター・事実4項目・構図・山と方位の表・撮影メモ・出典と免責)が欠けるとエラー
+- 通信が要る処理(`--cloud fetch --allow-network`)の前に、`--estimate` の結果と所要時間・リクエスト数の見込みを伝えて承認を得る
+- 雲量は全天の平均で方角は分からない。取れない日付は省略でき、理由がページに出る
+- `--no-check-text`(時刻の言い回しの照合を省く)は、ユーザーの明示的な許可なしに使わない

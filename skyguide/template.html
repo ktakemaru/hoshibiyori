@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPMincho:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+{{CSS}}
+</style>
+</head>
+<body>
+<div class="wrap">
+{{HEADER}}
+{{CONDITIONS}}
+  <section class="sim" id="sim">
+    <h2>星空シミュレーター</h2>
+    <p class="lead">スライダーで時刻を動かすと、左の全天図と下のパノラマが変わります。パノラマの黒い影が{{SPOT}}から見た実際の稜線(国土地理院の標高データから計算)です。</p>
+    <div class="controls">
+      <button id="play" type="button">再生</button>
+      <span class="time" id="timeLabel"></span>
+      <input id="slider" type="range" min="0" max="0" step="1" value="0" aria-label="時刻">
+      <div class="seg" id="facing" role="group" aria-label="向き">
+        <button type="button" data-az="0">北</button>
+        <button type="button" data-az="90">東</button>
+        <button type="button" data-az="180">南</button>
+        <button type="button" data-az="270">西</button>
+      </div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="canvases">
+      <div class="cwrap"><canvas id="allsky" aria-label="全天図"></canvas></div>
+      <div class="cwrap"><canvas id="pano" aria-label="パノラマ"></canvas></div>
+    </div>
+    <p class="cap">全天図は上が北、左が東です(空を見上げた向き)。外周が地平線、中心が天頂で、外側の暗い輪は稜線の高さを表します。パノラマの点線の枠は、選んだ構図の画角です。月が出ている時間は月相つきで描きます。</p>
+  </section>
+{{CARDS}}
+{{MOUNTAINS}}
+{{TIPS}}
+{{FOOTER}}
+</div>
+<script type="application/json" id="sg-data">{{DATA_JSON}}</script>
+<script type="application/json" id="sg-commentary">{{COMMENTARY_JSON}}</script>
+<script>
+{{JS}}
+</script>
+</body>
+</html>

@@ -22,6 +22,27 @@
 
 設計の経緯(気圧面別雲量の全層ランダム重ね合わせが雲を平均+15.6pt過大評価していた検証など)は`CLAUDE.md`に記録している。
 
+## 星空ガイドと星空シミュレーター
+
+「◯◯の星空」を、**時刻スライダー付きの星空シミュレーター**つきの1ページにまとめる機能です(例: 戦場ヶ原)。全天図とパノラマ(国土地理院の標高データから計算した稜線つき)が、時刻と向きに合わせて動きます。「狙える構図」のカードを押すと、その時刻・向き・画角の枠に切り替わります。月が出ている夜は月相つきで描きます。
+
+数値と解説を分けて作るので、Claude Code でも Codex でも同じ形のページが出ます。
+
+1. **数値**(`scripts/make_sky_guide.py`): 天体の方位・高度、月、天の川の帯、稜線、雲量(キャッシュにあれば)、出来事の一覧を、hoshibiyoriの既存ロジックで計算します。既定では通信しません。
+2. **解説**(エージェントが書く): リード文・構図カード・周囲の山と方位・撮影メモ。数値は上の出来事の一覧から取ります。書き方は `docs/sky_guide_style.md`。
+3. **描画**(`scripts/render_sky_guide.py`): 固定のテンプレートに、1と2のJSONを差し込んで1ファイルのHTMLにします(`out/` に出力。git管理外)。必須要素が欠けるとエラーになります。
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 scripts\make_sky_guide.py --spot 戦場ヶ原 --date 2026-10-09 --json-out out\senjogahara_data.json
+# 解説JSON out\senjogahara_commentary.json を書く(docs/sky_guide_style.md)
+.\.venv\Scripts\python.exe -X utf8 scripts
+ender_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html
+```
+
+恒星の座標(`skyguide/objects.json`)は標準的な恒星カタログ値の手入力で、**Hipparcosとの機械照合は未実施**です(見本の天体位置との差は最大0.11°)。
+
+見本(`docs/examples/`、読み取り専用)の再現はテストで確認しています(天体の方位・高度は0.2°以内、稜線は一致)。出典・免責は下の表と、生成ページの下部に入ります。
+
 ## ディレクトリ構成
 
 | パス | 内容 |
@@ -42,7 +63,10 @@
 | `areas.py` | `areas.json`を読み込み、地点がどのエリアに属するかを判定する |
 | `AGENTS.md` | AIエージェント(Codex / Claude Code)共通の運用ルール(短い) |
 | `requirements.txt` | 必須の第三者パッケージ |
-| `scripts/` | `check_setup.py`(通信しない環境確認) |
+| `skyguide/` | 星空ガイドのライブラリ(数値計算・数値JSON・テンプレート・描画と検査) |
+| `docs/` | `sky_guide_style.md`(解説JSONの書き方)、`examples/`(星空ガイドの見本、読み取り専用) |
+| `out/` | 星空ガイドなどの生成物の出力先(git管理外) |
+| `scripts/` | `check_setup.py`(通信しない環境確認)、`make_sky_guide.py`・`render_sky_guide.py`(星空ガイド) |
 | `CLAUDE.md` | 設計方針・経緯・既知の制約の記録(開発ログ兼仕様書) |
 
 ## セットアップ
