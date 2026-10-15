@@ -1,0 +1,10 @@
+# hoshibiyori の必須依存。下限は「実際に動作を確認できたバージョン」(Python 3.15 RC、2026-10-15)。
+# 未確認の古いバージョンは下限にしていない。
+skyfield>=1.55   # 天体位置・薄明(step1/4, explore_hoshibiyori.py)
+requests>=2.34   # Open-Meteo・国土地理院・Light Pollution Atlas・気象庁・Nominatimの取得
+numpy>=2.5       # 標高タイル(step2/gsi_dem.py)・光害タイル(step3/light_pollution.py)の配列処理
+pillow>=12.3     # ひまわり画像のモザイク化(step5/himawari_image.py)・同テスト
+
+# 任意: 地上天気図のスクリーンショット取得(step5/jma_weather_map.py)。
+# 未導入ならレポートの天気図セクションが省略されるだけなので、必須にしていない。
+# 使う場合: pip install playwright && python -m playwright install chromium

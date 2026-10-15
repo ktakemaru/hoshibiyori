@@ -1,5 +1,9 @@
 # hoshibiyori
 
+@AGENTS.md
+
+(上の`AGENTS.md`はCodex等と共通の短い運用ルール。本ファイルは設計の経緯を残す開発ログ兼仕様書で、`AGENTS.md`が必要な節へ案内する。)
+
 星景写真撮影に特化した天気予報AIプロジェクト。
 
 ## プロジェクトの独立性
@@ -446,3 +450,12 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - 中期見込み(ECMWF圏内)は引き続き雲量を足切りに使わず晴天率の参考表示のみ(意図的な設計)。
 - ステップ2・3で使用する外部データ(GSI DEMタイル・Light Pollution Atlas)の利用規約に関する
   公開前の確認事項は別セクション参照。
+
+## Codex対応(2026-10-15)
+
+- 足したもの: `AGENTS.md`(共通ルール、約7KB)、`requirements.txt`、`scripts/check_setup.py`(通信しない環境確認。`--network`のときだけOpen-Meteoに1リクエスト)、
+  そのテスト`tests/test_check_setup.py`、READMEの「Codexで試す」節。本ファイルは先頭に`@AGENTS.md`の取り込みを足し、この節を末尾に足した以外は不変。
+- コード・スコア・閾値・取得処理・出力は変えていない。
+- 理由: Codexがcloneしてセットアップからテストまで迷わず進められるようにするため。本ファイルは約64KBで、Codexの指示ファイル読み込み上限
+  (`project_doc_max_bytes`、既定32KiB。公式ドキュメントの記述)を超えるため、共通ルールを短い`AGENTS.md`に分けた。
+- 発見: READMEの依存にnumpyが無かった(`gsi_dem.py`・`light_pollution.py`が使用)。`requirements.txt`で補った。
