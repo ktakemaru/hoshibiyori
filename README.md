@@ -35,8 +35,11 @@
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 scripts\make_sky_guide.py --spot 戦場ヶ原 --date 2026-10-09 --json-out out\senjogahara_data.json
 # 解説JSON out\senjogahara_commentary.json を書く(docs/sky_guide_style.md)
-.\.venv\Scripts\python.exe -X utf8 scriptsender_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html
+.\.venv\Scripts\python.exe -X utf8 scripts
+ender_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html
 ```
+
+恒星の座標(`skyguide/objects.json`)は標準的な恒星カタログ値の手入力で、**Hipparcosとの機械照合は未実施**です(見本の天体位置との差は最大0.11°)。
 
 見本(`docs/examples/`、読み取り専用)の再現はテストで確認しています(天体の方位・高度は0.2°以内、稜線は一致)。出典・免責は下の表と、生成ページの下部に入ります。
 

@@ -59,15 +59,22 @@ def ceil_to_step(dt: datetime, step: int) -> datetime:
 
 
 class CacheOnlyCloudCache:
-    """通信しない雲量キャッシュ。GridCloudCache のメモリ・ディスクキャッシュ(TTL内)だけを読む。無ければNone(欠測)。"""
+    """通信しない雲量キャッシュ。GridCloudCache のディスクキャッシュ(TTL内)だけを読む。無ければNone(欠測)。
 
-    def __init__(self):
-        from grid_cache import GridCloudCache
-        self._inner = GridCloudCache(disk_cache=True)
+    キー・有効期限・読み取りは既存の GridCloudCache._read_disk をそのまま使う(既存クラスは変更しない)。
+    キャッシュ先のディレクトリが無いときも作らず、「キャッシュなし」として扱う(書き込みは一切しない)。
+    """
+
+    def __init__(self, cache_dir: str | Path | None = None):
+        from grid_cache import _DEFAULT_CACHE_DIR, GridCloudCache
+        # コンストラクタは cache_dir を mkdir するので通さず、読み取りに必要な属性だけを持たせる
+        self._inner = GridCloudCache.__new__(GridCloudCache)
+        self._inner.cache_dir = Path(cache_dir) if cache_dir is not None else Path(_DEFAULT_CACHE_DIR)
+        self._inner.disk_cache_enabled = True
         self.missing: list[tuple[str, float, float]] = []
 
     def get_hourly(self, lat, lon, model, forecast_days, variables):
-        from grid_cache import CACHE_TTL_SEC, grid_cell
+        from grid_cache import grid_cell
         key = (model, grid_cell(lat, lon, model), forecast_days, variables)
         cached = self._inner._read_disk(key, model)
         if cached is None:

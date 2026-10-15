@@ -229,6 +229,61 @@ class RenderTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
 
 
+class CacheOnlyCloudCacheTest(unittest.TestCase):
+    """CacheOnlyCloudCache が既存 GridCloudCache と同じキー・有効期限で読み、書き込まず、視界遮蔽雲量も同じになること(合成データ)。"""
+
+    def test_reads_same_as_grid_cloud_cache_and_never_writes(self):
+        from datetime import datetime
+        for sub in ("step5_cloud_forecast", "step2_terrain"):
+            sys.path.insert(0, str(ROOT / sub))
+        import elevation_cloud as ec
+        from cloud_forecast import ECMWF_MAX_FORECAST_DAYS, ECMWF_MODEL, JST, MSM_MAX_FORECAST_DAYS, MSM_MODEL
+        from grid_cache import GridCloudCache, grid_cell
+        from skyguide.build import CacheOnlyCloudCache
+
+        variables = ec.level_hourly_vars()
+        times = [f"2026-10-09T{h:02d}:00" for h in range(24)] + [f"2026-10-10T{h:02d}:00" for h in range(6)]
+        hourly = {"time": times}
+        for v in variables.split(","):
+            hourly[v] = [(i * 7) % 100 if "cloud" in v else 1000.0 + i for i in range(len(times))]
+        lat, lon, elev = 36.778887, 139.442674, 1392.78
+        with tempfile.TemporaryDirectory() as tmp:
+            real = GridCloudCache(cache_dir=tmp)
+            for model, days in ((MSM_MODEL, MSM_MAX_FORECAST_DAYS), (ECMWF_MODEL, ECMWF_MAX_FORECAST_DAYS)):
+                real._write_disk((model, grid_cell(lat, lon, model), days, variables), hourly)
+            before = sorted((f.name, f.stat().st_mtime_ns, f.stat().st_size) for f in Path(tmp).iterdir())
+            only = CacheOnlyCloudCache(cache_dir=tmp)
+            start, end = datetime(2026, 10, 9, 18, tzinfo=JST), datetime(2026, 10, 10, 5, tzinfo=JST)
+            with mock.patch("grid_cache._fetch_hourly_detailed", side_effect=AssertionError("network used")):
+                for model, days in ((MSM_MODEL, MSM_MAX_FORECAST_DAYS), (ECMWF_MODEL, ECMWF_MAX_FORECAST_DAYS)):
+                    self.assertEqual(only.get_hourly(lat, lon, model, days, variables),
+                                     GridCloudCache(cache_dir=tmp).get_hourly(lat, lon, model, days, variables))
+                a = ec.hourly_sky_obstruction_and_cloud_sea(ec.get_level_cloud_forecast(lat, lon, start, end, cache=only), elev)
+                b = ec.hourly_sky_obstruction_and_cloud_sea(
+                    ec.get_level_cloud_forecast(lat, lon, start, end, cache=GridCloudCache(cache_dir=tmp)), elev)
+            self.assertEqual(a, b)
+            self.assertEqual(len(a), 12)
+            self.assertEqual(before, sorted((f.name, f.stat().st_mtime_ns, f.stat().st_size) for f in Path(tmp).iterdir()))
+            # 有効期限切れ(MSM 3時間)は「キャッシュなし」
+            import os
+            import time
+            for f in Path(tmp).glob("*.json"):
+                os.utime(f, (time.time() - 4 * 3600, time.time() - 4 * 3600))
+            self.assertIsNone(CacheOnlyCloudCache(cache_dir=tmp).get_hourly(lat, lon, MSM_MODEL, MSM_MAX_FORECAST_DAYS, variables))
+            self.assertIsNotNone(CacheOnlyCloudCache(cache_dir=tmp).get_hourly(lat, lon, ECMWF_MODEL, ECMWF_MAX_FORECAST_DAYS, variables))
+
+    def test_missing_directory_is_not_created_and_means_no_cache(self):
+        sys.path.insert(0, str(ROOT / "step5_cloud_forecast"))
+        from cloud_forecast import MSM_MODEL, MSM_MAX_FORECAST_DAYS
+        from skyguide.build import CacheOnlyCloudCache
+        with tempfile.TemporaryDirectory() as tmp:
+            nodir = Path(tmp) / "no_such_cache"
+            only = CacheOnlyCloudCache(cache_dir=nodir)
+            self.assertIsNone(only.get_hourly(36.8, 139.4, MSM_MODEL, MSM_MAX_FORECAST_DAYS, "cloud_cover"))
+            self.assertFalse(nodir.exists())
+            self.assertEqual(len(only.missing), 1)
+
+
 @unittest.skipUnless(HAS_BSP, "de421.bsp が無い(初回は自動ダウンロード=通信が要るため、通信しないテストではスキップ)")
 class AstroTest(unittest.TestCase):
     @classmethod
