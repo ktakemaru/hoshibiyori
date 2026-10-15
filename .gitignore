@@ -30,3 +30,6 @@ step5_cloud_forecast/himawari_cache/
 stargazing_spots.json.bak_*.json
 # 実行ログはlogs/に置く。直下のログは追跡しない
 /*.log
+
+# 星空ガイドなどの生成物の出力先
+out/
