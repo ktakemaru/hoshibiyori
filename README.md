@@ -40,26 +40,42 @@
 | `curated_spots.json` | Web調査(星空撮影の専門家・愛好家サイト等)で集めた関東甲信越・中部の撮影名所を順ジオコーディングで座標確定した元データ(84件+要手動確認15件) |
 | `areas.json` | おすすめエリア(7エリア)のバウンディングボックス定義。エリア代表点による雲量の事前スクリーニングに使う |
 | `areas.py` | `areas.json`を読み込み、地点がどのエリアに属するかを判定する |
+| `AGENTS.md` | AIエージェント(Codex / Claude Code)共通の運用ルール(短い) |
+| `requirements.txt` | 必須の第三者パッケージ |
+| `scripts/` | `check_setup.py`(通信しない環境確認) |
 | `CLAUDE.md` | 設計方針・経緯・既知の制約の記録(開発ログ兼仕様書) |
 
 ## セットアップ
 
-Python 3.13以降を想定(開発環境は3.15 RC)。
+Python 3.13以降を想定(開発・動作確認は3.15 RC。3.13は構文上の推定で、実機での全体動作は未確認)。
 
-```bash
-pip install skyfield requests pillow
-python generate_report.py   # report.html を生成(初回はAPI取得のため10〜30分)
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -X utf8 scripts\check_setup.py   # 通信しない環境確認(--network で Open-Meteo に1リクエスト)
+.\.venv\Scripts\python.exe -X utf8 generate_report.py       # report.html を生成(初回はAPI取得のため10〜30分)
 ```
 
-依存パッケージ: `skyfield`・`requests`・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(未導入なら天気図セクションは省略される)。開発・検証は Python 3.15 RC(`py`ランチャー経由)で行っており、Python 3.13に`requests`等が入っていない環境では3.15側で実行すること。
+依存パッケージは `requirements.txt` を参照: `skyfield`・`requests`・`numpy`(標高・光害タイルの配列処理)・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(任意。未導入なら天気図セクションは省略される)。
 
 テスト(ネットワーク不使用、標準ライブラリのunittest):
 
-```bash
-py -X utf8 -m unittest discover -s tests
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests
 ```
 
-Skyfieldの暦ファイル(`de421.bsp`)は初回実行時に自動ダウンロードされる。外部データ(DEMタイル・光害タイル・雲量予報・天気図)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
+Skyfieldの暦ファイル(`de421.bsp`)は無い場合、初回実行時に自動ダウンロードされる(単体テストには不要)。外部データ(DEMタイル・光害タイル・雲量予報・天気図)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
+
+## Codexで試す
+
+AIコーディングエージェント(Codex / Claude Code)にこのリポジトリを渡して使うときの手順です。共通のルールは `AGENTS.md` にまとまっています(Codexは `AGENTS.md` を読みます。設計の経緯を書いた `CLAUDE.md` は約64KBあり、Codexの既定の読み込み上限32KiBを超えるため、短い `AGENTS.md` に分けています)。
+
+1. clone して、上の「セットアップ」の手順で `.venv` を作り、`requirements.txt` を入れる。
+2. `scripts\check_setup.py` で環境を確認する(通信しません)。
+3. 単体テストを実行する(通信しません)。最後の行が `OK` ならよい。
+4. `generate_report.py` は**重い**ので、最初の動作確認には使わないでください。引数なしで10〜30分・Open-Meteo API約220回かかり、`report.html`(git管理)を上書きします。実行はエージェントに任せず、時間と回数を理解したうえで自分で行うのがおすすめです。
+
+エージェントに守らせたいこと(`AGENTS.md`に詳細): 姉妹プロジェクトのコードを参照しない、星空撮影者の目線で評価する、スコア・閾値・雲量判定は指示なしに変えない、外部サイトのキャッシュ・間隔・User-Agentを維持する、429が出たら即中止する。
 
 ## データ出典と利用上の注意
 
