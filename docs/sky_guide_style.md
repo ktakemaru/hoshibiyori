@@ -14,8 +14,8 @@
 # 1. 数値JSON(通信しない。雲量はキャッシュにあれば入り、無ければ理由つきで省略される)
 .\.venv\Scripts\python.exe -X utf8 scripts\make_sky_guide.py --spot 戦場ヶ原 --date 2026-10-09 --json-out out\senjogahara_data.json
 # 2. 解説JSONを out\senjogahara_commentary.json に書く(下記)
-# 3. 描画(解説の時刻の言い回しの機械照合つき。食い違いがあれば出力されない。数値の照合も止めるには --strict-numbers を付ける)
-.\.venv\Scripts\python.exe -X utf8 scripts\render_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html --strict-numbers
+# 3. 描画(解説の時刻の言い回しの機械照合つき。食い違いがあれば出力されない。数値の食い違いも既定で止まる。警告だけにするなら --warn-numbers)
+.\.venv\Scripts\python.exe -X utf8 scripts\render_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html
 ```
 
 - `--estimate` を付けると、通信が要る見込み(未キャッシュの雲量セル数・稜線CSVの有無)だけを表示して終了する。
@@ -94,8 +94,8 @@
 - 時刻の決め方: 節(読点で区切った部分)の中の「N時M分」「N時半」「N時」。無ければ、それより前の節の時刻、それも無ければ `card.time`。
   カード以外の項目(リード・方位表・撮影メモ)で時刻が無い文は検査されない。「N時台」「N時すぎ」のように幅のある言い方の節も検査されない。
 - 検査されないもの: 天体名の無い文、`frames` に無い天体、フレームの時刻から10分以上離れた時刻、方位範囲の無い稜線の仰角、雲量・輝面・距離など高度以外の数値。
-- `render_sky_guide.py` は、既定では数値の食い違いを標準エラーに表示するだけで出力は止めない。`--strict-numbers` を付けると、エラー扱いの食い違いがあれば出力しない
-  (警告は止めない)。`--no-check-text` は従来どおり、すべての照合を省く。`scripts/check_sky_guide_text.py --numbers` で、描画せずに数値も照合できる。
+- `render_sky_guide.py` は、既定でエラー扱いの数値の食い違いがあれば出力しない(終了コード1。月の形容は警告で止めない)。警告表示だけにしたいときは `--warn-numbers`。
+  `--strict-numbers` は互換のために受け付けるが何もしない。`--no-check-text` は従来どおり、すべての照合を省く。`scripts/check_sky_guide_text.py --numbers` で、描画せずに数値も照合できる。
 - 手本は `docs/examples/senjogahara_20261009_commentary_corrected_v2.json`(読み取り専用。新しい検査でエラー・警告とも0件)。
   旧い `..._corrected.json` は時刻の言い回しだけ訂正した版で、新しい検査では方位表の仰角5行・アルタイルとベガの高度・天の川の中心部の高度が食い違うため、手本にしない。
 

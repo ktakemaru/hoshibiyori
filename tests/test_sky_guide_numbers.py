@@ -268,23 +268,26 @@ class CliTest(unittest.TestCase):
         self.assertIn("[警告]", r.stdout)  # 月の形容は警告
         self.assertEqual(self._run("check_sky_guide_text.py", "--data", d, "--commentary", str(FIXED), "--numbers").returncode, 0)
 
-    def test_render_warns_by_default_and_blocks_with_strict_numbers(self):
+    def test_render_blocks_by_default_and_warns_with_warn_numbers(self):
         d = str(DATA)
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "o.html"
             r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(BEFORE), "--out", str(out))
-            self.assertEqual(r.returncode, 0)  # 既定は表示だけで止めない
-            self.assertTrue(out.exists())
-            self.assertIn("(altitude)", r.stderr)
-            out.unlink()
-            r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(BEFORE), "--out", str(out), "--strict-numbers")
-            self.assertEqual(r.returncode, 1)
+            self.assertEqual(r.returncode, 1)  # 既定で止まる
             self.assertFalse(out.exists())
+            self.assertIn("(altitude)", r.stderr)
             self.assertIn("(ridge_range)", r.stderr)
-            r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(BEFORE), "--out", str(out), "--strict-numbers", "--no-check-text")
+            r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(BEFORE), "--out", str(out), "--warn-numbers")
+            self.assertEqual(r.returncode, 0)  # --warn-numbers は警告を表示するだけで止めない
+            self.assertTrue(out.exists())
+            self.assertIn("[警告]", r.stderr)
+            self.assertIn("(altitude)", r.stderr)
+            self.assertNotIn("[エラー]", r.stderr)
+            out.unlink()
+            r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(BEFORE), "--out", str(out), "--no-check-text")
             self.assertEqual(r.returncode, 0)  # --no-check-text は従来どおり検査をすべて省く
             out2 = Path(tmp) / "o2.html"
-            r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(FIXED), "--out", str(out2), "--strict-numbers")
+            r = self._run("render_sky_guide.py", "--data", d, "--commentary", str(FIXED), "--out", str(out2))
             self.assertEqual(r.returncode, 0)
             self.assertEqual(r.stderr.strip(), "")
 
