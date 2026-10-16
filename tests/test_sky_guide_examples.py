@@ -54,7 +54,8 @@ class CorrectedV2Test(unittest.TestCase):
     def test_v2_differs_from_corrected_only_in_the_fixed_places(self):
         self.assertEqual(
             list(_diff(_load(CORRECTED), self.v2)),
-            [".cards[1].body", ".cards[2].body", ".directions[0].elevation", ".directions[1].elevation",
+            [".cards[0].body", ".cards[1].body", ".cards[2].body", ".cards[4].list[0]", ".cards[5].body", ".cards[5].list[0]",
+             ".directions[0].elevation", ".directions[1].elevation",
              ".directions[2].elevation", ".directions[5].elevation", ".directions[7].elevation"])
 
     def test_v2_has_same_structure_as_corrected(self):

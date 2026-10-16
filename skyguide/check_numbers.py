@@ -1,6 +1,6 @@
 """解説JSONの文章中の「数値」を、数値JSON(frames・horizon_deg・events)と機械照合する。通信しない。
 
-`skyguide/check_text.py`(時刻の言い回しだけを見る)は変えず、こちらで次の4種類を足す。`check_all()` が両方をまとめて返す。
+`skyguide/check_text.py`(時刻の言い回しだけを見る)は変えず、こちらで次の6種類を足す。`check_all()` が両方をまとめて返す。
 Finding.kind で見分ける。
 
   altitude     : 「天体名(16方位の高度N°)」「天体名は…16方位の高度N°」の高度と方位を、その文に結びつく時刻のフレームと照合する。
@@ -12,16 +12,23 @@ Finding.kind で見分ける。
   vague_time   : 天体名+昇る・沈む・隠れる・越える等の動詞がある節に「明け方・未明・夜半・宵・夕方」等があれば、events の時刻を数字で書くよう指摘する。
                  動詞が無い記述(「明け方のオリオン座」)は検査しない。
   moon_adjective: 月が出ている夜の輝面が30%を超えるのに「細い月・三日月」と書いたとき(警告。出力は止めない)。
+  altitude_range: 天体名に結びつく「高度A〜B°」(時間帯にわたる高度の範囲)を、その時間帯の天体の高度の最小・最大と照合する(下限・上限それぞれ±1°)。
+                 時間帯は、同じ節に2つの時刻(「23時20分〜0時10分」)があればその区間、無ければカードの本文・list のカードの when(「HH:MM〜HH:MM」)。
+                 when が時刻でない(「終夜」)・カード以外で時刻が無い・節に時刻が1つだけ・文の別の節に時刻がある場合は検査しない。
+                 端のフレームは隣り合うフレーム間の直線補間、0°未満は0°で切る(skyguide/lookup.py の altitude_range_in_window、
+                 scripts/sky_lookup.py --time-range で同じ値を引ける)。
+  ridge_range_loose: 方位範囲を併記しない「<方位名>(〜<方位名>)の稜線は A〜B°」を、directions の行のうち label の方位名が同じ行(1行だけのとき)の
+                 方位範囲で ridge_range と同じ規則(整数に丸めた最小〜最大の一致)で照合する。同じ方位名の行が無い・複数あるときは検査しない。
 
 検査しないもの: 天体名のない文、frames に無い天体、時刻が決まらない文(card.time も文中の時刻も無い)、フレームの時刻から10分以上離れた時刻、
-方位範囲の無い稜線の仰角、雲量・距離・輝面など高度以外の数値。
+同じ方位名の行が1つに決まらない稜線の仰角、雲量・距離・輝面など高度以外の数値。
 """
 from __future__ import annotations
 
 import re
 
 from skyguide.check_text import Finding, _walk, check_text
-from skyguide.lookup import (ridge_range, compass16, known_object_names,
+from skyguide.lookup import (altitude_range_in_window, ridge_range, compass16, known_object_names,
                              nearest_frame_index, position_in_frame)
 
 ALT_TOLERANCE_DEG = 1.0
@@ -40,6 +47,14 @@ _RANGE_BODY_RX = re.compile(
 _LABEL_RANGE_RX = re.compile(r"(\d{1,3})\s*[〜~～]\s*(\d{1,3})")
 _ELEV_RX = re.compile(r"^\s*(\d{1,2})(?:\s*[〜~～]\s*(\d{1,2}))?\s*°?\s*$")
 _CARD_RX = re.compile(r"^cards\[(.+?)\]")
+_SEP = r"[〜~～]"
+_ALT_RANGE_RX = re.compile(rf"高度\s*(\d{{1,2}})\s*{_SEP}\s*(\d{{1,2}})\s*°")
+_WHEN_RX = re.compile(rf"^\s*(\d{{1,2}}:\d{{2}})\s*{_SEP}\s*(\d{{1,2}}:\d{{2}})\s*$")
+_LOOSE_RIDGE_RX = re.compile(
+    rf"({_COMPASS}(?:\s*{_SEP}\s*{_COMPASS})?)(?:の|は)?稜線(?:は|が|の仰角は)?(?:高度)?\s*(\d{{1,2}})(?:\s*{_SEP}\s*(\d{{1,2}}))?\s*°")
+# 高度の範囲が天体ではなく地形(稜線・山)の高さを指す書き方を除く
+_TERRAIN_WORDS = ("稜線", "地平線", "山並み", "尾根", "山頂", "仰角", "山")
+RANGE_TOLERANCE_DEG = 1
 
 
 def _fmt_range(lo: int, hi: int) -> str:
@@ -204,11 +219,113 @@ def _check_moon_adjective(data: dict, commentary: dict) -> list[Finding]:
     return out
 
 
+def _times_in_clause(clause: str) -> list[str]:
+    """clause 中の正確な時刻(「N時M分」「N時半」「N時」)をすべて HH:MM で。幅のある言い方(「N時台」等)は除く。"""
+    out = []
+    for m in _TIME_RX.finditer(_AMBIGUOUS_TIME_RX.sub("", clause)):
+        h = int(m.group(1)) % 24
+        mi = 30 if m.group(3) else int(m.group(2) or 0)
+        out.append(f"{h:02d}:{mi:02d}")
+    return out
+
+
+def _check_altitude_ranges(data: dict, commentary: dict) -> list[Finding]:
+    known = known_object_names(data)
+    card_when = {str(c.get("id")): c.get("when", "") for c in commentary.get("cards", [])}
+    out: list[Finding] = []
+    for where, text in _walk(commentary):
+        cm = _CARD_RX.match(where)
+        when = _WHEN_RX.match(card_when.get(cm.group(1), "")) if cm else None
+        for sentence in re.split(r"(?<=[。！？])", text):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            sentence_has_time = bool(_times_in_clause(sentence))
+            for clause in re.split(r"[、,]", sentence):
+                if _AMBIGUOUS_TIME_RX.search(clause):
+                    continue  # 「23時台に高度50〜60°」のように時刻に幅がある節は照合しない
+                ranges = list(_ALT_RANGE_RX.finditer(clause))
+                if not ranges:
+                    continue
+                times = _times_in_clause(clause)
+                if len(times) >= 2:
+                    start, end = times[0], times[1]
+                elif not times and not sentence_has_time and when:
+                    start, end = when.group(1), when.group(2)
+                else:
+                    continue  # 時間帯が決まらない(節の時刻が1つだけ、文の別の節に時刻がある、when が時刻でない、カード以外)
+                names = _names_in(clause, known)
+                for am in ranges:
+                    before = [(e, n) for s, e, n in names if e <= am.start()]
+                    if not before:
+                        continue  # 天体名が直前に無い(文中の天体を当てはめない)
+                    e_end, obj = before[-1]
+                    if any(w in clause[e_end:am.start()] for w in _TERRAIN_WORDS):
+                        continue  # 「リゲルは…東の稜線は高度19〜25°」のように地形の高さ
+                    lo_said, hi_said = int(am.group(1)), int(am.group(2))
+                    if lo_said > hi_said:
+                        continue
+                    got = altitude_range_in_window(data, obj, start, end)
+                    if got is None:
+                        continue
+                    lo, hi = got
+                    if abs(lo_said - lo) > RANGE_TOLERANCE_DEG or abs(hi_said - hi) > RANGE_TOLERANCE_DEG:
+                        out.append(Finding(where, sentence, am.group(0), obj, "", [], kind="altitude_range",
+                                           message=f"{obj}の「{am.group(0)}」は{start}〜{end}の高度範囲 {_fmt_range(lo, hi)} と合いません"
+                                                   f"(下限・上限とも±{RANGE_TOLERANCE_DEG}°まで。端は隣り合うフレームの直線補間)。"
+                                                   f"scripts/sky_lookup.py --time-range {start} {end} --names {obj} で引いてください。"))
+    return out
+
+
+def _direction_name(label: str) -> str:
+    """方位表の label から方位名の部分(「南東〜南 130〜200°」→「南東〜南」)。区切りは〜にそろえる。"""
+    head = re.split(r"\d", label, maxsplit=1)[0].strip()
+    return re.sub(rf"\s*{_SEP}\s*", "〜", head)
+
+
+def _check_loose_ridge(data: dict, commentary: dict) -> list[Finding]:
+    hz = _horizon(data)
+    if hz is None:
+        return []
+    rows: dict[str, list[tuple[int, int]]] = {}
+    for d in commentary.get("directions", []):
+        lm = _LABEL_RANGE_RX.search(d.get("label", ""))
+        name = _direction_name(d.get("label", ""))
+        if lm and name:
+            rows.setdefault(name, []).append((int(lm.group(1)), int(lm.group(2))))
+    out: list[Finding] = []
+    for where, text in _walk(commentary):
+        for sentence in re.split(r"(?<=[。！？])", text):
+            for m in _LOOSE_RIDGE_RX.finditer(sentence):
+                name = re.sub(rf"\s*{_SEP}\s*", "〜", m.group(1))
+                hits = rows.get(name, [])
+                if len(hits) != 1:
+                    continue  # 同じ方位名の行が無い・複数あるときは、方位範囲を推測しない
+                lo, hi = ridge_range(hz, *hits[0])
+                said = (int(m.group(2)), int(m.group(3) or m.group(2)))
+                if said != (lo, hi):
+                    out.append(Finding(where, sentence.strip(), m.group(0), "", "", [], kind="ridge_range_loose",
+                                       message=f"「{m.group(0)}」: 方位表の「{name} {hits[0][0]}〜{hits[0][1]}°」の稜線の仰角は {_fmt_range(lo, hi)}(horizon_deg)で、"
+                                               f"「{_fmt_range(*said)}」とは合いません。方位範囲を併記して書くと、書き間違いに気づきやすくなります。"))
+    return out
+
+
 def check_numbers(data: dict, commentary: dict) -> list[Finding]:
+    """単発の高度・方位範囲つきの稜線の仰角・曖昧な時間語・月の形容(altitude / ridge_range / vague_time / moon_adjective)。"""
     return (_check_altitudes(data, commentary) + _check_ridge_ranges(data, commentary)
             + _check_vague_time(data, commentary) + _check_moon_adjective(data, commentary))
 
 
+def check_ranges(data: dict, commentary: dict) -> list[Finding]:
+    """範囲表現(altitude_range / ridge_range_loose)。check_numbers の挙動は変えず、別に足した検査。"""
+    return _check_altitude_ranges(data, commentary) + _check_loose_ridge(data, commentary)
+
+
+def check_numeric(data: dict, commentary: dict) -> list[Finding]:
+    """数値の検査すべて(check_numbers + check_ranges)。render_sky_guide.py の既定ゲートと check_sky_guide_text.py --numbers が使う。"""
+    return check_numbers(data, commentary) + check_ranges(data, commentary)
+
+
 def check_all(data: dict, commentary: dict) -> list[Finding]:
-    """時刻の言い回し(check_text)と、数値(このモジュール)の両方。"""
-    return check_text(data, commentary) + check_numbers(data, commentary)
+    """時刻の言い回し(check_text)と、数値の検査すべて。"""
+    return check_text(data, commentary) + check_numeric(data, commentary)
