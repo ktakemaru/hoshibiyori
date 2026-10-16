@@ -13,6 +13,7 @@ from skyguide.check_text import check_sentence, check_text, phrase_matches  # no
 
 FIX = ROOT / "tests" / "fixtures" / "sky_guide"
 CORRECTED = ROOT / "docs" / "examples" / "senjogahara_20261009_commentary_corrected.json"
+CORRECTED_V2 = ROOT / "docs" / "examples" / "senjogahara_20261009_commentary_corrected_v2.json"
 
 
 def _load(p):
@@ -138,7 +139,7 @@ class CliTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0)
             self.assertTrue(out.exists())
             out2 = Path(tmp) / "o2.html"
-            self.assertEqual(self._run("render_sky_guide.py", "--data", d, "--commentary", str(CORRECTED), "--out", str(out2)).returncode, 0)
+            self.assertEqual(self._run("render_sky_guide.py", "--data", d, "--commentary", str(CORRECTED_V2), "--out", str(out2)).returncode, 0)
 
 
 if __name__ == "__main__":
