@@ -72,6 +72,7 @@ py -m venv .venv
 1. 数値JSON: `scripts/make_sky_guide.py --spot <地点> --date <夜の開始日> --json-out out/…_data.json`(既定は通信しない。数値は既存ロジックが計算する。**数値を自分で書かない**)
 2. 解説JSON(`hoshibiyori-skyguide-commentary/1`)を書く。文中の数値は数値JSONの `events` と `frames` から取る。山名は `basis`(確認済み/推定)を付ける
 3. 描画: `scripts/render_sky_guide.py --data … --commentary … --out out/…html`。`out/` に保存して場所を伝える。描画は解説の時刻の言い回し(「N時すぎ」等)を `events` と機械照合し、食い違いがあれば出力しない
+   - 解説に書く高度・方位・方位表の稜線の仰角は `scripts/sky_lookup.py --data … --az 345 15` / `--time 21:40 --names アルタイル …` で引く(`--strict-numbers` が数値の食い違いも止める。規則は `docs/sky_guide_style.md`「数値の照合」)
 - **HTMLは手で書かない**(テンプレートに2つのJSONを差し込む)。必須要素(シミュレーター・事実4項目・構図・山と方位の表・撮影メモ・出典と免責)が欠けるとエラー
 - 通信が要る処理(`--cloud fetch --allow-network`)の前に、`--estimate` の結果と所要時間・リクエスト数の見込みを伝えて承認を得る
 - 雲量は全天の平均で方角は分からない。取れない日付は省略でき、理由がページに出る
