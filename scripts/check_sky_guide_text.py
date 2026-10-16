@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from skyguide.check_numbers import check_numbers  # noqa: E402
+from skyguide.check_numbers import check_numeric  # noqa: E402
 from skyguide.check_text import check_text  # noqa: E402
 
 
@@ -37,7 +37,7 @@ def main() -> int:
     findings = check_text(data, comm)
     warnings = []
     if a.numbers:
-        extra = check_numbers(data, comm)
+        extra = check_numeric(data, comm)
         findings += [f for f in extra if f.severity == "error"]
         warnings = [f for f in extra if f.severity != "error"]
     for f in findings:

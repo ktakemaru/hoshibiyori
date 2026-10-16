@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from skyguide.check_numbers import check_numbers  # noqa: E402
+from skyguide.check_numbers import check_numeric  # noqa: E402
 from skyguide.check_text import check_text  # noqa: E402
 from skyguide.render import SkyGuideError, render_html  # noqa: E402
 
@@ -42,7 +42,7 @@ def main() -> int:
             for f in findings:
                 print(f, file=sys.stderr)
             raise SkyGuideError(f"解説の時刻の言い回しが数値と合いません({len(findings)}件)。events を見て直してください")
-        numeric = [] if a.no_check_text else check_numbers(data, comm)
+        numeric = [] if a.no_check_text else check_numeric(data, comm)
         for f in numeric:
             print(f"[{'警告' if f.severity == 'warning' or a.warn_numbers else 'エラー'}] {f}", file=sys.stderr)
         blocking = [f for f in numeric if f.severity == "error"]

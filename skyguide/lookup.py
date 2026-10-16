@@ -76,3 +76,60 @@ def known_object_names(data: dict) -> set[str]:
     if "ポラリス(北極星)" in names:
         names.add("北極星")
     return names
+
+
+def hhmm_to_minutes(hhmm: str) -> int:
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def frame_minutes(data: dict) -> list[int]:
+    """times を、夜の最初の時刻からの通し分(日付をまたぐと +1440)にしたもの。単調増加。"""
+    out: list[int] = []
+    offset = 0
+    prev = None
+    for t in data.get("times", []):
+        m = hhmm_to_minutes(t)
+        if prev is not None and m + offset < prev:
+            offset += 1440
+        out.append(m + offset)
+        prev = m + offset
+    return out
+
+
+def altitude_range_in_window(data: dict, name: str, start_hhmm: str, end_hhmm: str) -> tuple[int, int] | None:
+    """時間帯 start〜end(日付またぎ可。20分刻みのフレームと合わない端は隣り合うフレーム間の直線補間)の
+    天体 name の高度の最小・最大(四捨五入した整数)。0°未満は0°で切る(地平線の下は数えない)。
+
+    時間帯が夜のフレームの範囲外、または天体がフレームに無いときは None。
+    """
+    ts = frame_minutes(data)
+    frames = data.get("frames", [])
+    if len(ts) < 2 or len(ts) != len(frames):
+        return None
+    s = hhmm_to_minutes(start_hhmm)
+    while s < ts[0]:
+        s += 1440
+    e = hhmm_to_minutes(end_hhmm)
+    while e < s:
+        e += 1440
+    if s > ts[-1] or e > ts[-1]:
+        return None
+    alts: list[float] = []
+    for fr in frames:
+        pos = position_in_frame(fr, name)
+        if pos is None:
+            return None
+        alts.append(pos[1])
+
+    def at(x: int) -> float:
+        for i in range(len(ts) - 1):
+            if ts[i] <= x <= ts[i + 1]:
+                if ts[i + 1] == ts[i]:
+                    return alts[i]
+                return alts[i] + (alts[i + 1] - alts[i]) * (x - ts[i]) / (ts[i + 1] - ts[i])
+        raise ValueError(x)
+
+    vals = [at(s), at(e)] + [alts[i] for i in range(len(ts)) if s < ts[i] < e]
+    vals = [max(0.0, v) for v in vals]
+    return round_half_up(min(vals)), round_half_up(max(vals))
