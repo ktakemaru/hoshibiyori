@@ -33,3 +33,7 @@ stargazing_spots.json.bak_*.json
 
 # 星空ガイドなどの生成物の出力先
 out/
+
+# 生成物(generate_report.py が毎回上書きする。古い版が残ると誤読されるため追跡しない)
+/report.html
+/artifact_report.html
