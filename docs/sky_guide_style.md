@@ -14,8 +14,8 @@
 # 1. 数値JSON(通信しない。雲量はキャッシュにあれば入り、無ければ理由つきで省略される)
 .\.venv\Scripts\python.exe -X utf8 scripts\make_sky_guide.py --spot 戦場ヶ原 --date 2026-10-09 --json-out out\senjogahara_data.json
 # 2. 解説JSONを out\senjogahara_commentary.json に書く(下記)
-# 3. 描画(解説の時刻の言い回しの機械照合つき。食い違いがあれば出力されない)
-.\.venv\Scripts\python.exe -X utf8 scripts\render_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html
+# 3. 描画(解説の時刻の言い回しの機械照合つき。食い違いがあれば出力されない。数値の照合も止めるには --strict-numbers を付ける)
+.\.venv\Scripts\python.exe -X utf8 scripts\render_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara_commentary.json --out out\senjogahara.html --strict-numbers
 ```
 
 - `--estimate` を付けると、通信が要る見込み(未キャッシュの雲量セル数・稜線CSVの有無)だけを表示して終了する。
@@ -67,8 +67,37 @@
 - 例: 稜線を越える時刻が 01:57 の木星は「2時前」。「1時すぎ」ではない。00:53 の火星は「1時前」(「0時すぎ」ではない)。
   見本の元の文章はこの2か所が合っておらず、訂正した解説例が `docs/examples/senjogahara_20261009_commentary_corrected.json`(元のゴールデンは回帰テスト用に元のまま)。
 - 迷ったら、`events` の時刻をそのまま書く(「00:53に稜線を越える」など)。
-- 照合の対象外(検査されないので、`events` と `frames` から取って書く): 天体名のない文、昇る・沈む・隠れる等の動詞のない文、`events` にない天体
-  (等級2.0より暗い恒星)、高度・方位の数値、「N時に」「N時から」の言い方。
+- 時刻の言い回しの照合の対象外(検査されないので、`events` と `frames` から取って書く): 天体名のない文、昇る・沈む・隠れる等の動詞のない文、`events` にない天体
+  (等級2.0より暗い恒星)、「N時に」「N時から」の言い方。高度・方位・稜線の仰角は、次の「数値の照合」が見る。
+
+### 数値の照合(`skyguide/check_numbers.py`)
+
+2026-10-17の実例(みずがき山自然公園)で、時刻の言い回しの照合を通ったのに、カードの高度が別の時刻のフレームの値だった、方位表の仰角が `horizon_deg` と合わなかった、
+「明け方にシリウスが昇る」(events上は01:04)と書いた、輝面38%の月を「細い月」と書いた、という誤りが残った。次の4種類を足した(Finding の `kind` で見分ける)。
+
+| kind | 見るもの | 書き方の決まり |
+|---|---|---|
+| `altitude` | 「天体名(16方位の高度N°)」「天体名は…16方位の高度N°」の方位名と高度 | **カードの高度は `card.time` のフレームから取る**。別の時刻の値を書くときは文中に「21時20分」のように時刻を書く。方位は16方位名(北・北北東・北東…)、高度は±1°以内 |
+| `ridge_range` | 方位表の `label` の方位範囲(「北 345〜15°」)と `elevation`、本文中の「南西(210〜255°)の稜線は1〜4°」 | **方位表の仰角は補助スクリプトで出す**。本文で稜線の仰角を書くときは、**方位範囲を併記する**(併記が無い「南西の稜線は1〜4°」は検査されない) |
+| `vague_time` | 天体名+昇る・沈む・隠れる・越える等の動詞がある節の「明け方・未明・夜半・宵・夕方」等 | **曖昧な時間語を使わない**。`events` の時刻を数字で書く(「シリウスは01:04に稜線を越える」)。動詞の無い「明け方のオリオン座」は検査されない |
+| `moon_adjective`(警告) | 月が出ている間の輝面が30%を超える夜の「細い月・三日月」 | 輝面の数字か「上弦前の月」などにする。警告で、出力は止めない |
+
+数値は補助スクリプトで引く(通信しない)。覚えや推測、別の時刻のフレームの値を書かない。
+
+```powershell
+# 方位範囲の稜線の仰角(360°をまたぐ範囲も可)
+.\.venv\Scripts\python.exe -X utf8 scripts\sky_lookup.py --data out\xxx_data.json --az 345 15
+# ある時刻の天体の方位(16方位)と高度。時刻は数値JSONの times のどれか
+.\.venv\Scripts\python.exe -X utf8 scripts\sky_lookup.py --data out\xxx_data.json --time 21:40 --names アルタイル ベガ デネブ
+```
+
+- 時刻の決め方: 節(読点で区切った部分)の中の「N時M分」「N時半」「N時」。無ければ、それより前の節の時刻、それも無ければ `card.time`。
+  カード以外の項目(リード・方位表・撮影メモ)で時刻が無い文は検査されない。「N時台」「N時すぎ」のように幅のある言い方の節も検査されない。
+- 検査されないもの: 天体名の無い文、`frames` に無い天体、フレームの時刻から10分以上離れた時刻、方位範囲の無い稜線の仰角、雲量・輝面・距離など高度以外の数値。
+- `render_sky_guide.py` は、既定では数値の食い違いを標準エラーに表示するだけで出力は止めない。`--strict-numbers` を付けると、エラー扱いの食い違いがあれば出力しない
+  (警告は止めない)。`--no-check-text` は従来どおり、すべての照合を省く。`scripts/check_sky_guide_text.py --numbers` で、描画せずに数値も照合できる。
+- `docs/examples/senjogahara_20261009_commentary_corrected.json`(読み取り専用)は、時刻の言い回しは直してあるが、新しい検査では方位表の仰角5行・
+  アルタイルとベガの高度・天の川の中心部の高度が食い違う。これは見本の誤りで、このリポジトリでは直していない。
 
 ## 恒星カタログの出典(未照合の注意)
 

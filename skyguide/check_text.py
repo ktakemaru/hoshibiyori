@@ -39,8 +39,15 @@ class Finding:
     name: str
     verb: str
     actual: list[str]
+    # 種別: time_phrase(時刻の言い回し。このモジュールが返すのはこれだけ) / altitude / ridge_range / vague_time / moon_adjective
+    # (後ろの4つは skyguide/check_numbers.py が返す)。severity が "warning" のものは出力を止めない。
+    kind: str = "time_phrase"
+    message: str = ""
+    severity: str = "error"
 
     def __str__(self) -> str:
+        if self.message:
+            return f"[{self.where}] ({self.kind}) {self.message} 文: {self.sentence}"
         act = "・".join(self.actual) if self.actual else "該当する出来事なし"
         return f"[{self.where}] 「{self.phrase}」({self.name}が{'昇る' if self.verb == 'rise' else '沈む'}) は数値と合いません。events上は {act}。 文: {self.sentence}"
 
