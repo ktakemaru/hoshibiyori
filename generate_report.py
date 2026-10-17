@@ -29,6 +29,7 @@ from __future__ import annotations
 import html
 import json
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -54,7 +55,11 @@ from explore_hoshibiyori import (  # noqa: E402
     compute_site_night_window,
 )
 from jma_weather_map import fetch_jma_weather_map, read_fetched_at as read_weather_map_fetched_at  # noqa: E402
-from himawari_image import ATTRIBUTION as HIMAWARI_ATTRIBUTION, HimawariImage, fetch_regional_image, regional_view  # noqa: E402
+from himawari_image import (  # noqa: E402
+    ATTRIBUTION as HIMAWARI_ATTRIBUTION, HIGH_CLOUD_BRIGHTNESS_THRESHOLD, HimawariFetchError, HimawariImage,
+    HimawariRateLimitError, bbox_to_px, draw_outline, fetch_regional_image, high_cloud_fraction,
+    recent_basetimes, regional_view,
+)
 from areas import load_areas  # noqa: E402
 
 OUTPUT_PATH = ROOT / "report.html"
@@ -510,41 +515,139 @@ def _generate(cache: GridCloudCache) -> int:
     return 0
 
 
+HIMAWARI_TREND_FLAT_PT = 5  # 最古と最新の差がこのポイント以内なら「ほぼ横ばい」(機械判定。予想ではない)
+
+
+@dataclass
+class HimawariFrame:
+    image: HimawariImage
+    label: str                 # 「2時間前」「現在」など(最新のbasetimeからの差)
+    fraction: float | None     # 高い雲の割合(0〜1)。算出できなければNone
+    shown_path: Path           # 表示する画像(エリアの外枠を重ね書きしたもの)
+
+
+def himawari_frame_label(basetime_jst: datetime, latest_jst: datetime) -> str:
+    minutes = round((latest_jst - basetime_jst).total_seconds() / 60)
+    if minutes <= 0:
+        return "現在"
+    return f"{minutes // 60}時間前" if minutes % 60 == 0 else f"{minutes}分前"
+
+
+def format_cloud_pct(fraction: float) -> str:
+    """10%未満は小数第1位まで(0.4%)、10%以上は整数(12%)。"""
+    pct = fraction * 100
+    return f"{pct:.1f}%" if round(pct, 1) < 10 else f"{pct:.0f}%"
+
+
+def high_cloud_fact_sentence(points: list[tuple[str, float]]) -> str:
+    """[(ラベル, 割合0〜1)]を古い順に受け取り、観測値の並びと増減だけを述べる一行にする。
+    増減は最古→最新(全体)と、3コマ以上のときは直近1コマ(通常は1時間)。±HIMAWARI_TREND_FLAT_PTポイント以内は
+    「ほぼ横ばい」。全体が横ばいでも直近が±5ポイントを超えるときは、全体の判定語ではなく
+    「直近1時間で増加/減少」とする。先の予想・理由は書かない。割合が無い(空)ときは空文字。"""
+    if not points:
+        return ""
+    chain = " → ".join(f"{label} {format_cloud_pct(frac)}" for label, frac in points)
+    if len(points) < 2:
+        return f"雲域の割合: {chain}"
+    pts = [(label, round(frac * 100, 1)) for label, frac in points]
+
+    def delta(a: float, b: float) -> float:
+        return round(b - a, 1) + 0.0  # -0.0を避ける
+
+    def word(d: float) -> str:
+        return "ほぼ横ばい" if abs(d) <= HIMAWARI_TREND_FLAT_PT else ("増加" if d > 0 else "減少")
+
+    total = delta(pts[0][1], pts[-1][1])
+    head = f"{pts[0][0]}から{total:+.1f}ポイント"
+    if len(pts) < 3:
+        return f"雲域の割合: {chain}({head}({word(total)}))"
+    recent = delta(pts[-2][1], pts[-1][1])
+    recent_label = "直近1時間" if pts[-2][0] == "1時間前" else f"{pts[-2][0]}から"
+    if abs(total) <= HIMAWARI_TREND_FLAT_PT < abs(recent):
+        return f"雲域の割合: {chain}({head}、{recent_label}で{word(recent)}({recent:+.1f}ポイント))"
+    return f"雲域の割合: {chain}({head}({word(total)})、{recent_label}は{recent:+.1f}ポイント)"
+
+
 def build_himawari_html() -> str:
-    """areas.jsonの全範囲を覆う広域1枚の赤外画像を取得してセクションHTMLにする。失敗時は空文字(省略)。"""
+    """areas.jsonの全範囲を覆う広域の赤外画像を直近2時間の最大3コマ取得してセクションHTMLにする。
+    取得できたコマだけを使い、1コマも無い・失敗・429のときは空文字(省略)。"""
     try:
-        center_lat, center_lon, span = regional_view(
-            [(a.lat_min, a.lat_max, a.lon_min, a.lon_max) for a in load_areas()])
-        image = fetch_regional_image(center_lat, center_lon, imgtype="ir", span=span)
+        areas = load_areas()
+        bboxes = [(a.lat_min, a.lat_max, a.lon_min, a.lon_max) for a in areas]
+        center_lat, center_lon, span = regional_view(bboxes)
+        basetimes = recent_basetimes()
     except Exception as e:
         print(f"[ひまわり] 取得に失敗したため画像セクションを省略します: {e}")
         return ""
-    if image is None:
-        print("[ひまわり] タイルを1枚も取得できなかったため画像セクションを省略します")
+    outer = (min(b[0] for b in bboxes), max(b[1] for b in bboxes), min(b[2] for b in bboxes), max(b[3] for b in bboxes))
+
+    images: list[HimawariImage] = []
+    for bt in basetimes:
+        try:
+            image = fetch_regional_image(center_lat, center_lon, imgtype="ir", span=span, basetime=bt)
+        except HimawariRateLimitError as e:
+            print(f"[ひまわり] 429(利用上限)のため取得を中止し、画像セクションを省略します: {e}")
+            return ""
+        except Exception as e:
+            print(f"[ひまわり] {bt} のコマを取得できず省きます: {e}")
+            continue
+        if image is None:
+            print(f"[ひまわり] {bt} はタイルを1枚も取得できなかったためコマを省きます")
+            continue
+        images.append(image)
+    if not images:
+        print("[ひまわり] 取得できたコマが無いため画像セクションを省略します")
         return ""
-    print(f"[ひまわり] 基準時刻 {image.basetime_jst:%Y-%m-%d %H:%M} JST / "
-          f"タイル{image.tiles_ok}/{image.tiles_total}枚取得({image.span}x{image.span})")
-    return render_himawari_section(image)
+
+    latest_jst = images[-1].basetime_jst
+    frames: list[HimawariFrame] = []
+    for image in images:
+        px = bbox_to_px(*outer, image.x0, image.y0, image.span)
+        fraction = None
+        shown = image.path
+        if px is not None:
+            try:
+                fraction = high_cloud_fraction(image.path, px)
+                shown = draw_outline(image.path, px, image.path.with_name(f"outline_{image.path.stem}.png"))
+            except Exception as e:
+                print(f"[ひまわり] {image.basetime} の割合算出・枠線の加筆に失敗: {e}")
+        frames.append(HimawariFrame(image, himawari_frame_label(image.basetime_jst, latest_jst), fraction, shown))
+    print(f"[ひまわり] {len(frames)}コマ(基準時刻 {frames[-1].image.basetime_jst:%Y-%m-%d %H:%M} JST、"
+          f"最新のコマのタイル{frames[-1].image.tiles_ok}/{frames[-1].image.tiles_total}枚)")
+    return render_himawari_section(frames)
 
 
-def render_himawari_section(image: HimawariImage) -> str:
-    rel_src = image.path.relative_to(ROOT).as_posix()
-    base_label = f"{image.basetime_jst:%Y-%m-%d %H:%M} JST"
+def render_himawari_section(frames: "list[HimawariFrame] | HimawariImage") -> str:
+    if isinstance(frames, HimawariImage):  # 従来の呼び出し(1枚)との互換: 割合なしの1コマとして扱う
+        frames = [HimawariFrame(frames, "現在", None, frames.path)]
+    if not frames:
+        return ""
+    cards = []
+    for f in frames:
+        rel_src = f.shown_path.relative_to(ROOT).as_posix()
+        time_label = f"{f.image.basetime_jst:%Y-%m-%d %H:%M} JST"
+        frac_label = f"雲域の割合 {format_cloud_pct(f.fraction)}" if f.fraction is not None else "割合: 算出できず"
+        cards.append(f"""
+          <figure class="wmap-card">
+            <img src="{html.escape(rel_src)}" alt="気象衛星ひまわり赤外画像({html.escape(f.label)})" loading="lazy">
+            <figcaption>{html.escape(f.label)}({html.escape(time_label)})<br>{html.escape(frac_label)}</figcaption>
+          </figure>""")
+    fact = high_cloud_fact_sentence([(f.label, f.fraction) for f in frames if f.fraction is not None])
+    fact_html = f'<p class="wmap-commentary">{html.escape(fact)}</p>' if fact else ""
     return f"""
       <div class="wmap-block">
-        <h3>現況の雲の様子(参考) &mdash; 気象衛星ひまわり 赤外画像</h3>
-        <div class="wmap-row">
-          <figure class="wmap-card">
-            <img src="{html.escape(rel_src)}" alt="気象衛星ひまわり赤外画像(関東甲信越・中部周辺)" loading="lazy">
-            <figcaption>基準時刻 {html.escape(base_label)}(実況。予報ではありません)</figcaption>
-          </figure>
-        </div>
-        <p class="wmap-caveat">レポート生成時点の最新の実況画像で、これから先の天気を示すものではありません。
-        赤外画像は雲の温度(雲頂の高さ)を映したもので、夜間は低層雲・霧と地面との温度差が小さく見分けにくいため、
-        晴れ曇りの断定には使わず参考に留めてください。候補地点の評価・順位には使っていません。
-        画像には海岸線・県境の重ね合わせはありません。また、画像内に白く塗りつぶされた矩形部分が
-        含まれることがあります(気象庁配信のタイル自体の内容で、当方の加工によるものではありません。原因は未確認です)。
-        {html.escape(HIMAWARI_ATTRIBUTION)}</p>
+        <h3>現況の雲の様子(参考) &mdash; 気象衛星ひまわり 赤外画像(左から古い順)</h3>
+        <div class="wmap-row">{"".join(cards)}</div>
+        {fact_html}
+        <p class="wmap-caveat">実況の画像であり、予報ではありません。これから先の天気を示すものではありません。
+        赤外画像は雲の温度(雲頂の高さ)を映したもので、低い雲・霧は地面との温度差が小さく見分けにくく、
+        夜間は特にそうなので、晴れ曇りの断定には使わず参考に留めてください。
+        「雲域の割合」は、図の黄色い枠(候補エリア全体の外枠)の中で、赤外で明るく写る範囲(画像の明るさが{HIGH_CLOUD_BRIGHTNESS_THRESHOLD}/255以上)の
+        画素の割合から出した画像の明るさからの目安で、気象庁の公式の雲量ではありません(明るさの基準は暫定値です。
+        タイルに含まれる純白の塗りつぶし部分は除いています)。
+        候補地点の評価・順位には使っていません。画像には海岸線・県境の重ね合わせはありません。また、画像内に
+        白く塗りつぶされた矩形部分が含まれることがあります(気象庁配信のタイル自体の内容で、当方の加工によるものではありません。原因は未確認です)。
+        {html.escape(HIMAWARI_ATTRIBUTION)}(枠線を加筆して作成)</p>
       </div>"""
 
 
