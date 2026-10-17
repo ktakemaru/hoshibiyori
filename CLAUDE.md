@@ -489,3 +489,12 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - 解説の時刻の言い回しの機械照合(`skyguide/check_text.py`、`scripts/check_sky_guide_text.py`、`render_sky_guide.py`が既定で実行): 「N時すぎ」=N:00〜N:29、「N時前」=N:00の30分前〜、
   「N時M分ごろ」=±10分、「N時ごろ」=±30分、「N時台」=1時間。見本の「0時すぎに火星、1時すぎに木星」は、稜線越えが00:53・01:57で合っておらず(正しくは「1時前」「2時前」)、
   ゴールデンは元のまま回帰テスト(5か所を検出)に使い、訂正例は`docs/examples/`に置いた。
+
+## 地上天気図の解説文の有効期限(2026-10-17)
+
+- 従来は`generate_report.py`の定数`WEATHER_MAP_COMMENTARY`(2026-09-06の台風解説)に埋め込まれ、24時間超過でも警告つきで古い本文が出続けていた。
+  これを外部ファイル`weather_map_commentary.json`(git管理外、スキーマ`hoshibiyori-weathermap-commentary/1`: `based_on`[JST・タイムゾーン付き]と`text`)に改めた。
+- 有効期限は`WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS = 12`(ちょうど12時間を含む)。超過・`based_on`が未来・ファイル無し/壊れ/スキーマ違い/タイムゾーン無しは、
+  **古い本文を出さず**画像と「解説文は未更新のため表示していません(最終更新 …)」の一行だけを表示する。
+- `fetch_jma_weather_map()`は戻り値(パスのリスト)を変えず、画像と同じ場所に`fetched_at.txt`(JST)を書く。レポートの図の下に取得時刻を表示。
+- 更新手順はAGENTS.md第12節。テスト: `tests/test_weather_map_commentary.py`。

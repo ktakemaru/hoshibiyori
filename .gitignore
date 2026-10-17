@@ -37,3 +37,6 @@ out/
 # 生成物(generate_report.py が毎回上書きする。古い版が残ると誤読されるため追跡しない)
 /report.html
 /artifact_report.html
+
+# 天気図の解説文(generate_report.py が読む。手で更新する運用、AGENTS.md参照)
+/weather_map_commentary.json

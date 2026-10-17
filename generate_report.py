@@ -53,7 +53,7 @@ from explore_hoshibiyori import (  # noqa: E402
     stage2_cloud_filter, stage3_direction_filter, stage_outlook,
     compute_site_night_window,
 )
-from jma_weather_map import fetch_jma_weather_map  # noqa: E402
+from jma_weather_map import fetch_jma_weather_map, read_fetched_at as read_weather_map_fetched_at  # noqa: E402
 from himawari_image import ATTRIBUTION as HIMAWARI_ATTRIBUTION, HimawariImage, fetch_regional_image, regional_view  # noqa: E402
 from areas import load_areas  # noqa: E402
 
@@ -62,23 +62,12 @@ TOP_N_TIER2 = 10
 
 # --- JMA地上天気図(2段目「直近・行動用」、2026-09-06追加) ---
 # 実況+24h予想+48h予想の3枚を画像として毎回取得・表示する(jma_weather_map.py参照)。
-# 一方でWEATHER_MAP_COMMENTARYは「Claudeが画像を目視して書いた解説文」であり、
-# generate_report.pyの実行だけでは自動更新されない。画像は毎回最新のものに
-# 差し替わるため、実際の天気図とここでの文章が食い違う状態になりうる。
-# そのためWEATHER_MAP_COMMENTARY_DATE(この解説文がいつの天気図をもとに書かれたか)を
-# datetimeで保持し、レポート生成時刻との差がWEATHER_MAP_COMMENTARY_STALE_HOURSを
-# 超えたら控えめな注記ではなく目立つ警告に切り替える(render_weather_map_section参照)。
-# 天気図の内容が変わった際は、新しく取得された画像をClaudeに見せて本文を書き直し、
-# WEATHER_MAP_COMMENTARY_DATEも取得時刻に更新すること。
-WEATHER_MAP_COMMENTARY_DATE = datetime(2026, 9, 6, 19, 0, tzinfo=JST)
-WEATHER_MAP_COMMENTARY_STALE_HOURS = 24
-WEATHER_MAP_COMMENTARY = (
-    "台風24号(実況時点で992hPa)が南方海上をゆっくり北上しており、日本の南岸には"
-    "前線が停滞しています。48時間後には熱帯低気圧に弱まりながら本州へ近づく見込みで、"
-    "日本海側には新たな低気圧が発生し前線を伴う予想です。この期間は太平洋側を中心に"
-    "雲や雨の影響を受けやすく、天気の変化に注意してください。一方、北日本や日本海側は"
-    "高気圧の勢力下で比較的安定した空模様が期待できます。"
-)
+# 解説文は「Claudeが画像を見て書いた文章」で自動更新されないため、リポジトリ直下の
+# weather_map_commentary.json(git管理外)から読み、based_onからWEATHER_MAP_COMMENTARY_MAX_AGE_HOURS
+# 以内のときだけ表示する。それ以外は古い本文を出さず、画像と理由の一行だけを表示する。
+WEATHER_MAP_COMMENTARY_PATH = ROOT / "weather_map_commentary.json"
+WEATHER_MAP_COMMENTARY_SCHEMA = "hoshibiyori-weathermap-commentary/1"
+WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS = 12
 
 # 模式図(SVG)の緯度経度範囲。関東甲信越・中部+伊豆諸島+佐渡が収まる固定枠
 # (実行のたびにスケールが変わらないよう、対象データに合わせて可変にはしない)。
@@ -482,7 +471,8 @@ def _generate(cache: GridCloudCache) -> int:
 
     try:
         weather_map_paths = fetch_jma_weather_map()
-        weather_map_html = render_weather_map_section(weather_map_paths, t_start)
+        weather_map_html = render_weather_map_section(
+            weather_map_paths, t_start, fetched_at=read_weather_map_fetched_at())
     except Exception as e:
         print(f"[天気図] 取得に失敗したためスキップします: {e}")
         weather_map_html = ""
@@ -751,7 +741,28 @@ def render_sky_guide(sky_guide: dict) -> str:
 _WEATHER_MAP_STEP_LABELS = {"now": "実況", "plus24h": "24時間後の予想", "plus48h": "48時間後の予想"}
 
 
-def render_weather_map_section(image_paths: list, now: datetime) -> str:
+def load_weather_map_commentary(path: Path = WEATHER_MAP_COMMENTARY_PATH) -> tuple[str | None, datetime | None]:
+    """解説JSONを読み、(本文, based_on)を返す。ファイル無し・壊れ・スキーマ違い・based_on不備は(None, None)。
+
+    based_onが読めて本文だけ不備のときは(None, based_on)を返し、「最終更新」を理由に添えられるようにする。
+    """
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("schema") != WEATHER_MAP_COMMENTARY_SCHEMA:
+            return None, None
+        based_on = datetime.fromisoformat(str(data.get("based_on")))
+    except (OSError, ValueError, TypeError):
+        return None, None
+    if based_on.tzinfo is None:
+        return None, None
+    text = data.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return None, based_on
+    return text, based_on
+
+
+def render_weather_map_section(image_paths: list, now: datetime, commentary_path: Path | None = None,
+                               fetched_at: datetime | None = None) -> str:
     if not image_paths:
         return ""
 
@@ -766,28 +777,31 @@ def render_weather_map_section(image_paths: list, now: datetime) -> str:
             <figcaption>{html.escape(label)}</figcaption>
           </figure>""")
 
-    commentary_date_label = WEATHER_MAP_COMMENTARY_DATE.strftime("%Y-%m-%d %H時取得分")
-    age_hours = (now - WEATHER_MAP_COMMENTARY_DATE).total_seconds() / 3600
+    text, based_on = load_weather_map_commentary(commentary_path or WEATHER_MAP_COMMENTARY_PATH)
+    commentary_html = ""
+    if text is not None and based_on is not None:
+        age_hours = (now - based_on).total_seconds() / 3600
+        if 0 <= age_hours <= WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS:
+            label = based_on.astimezone(JST).strftime("%Y-%m-%d %H時")
+            commentary_html = (
+                f'<p class="wmap-commentary">{html.escape(text)}</p>'
+                f'<p class="wmap-caveat">{html.escape(label)}の天気図をもとに記述した解説です。</p>'
+            )
+    if not commentary_html:
+        suffix = f"(最終更新 {based_on.astimezone(JST).strftime('%Y-%m-%d %H時')})" if based_on else ""
+        commentary_html = f'<p class="wmap-caveat">解説文は未更新のため表示していません{html.escape(suffix)}</p>'
 
-    if age_hours > WEATHER_MAP_COMMENTARY_STALE_HOURS:
-        freshness_html = (
-            f'<p class="wmap-stale-warning">⚠️ この解説文は約{age_hours:.0f}時間前'
-            f'({html.escape(commentary_date_label)})の天気図をもとにしたものです。'
-            "最新の図と食い違っている可能性があります。</p>"
-        )
-    else:
-        freshness_html = (
-            f'<p class="wmap-caveat">解説文は{html.escape(commentary_date_label)}の天気図をもとに手動で記述したものです。'
-            "天気図画像はレポート生成のたびに気象庁から最新のものを取得しますが、解説文は自動更新されません。"
-            "出典: 気象庁ホームページ(https://www.jma.go.jp/bosai/weather_map/)。</p>"
-        )
+    fetched_html = ""
+    if fetched_at is not None:
+        fetched_html = f'<p class="wmap-caveat">天気図の取得時刻: {html.escape(fetched_at.astimezone(JST).strftime("%Y-%m-%d %H:%M"))}</p>'
 
     return f"""
       <div class="wmap-block">
         <h3>地上天気図(気象庁)</h3>
         <div class="wmap-row">{"".join(cards)}</div>
-        <p class="wmap-commentary">{html.escape(WEATHER_MAP_COMMENTARY)}</p>
-        {freshness_html}
+        {fetched_html}
+        {commentary_html}
+        <p class="wmap-caveat">出典: 気象庁ホームページ(https://www.jma.go.jp/bosai/weather_map/)。</p>
       </div>"""
 
 

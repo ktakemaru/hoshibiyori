@@ -24,7 +24,7 @@ JMA側の仕様を把握した。コード自体は移植・コピーしてお�
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 JMA_WEATHER_MAP_URL = "https://www.jma.go.jp/bosai/weather_map/"
@@ -33,6 +33,19 @@ DEFAULT_OUT_DIR = Path(__file__).parent / "weather_map_cache"
 # JMAの天気図ページの「ひとつ後の時間を表示」ボタンは、実況から数えて+24h予想・+48h予想の
 # 2段階までしか進まない(ページ自体の仕様。将来ページ側の挙動が変われば要調整)。
 _FORECAST_STEP_LABELS = ["plus24h", "plus48h"]
+
+# 画像と同じ場所に、取得時刻(JST、タイムゾーン付きISO形式)を1行で書くファイル。
+FETCHED_AT_FILENAME = "fetched_at.txt"
+_JST = timezone(timedelta(hours=9))
+
+
+def read_fetched_at(out_dir: str | Path = DEFAULT_OUT_DIR) -> datetime | None:
+    """fetched_at.txtの取得時刻を返す。無い・壊れている・タイムゾーン無しならNone。"""
+    try:
+        dt = datetime.fromisoformat((Path(out_dir) / FETCHED_AT_FILENAME).read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    return dt if dt.tzinfo is not None else None
 
 
 def fetch_jma_weather_map(out_dir: str | Path = DEFAULT_OUT_DIR, include_forecast: bool = True) -> list[Path]:
@@ -50,7 +63,8 @@ def fetch_jma_weather_map(out_dir: str | Path = DEFAULT_OUT_DIR, include_forecas
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    now_jst = datetime.now(_JST)
+    timestamp = now_jst.strftime("%Y-%m-%d_%H%M")
 
     # 天気図の<img>はsrc属性が"data/png/<ファイル名>"という相対パスで(JSが
     # jQueryの.attr("src", ...)で書き込むため先頭に"/"が付かない)、タイムスタンプ+
@@ -99,6 +113,8 @@ def fetch_jma_weather_map(out_dir: str | Path = DEFAULT_OUT_DIR, include_forecas
 
         browser.close()
 
+    if saved:
+        (out_dir / FETCHED_AT_FILENAME).write_text(now_jst.isoformat(timespec="minutes"), encoding="utf-8")
     return saved
 
 
