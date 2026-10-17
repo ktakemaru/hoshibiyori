@@ -173,6 +173,26 @@ def latest_basetime() -> str:
     return max(t["basetime"] for t in resp.json())
 
 
+def recent_basetimes(offsets_min: tuple[int, ...] = (0, 60, 120)) -> list[str]:
+    """最新のbasetimeと、そこから offsets_min 分前に最も近い(かつそれ以前の)basetimeを、古い順に返す。
+
+    targetTimes_jp.json を1回だけ取得する。offset 0 が最新。一覧に該当が無いoffsetは省き(得られた分だけ返す)、
+    同じbasetimeに当たったものは1つにまとめる。
+    """
+    resp = _http_get(f"{BASE_URL}/targetTimes_{AREA}.json")
+    times = sorted({t["basetime"] for t in resp.json()})
+    if not times:
+        return []
+    latest = datetime.strptime(times[-1], "%Y%m%d%H%M%S")
+    picked: set[str] = set()
+    for off in offsets_min:
+        target = latest - timedelta(minutes=off)
+        cands = [t for t in times if datetime.strptime(t, "%Y%m%d%H%M%S") <= target]
+        if cands:
+            picked.add(cands[-1])
+    return sorted(picked)
+
+
 def _tile_url(basetime: str, imgtype: str, x: int, y: int) -> str:
     return f"{BASE_URL}/{basetime}/{AREA}/{basetime}/{IMG_TYPES[imgtype]}/{ZOOM}/{x}/{y}.jpg"
 
@@ -230,3 +250,60 @@ def fetch_regional_image(center_lat: float, center_lon: float, imgtype: str = "i
         path=mosaic_path, basetime=basetime, basetime_jst=basetime_to_jst(basetime), imgtype=imgtype,
         span=span, x0=x0, y0=y0, tiles_ok=ok, tiles_total=span * span,
     )
+
+
+# --- 「高い雲の割合」(参考表示用の純関数。通信しない。スコア・足切りには使わない) -----------
+
+# 赤外画像(B13/TBB)は雲頂が高い(冷たい)ほど白く映る。グレースケールの明るさ(0〜255)がこの値以上の
+# 画素を「高い雲」の目安とみなす。**未較正の暫定値**: 実画像で妥当性を確認しておらず、季節・時刻・
+# 地面の温度(夜間の放射冷却した地表も白く映りうる)で意味が変わる。気象庁の公式の雲量ではない。
+HIGH_CLOUD_BRIGHTNESS_THRESHOLD = 170
+
+
+def bbox_to_px(lat_min: float, lat_max: float, lon_min: float, lon_max: float,
+               x0: int, y0: int, span: int) -> tuple[int, int, int, int] | None:
+    """緯度経度の矩形を、モザイク(左上タイル(x0,y0)、span x spanタイル)上のピクセル矩形
+    (left, top, right, bottom。rightとbottomは含まない)に直す。窓外にはみ出す分は切る。
+    窓と重ならない(面積が0になる)ときは None。"""
+    fx_min, fy_top = tile_float(lat_max, lon_min)
+    fx_max, fy_bottom = tile_float(lat_min, lon_max)
+    size = span * TILE_PX
+    left = max(0, math.floor((fx_min - x0) * TILE_PX))
+    top = max(0, math.floor((fy_top - y0) * TILE_PX))
+    right = min(size, math.ceil((fx_max - x0) * TILE_PX))
+    bottom = min(size, math.ceil((fy_bottom - y0) * TILE_PX))
+    if right <= left or bottom <= top:
+        return None
+    return left, top, right, bottom
+
+
+def high_cloud_fraction(image_path_or_pil, bbox_px: tuple[int, int, int, int],
+                        threshold: int = HIGH_CLOUD_BRIGHTNESS_THRESHOLD) -> float:
+    """画像の bbox_px(left, top, right, bottom)内で、グレースケールの明るさが threshold 以上の画素の割合(0〜1)。
+    threshold ちょうどの画素は「高い雲」に数える。bboxが画像の外にはみ出す分は切り、画像と重ならなければ ValueError。"""
+    from PIL import Image
+
+    if isinstance(image_path_or_pil, (str, Path)):
+        with Image.open(image_path_or_pil) as im:
+            gray = im.convert("L")
+    else:
+        gray = image_path_or_pil.convert("L")
+    left, top, right, bottom = bbox_px
+    left, top = max(0, left), max(0, top)
+    right, bottom = min(gray.width, right), min(gray.height, bottom)
+    if right <= left or bottom <= top:
+        raise ValueError(f"bbox {bbox_px} が画像(幅{gray.width},高さ{gray.height})と重なりません")
+    hist = gray.crop((left, top, right, bottom)).histogram()
+    return sum(hist[max(0, int(math.ceil(threshold))):]) / ((right - left) * (bottom - top))
+
+
+def draw_outline(image_path: Path, bbox_px: tuple[int, int, int, int], out_path: Path) -> Path:
+    """画像に矩形の細い外枠を重ね書きして out_path に保存する(元の画像ファイルは変えない)。"""
+    from PIL import Image, ImageDraw
+
+    with Image.open(image_path) as im:
+        canvas = im.convert("RGB")
+    left, top, right, bottom = bbox_px
+    ImageDraw.Draw(canvas).rectangle((left, top, right - 1, bottom - 1), outline=(255, 214, 0), width=1)
+    canvas.save(out_path, "PNG")
+    return out_path
