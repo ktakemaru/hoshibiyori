@@ -98,9 +98,10 @@ py -m venv .venv
 5. 数値の扱いは第10節のとおり(数値を自分で書かない)。
 
 ## 12. 天気図の解説を更新するとき
-レポートの地上天気図の解説は `weather_map_commentary.json`(リポジトリ直下、git管理外)から読む。`based_on` から生成時刻まで12時間以内のときだけ表示され、超過・未来・無い・壊れている場合は画像だけを出す。
-1. 天気図を取得する(`step5_cloud_forecast/jma_weather_map.py` を実行、またはレポート生成。`weather_map_cache/fetched_at.txt` に取得時刻が入る。気象庁へ通信する)
-2. 画像を見て、実況と+24h/+48hの高低気圧・前線の配置を事実として書く
-3. `{"schema": "hoshibiyori-weathermap-commentary/1", "based_on": "<取得時刻 JST・タイムゾーン付き>", "text": "…"}` を保存する
+レポートの地上天気図の解説は `weather_map_commentary.json`(リポジトリ直下、git管理外)から読む。schema `/2`・`based_on` から生成時刻まで12時間以内・`images` の3枚が実在、の3つが揃うときだけ表示し、そのときは気象庁へ取得に行かず、`images` の画像(解説の元にした図)を使う。揃わない場合(超過・未来・無い・壊れている・`/1`・画像が無い)は、従来どおり取得して画像だけを出し、解説は表示しない。
+1. 天気図を取得する(`step5_cloud_forecast/jma_weather_map.py` を実行。`weather_map_cache/fetched_at.txt` に取得時刻が入る。気象庁へ通信する)
+2. 取得した画像を見て、実況と+24h/+48hの高低気圧・前線の配置を事実として書く
+3. 次の形で保存する。`images` は読んだ画像のパス(リポジトリ直下からの相対。絶対パスや `..` は無効、シンボリックリンクで外へ出るものも無効)
+   `{"schema": "hoshibiyori-weathermap-commentary/2", "based_on": "<取得時刻 JST・タイムゾーン付き>", "text": "…", "images": {"now": "step5_cloud_forecast/weather_map_cache/….png", "plus24h": "…", "plus48h": "…"}}`
 4. レポートを生成する
 - 解説は公式の天気図の説明にとどめ、独自の予報(通過時刻の予測など)は書かない。

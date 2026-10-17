@@ -32,13 +32,28 @@ def _doc(based_on, schema=gr.WEATHER_MAP_COMMENTARY_SCHEMA):
 
 
 class CommentaryAgeTest(unittest.TestCase):
+    # 2026-10-17: 解説の表示にschema /2とimages(実在する3枚)が必要になったため、この2件だけ
+    # 文書を/2にして一時フォルダに画像を作る形に直した。期待値(11時間前・ちょうど12時間前は表示する)は不変。
+    def _render_valid(self, hours):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            images = {}
+            for step in ("now", "plus24h", "plus48h"):
+                (root / f"{step}.png").write_bytes(b"x")
+                images[step] = f"{step}.png"
+            doc = _doc((NOW - timedelta(hours=hours)).isoformat())
+            doc["images"] = images
+            path = root / "c.json"
+            path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+            return gr.render_weather_map_section([IMG], NOW, commentary_path=path, root=root)
+
     def test_within_12h_shown(self):
-        out = _render(_doc((NOW - timedelta(hours=11)).isoformat()))
+        out = self._render_valid(11)
         self.assertIn(BODY, out)
         self.assertIn("2026-10-17 19:00 取得の天気図をもとに記述した解説です", out)
 
     def test_exactly_12h_shown(self):
-        self.assertIn(BODY, _render(_doc((NOW - timedelta(hours=12)).isoformat())))
+        self.assertIn(BODY, self._render_valid(12))
 
     def test_over_12h_hidden(self):
         out = _render(_doc((NOW - timedelta(hours=12, minutes=1)).isoformat()))
