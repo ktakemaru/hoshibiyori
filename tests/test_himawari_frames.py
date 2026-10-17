@@ -1,4 +1,4 @@
-"""ひまわり3コマ表示と「高い雲の割合」の単体テスト。通信しない(requests.get をモック)。
+"""ひまわり3コマ表示と「雲域の割合」の単体テスト。通信しない(requests.get をモック)。
 
 閾値は決め打ちにせず、合成画像で純関数の振る舞いを検査する。
 """
@@ -117,6 +117,50 @@ class HighCloudFractionTest(unittest.TestCase):
             self.assertEqual(Image.open(out).getpixel((10, 10)), (0, 0, 0))
 
 
+class SolidFillExclusionTest(unittest.TestCase):
+    """純白の塗りつぶし長方形の除外(合成画像)。"""
+
+    def canvas(self, size=100):
+        return Image.new("L", (size, size), 0)
+
+    def test_default_threshold_is_100(self):
+        self.assertEqual(hi.HIGH_CLOUD_BRIGHTNESS_THRESHOLD, 100)
+        im = Image.new("L", (10, 10), 120)
+        self.assertEqual(hi.high_cloud_fraction(im, (0, 0, 10, 10)), 1.0)  # 既定(100)なら雲域
+        self.assertEqual(hi.high_cloud_fraction(im, (0, 0, 10, 10), 130), 0.0)
+
+    def test_big_solid_rect_excluded_from_both(self):
+        im = self.canvas()
+        im.paste(255, (0, 0, 60, 40))     # 2400px、充填率1.0 → 除外
+        im.paste(150, (70, 0, 100, 100))  # 雲 3000px
+        self.assertAlmostEqual(hi.high_cloud_fraction(im, (0, 0, 100, 100)), 3000 / 7600)
+
+    def test_without_solid_rect(self):
+        im = self.canvas()
+        im.paste(150, (70, 0, 100, 100))
+        self.assertAlmostEqual(hi.high_cloud_fraction(im, (0, 0, 100, 100)), 3000 / 10000)
+
+    def test_small_white_rect_not_excluded(self):
+        im = self.canvas()
+        im.paste(255, (0, 0, 30, 30))     # 900px(2000未満)→ 雲として数える
+        self.assertAlmostEqual(hi.high_cloud_fraction(im, (0, 0, 100, 100)), 900 / 10000)
+
+    def test_low_fill_ratio_not_excluded(self):
+        im = Image.new("L", (100, 100), 255)
+        im.paste(0, (15, 15, 85, 85))     # 白い枠(5100px、外接矩形の充填率0.51)
+        self.assertAlmostEqual(hi.high_cloud_fraction(im, (0, 0, 100, 100)), 5100 / 10000)
+
+    def test_nothing_left_returns_none(self):
+        self.assertIsNone(hi.high_cloud_fraction(Image.new("L", (100, 100), 255), (0, 0, 100, 100)))
+
+    def test_exclusion_only_inside_bbox_denominator(self):
+        im = self.canvas()
+        im.paste(255, (0, 0, 60, 40))     # bboxの外にも半分はみ出す塗りつぶし
+        im.paste(150, (70, 0, 100, 100))
+        # bbox=右半分(x50〜100): 塗りつぶしはx50〜60 × y0〜40 = 400px が除外される
+        self.assertAlmostEqual(hi.high_cloud_fraction(im, (50, 0, 100, 100)), 3000 / (5000 - 400))
+
+
 class BboxToPxTest(unittest.TestCase):
     def test_inside_window(self):
         x0, y0, span = 56, 24, 2
@@ -156,7 +200,7 @@ class FactSentenceTest(unittest.TestCase):
 
     def test_decrease(self):
         out = self.S([("2時間前", 0.38), ("1時間前", 0.25), ("現在", 0.12)])
-        self.assertEqual(out, "高い雲の割合: 2時間前 38% → 1時間前 25% → 現在 12%(2時間前から26ポイント減少)")
+        self.assertEqual(out, "雲域の割合: 2時間前 38% → 1時間前 25% → 現在 12%(2時間前から26ポイント減少)")
 
     def test_increase(self):
         out = self.S([("2時間前", 0.10), ("現在", 0.30)])
@@ -170,7 +214,7 @@ class FactSentenceTest(unittest.TestCase):
 
     def test_two_and_one_and_zero(self):
         self.assertIn("1時間前 25% → 現在 12%", self.S([("1時間前", 0.25), ("現在", 0.12)]))
-        self.assertEqual(self.S([("現在", 0.12)]), "高い雲の割合: 現在 12%")
+        self.assertEqual(self.S([("現在", 0.12)]), "雲域の割合: 現在 12%")
         self.assertEqual(self.S([]), "")
 
     def test_no_forecast_words(self):
@@ -203,8 +247,8 @@ class RenderSectionTest(unittest.TestCase):
         self.assertEqual(out.count("<figure"), 3)
         self.assertLess(out.index("2時間前("), out.index("1時間前("))
         self.assertLess(out.index("1時間前("), out.index("現在("))
-        self.assertIn("高い雲の割合 38%", out)
-        self.assertIn("高い雲の割合 12%", out)
+        self.assertIn("雲域の割合 38%", out)
+        self.assertIn("雲域の割合 12%", out)
         self.assertIn("2時間前から26ポイント減少", out)
         self.assertIn("低い雲・霧は地面との温度差が小さく見分けにくく", out)
         self.assertIn("気象庁の公式の雲量ではありません", out)
@@ -215,13 +259,13 @@ class RenderSectionTest(unittest.TestCase):
         self.assertEqual(gr.render_himawari_section(self.three()[1:]).count("<figure"), 2)
         one = gr.render_himawari_section(self.three()[2:])
         self.assertEqual(one.count("<figure"), 1)
-        self.assertIn("高い雲の割合: 現在 12%", one)
+        self.assertIn("雲域の割合: 現在 12%", one)
         self.assertEqual(gr.render_himawari_section([]), "")
 
     def test_frame_without_fraction(self):
         out = gr.render_himawari_section([self.frame("0300", "現在", None)])
-        self.assertIn("算出不可", out)
-        self.assertNotIn("高い雲の割合:", out)
+        self.assertIn("割合: 算出できず", out)
+        self.assertNotIn("雲域の割合:", out)
 
     def test_html_escaped(self):
         out = gr.render_himawari_section([self.frame("0300", "<b>現在</b>", 0.1)])

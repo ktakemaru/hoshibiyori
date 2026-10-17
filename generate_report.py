@@ -538,13 +538,13 @@ def high_cloud_fact_sentence(points: list[tuple[str, float]]) -> str:
     pcts = [(label, round(frac * 100)) for label, frac in points]
     chain = " → ".join(f"{label} {pct}%" for label, pct in pcts)
     if len(pcts) < 2:
-        return f"高い雲の割合: {chain}"
+        return f"雲域の割合: {chain}"
     diff = pcts[-1][1] - pcts[0][1]
     if abs(diff) <= HIMAWARI_TREND_FLAT_PT:
         trend = "ほぼ横ばい"
     else:
         trend = f"{abs(diff)}ポイント{'増加' if diff > 0 else '減少'}"
-    return f"高い雲の割合: {chain}({pcts[0][0]}から{trend})"
+    return f"雲域の割合: {chain}({pcts[0][0]}から{trend})"
 
 
 def build_himawari_html() -> str:
@@ -605,7 +605,7 @@ def render_himawari_section(frames: "list[HimawariFrame] | HimawariImage") -> st
     for f in frames:
         rel_src = f.shown_path.relative_to(ROOT).as_posix()
         time_label = f"{f.image.basetime_jst:%Y-%m-%d %H:%M} JST"
-        frac_label = f"高い雲の割合 {round(f.fraction * 100)}%" if f.fraction is not None else "高い雲の割合 算出不可"
+        frac_label = f"雲域の割合 {round(f.fraction * 100)}%" if f.fraction is not None else "割合: 算出できず"
         cards.append(f"""
           <figure class="wmap-card">
             <img src="{html.escape(rel_src)}" alt="気象衛星ひまわり赤外画像({html.escape(f.label)})" loading="lazy">
@@ -621,8 +621,9 @@ def render_himawari_section(frames: "list[HimawariFrame] | HimawariImage") -> st
         <p class="wmap-caveat">実況の画像であり、予報ではありません。これから先の天気を示すものではありません。
         赤外画像は雲の温度(雲頂の高さ)を映したもので、低い雲・霧は地面との温度差が小さく見分けにくく、
         夜間は特にそうなので、晴れ曇りの断定には使わず参考に留めてください。
-        「高い雲の割合」は、図の黄色い枠(候補エリア全体の外枠)の中で、画像の明るさが{HIGH_CLOUD_BRIGHTNESS_THRESHOLD}/255以上の
-        画素の割合から出した目安で、気象庁の公式の雲量ではありません(明るさの基準は暫定値です)。
+        「雲域の割合」は、図の黄色い枠(候補エリア全体の外枠)の中で、赤外で明るく写る範囲(画像の明るさが{HIGH_CLOUD_BRIGHTNESS_THRESHOLD}/255以上)の
+        画素の割合から出した画像の明るさからの目安で、気象庁の公式の雲量ではありません(明るさの基準は暫定値です。
+        タイルに含まれる純白の塗りつぶし部分は除いています)。
         候補地点の評価・順位には使っていません。画像には海岸線・県境の重ね合わせはありません。また、画像内に
         白く塗りつぶされた矩形部分が含まれることがあります(気象庁配信のタイル自体の内容で、当方の加工によるものではありません。原因は未確認です)。
         {html.escape(HIMAWARI_ATTRIBUTION)}(枠線を加筆して作成)</p>

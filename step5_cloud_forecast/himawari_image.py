@@ -255,9 +255,15 @@ def fetch_regional_image(center_lat: float, center_lon: float, imgtype: str = "i
 # --- 「高い雲の割合」(参考表示用の純関数。通信しない。スコア・足切りには使わない) -----------
 
 # 赤外画像(B13/TBB)は雲頂が高い(冷たい)ほど白く映る。グレースケールの明るさ(0〜255)がこの値以上の
-# 画素を「高い雲」の目安とみなす。**未較正の暫定値**: 実画像で妥当性を確認しておらず、季節・時刻・
-# 地面の温度(夜間の放射冷却した地表も白く映りうる)で意味が変わる。気象庁の公式の雲量ではない。
-HIGH_CLOUD_BRIGHTNESS_THRESHOLD = 170
+# 画素を「雲域(赤外で明るく写る範囲)」の目安とみなす。**1枚の実画像に基づく暫定値、次回の実行の複数コマで
+# 要確認**(2026-10-12 01:50 UTCのモザイクで中央値47・90%点84・95%点113、目で見える雲の筋は80〜150。
+# 初期値170ではほぼ拾えなかったため100にした)。季節・時刻・地面の温度(夜間の放射冷却した地表も
+# 白く映りうる)で意味が変わりうる。気象庁の公式の雲量ではない。
+HIGH_CLOUD_BRIGHTNESS_THRESHOLD = 100
+
+# タイルに含まれる純白(255)の塗りつぶし長方形(雲ではない)を除外する条件。面積と、外接矩形の充填率。
+FILL_MIN_AREA_PX = 2000
+FILL_MIN_RECT_FILL = 0.95
 
 
 def bbox_to_px(lat_min: float, lat_max: float, lon_min: float, lon_max: float,
@@ -277,10 +283,44 @@ def bbox_to_px(lat_min: float, lat_max: float, lon_min: float, lon_max: float,
     return left, top, right, bottom
 
 
+def _solid_fill_mask(gray) -> bytearray:
+    """純白(255)の連結成分(4近傍)のうち、面積がFILL_MIN_AREA_PX以上で外接矩形の充填率が
+    FILL_MIN_RECT_FILL以上のものを「塗りつぶし」とみなし、その画素を1にした画像と同じ大きさのマスクを返す。
+    通常の雲(不定形で充填率が低い)や小さな白い塊は対象外。"""
+    w, h = gray.size
+    data = gray.tobytes()
+    mask = bytearray(w * h)
+    seen = bytearray(w * h)
+    for start in range(w * h):
+        if data[start] != 255 or seen[start]:
+            continue
+        seen[start] = 1
+        stack, comp = [start], []
+        while stack:
+            i = stack.pop()
+            comp.append(i)
+            x, y = i % w, i // w
+            for j, ok in ((i - 1, x > 0), (i + 1, x < w - 1), (i - w, y > 0), (i + w, y < h - 1)):
+                if ok and data[j] == 255 and not seen[j]:
+                    seen[j] = 1
+                    stack.append(j)
+        if len(comp) < FILL_MIN_AREA_PX:
+            continue
+        xs = [i % w for i in comp]
+        ys = [i // w for i in comp]
+        rect = (max(xs) - min(xs) + 1) * (max(ys) - min(ys) + 1)
+        if len(comp) / rect >= FILL_MIN_RECT_FILL:
+            for i in comp:
+                mask[i] = 1
+    return mask
+
+
 def high_cloud_fraction(image_path_or_pil, bbox_px: tuple[int, int, int, int],
-                        threshold: int = HIGH_CLOUD_BRIGHTNESS_THRESHOLD) -> float:
+                        threshold: int = HIGH_CLOUD_BRIGHTNESS_THRESHOLD) -> float | None:
     """画像の bbox_px(left, top, right, bottom)内で、グレースケールの明るさが threshold 以上の画素の割合(0〜1)。
-    threshold ちょうどの画素は「高い雲」に数える。bboxが画像の外にはみ出す分は切り、画像と重ならなければ ValueError。"""
+    threshold ちょうどの画素は雲域に数える。bboxが画像の外にはみ出す分は切り、画像と重ならなければ ValueError。
+    純白の塗りつぶし長方形(_solid_fill_mask)は雲ではないため、分母・分子の両方から除く。
+    除外後に画素が残らないときは None。"""
     from PIL import Image
 
     if isinstance(image_path_or_pil, (str, Path)):
@@ -293,8 +333,19 @@ def high_cloud_fraction(image_path_or_pil, bbox_px: tuple[int, int, int, int],
     right, bottom = min(gray.width, right), min(gray.height, bottom)
     if right <= left or bottom <= top:
         raise ValueError(f"bbox {bbox_px} が画像(幅{gray.width},高さ{gray.height})と重なりません")
-    hist = gray.crop((left, top, right, bottom)).histogram()
-    return sum(hist[max(0, int(math.ceil(threshold))):]) / ((right - left) * (bottom - top))
+    fill = _solid_fill_mask(gray)
+    data = gray.tobytes()
+    thr = max(0, int(math.ceil(threshold)))
+    total = bright = 0
+    for y in range(top, bottom):
+        base = y * gray.width
+        for i in range(base + left, base + right):
+            if fill[i]:
+                continue
+            total += 1
+            if data[i] >= thr:
+                bright += 1
+    return bright / total if total else None
 
 
 def draw_outline(image_path: Path, bbox_px: tuple[int, int, int, int], out_path: Path) -> Path:
