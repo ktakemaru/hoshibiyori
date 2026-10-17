@@ -71,7 +71,10 @@ TOP_N_TIER2 = 10
 # weather_map_commentary.json(git管理外)から読み、based_onからWEATHER_MAP_COMMENTARY_MAX_AGE_HOURS
 # 以内のときだけ表示する。それ以外は古い本文を出さず、画像と理由の一行だけを表示する。
 WEATHER_MAP_COMMENTARY_PATH = ROOT / "weather_map_commentary.json"
-WEATHER_MAP_COMMENTARY_SCHEMA = "hoshibiyori-weathermap-commentary/1"
+WEATHER_MAP_COMMENTARY_SCHEMA = "hoshibiyori-weathermap-commentary/2"
+# /1(imagesなし)は、解説が元にした画像を特定できないため解説を表示しない(画像だけを出す)。
+WEATHER_MAP_COMMENTARY_LEGACY_SCHEMAS = ("hoshibiyori-weathermap-commentary/1",)
+WEATHER_MAP_STEPS = ("now", "plus24h", "plus48h")
 WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS = 12
 
 # 模式図(SVG)の緯度経度範囲。関東甲信越・中部+伊豆諸島+佐渡が収まる固定枠
@@ -475,9 +478,9 @@ def _generate(cache: GridCloudCache) -> int:
     summary_text = build_period_summary(finals, outlooks)
 
     try:
-        weather_map_paths = fetch_jma_weather_map()
+        weather_map_paths, weather_map_fetched_at = collect_weather_map(t_start)
         weather_map_html = render_weather_map_section(
-            weather_map_paths, t_start, fetched_at=read_weather_map_fetched_at())
+            weather_map_paths, t_start, fetched_at=weather_map_fetched_at)
     except Exception as e:
         print(f"[天気図] 取得に失敗したためスキップします: {e}")
         weather_map_html = ""
@@ -844,53 +847,109 @@ def render_sky_guide(sky_guide: dict) -> str:
 _WEATHER_MAP_STEP_LABELS = {"now": "実況", "plus24h": "24時間後の予想", "plus48h": "48時間後の予想"}
 
 
-def load_weather_map_commentary(path: Path = WEATHER_MAP_COMMENTARY_PATH) -> tuple[str | None, datetime | None]:
-    """解説JSONを読み、(本文, based_on)を返す。ファイル無し・壊れ・スキーマ違い・based_on不備は(None, None)。
+def _commentary_image_paths(images, root: Path) -> list[Path] | None:
+    """解説JSONの images({"now":…, "plus24h":…, "plus48h":…})を検査し、実在する画像のパスを実況・+24h・+48hの順で返す。
 
-    based_onが読めて本文だけ不備のときは(None, based_on)を返し、「最終更新」を理由に添えられるようにする。
+    3つとも、root(リポジトリ直下)の配下の相対パスで、実在するファイルであること。絶対パス・「..」を含むパスは無効。
+    解決後(シンボリックリンクを辿った後)のパスがroot配下にあることも確認する。1つでも不備ならNone。
+    """
+    if not isinstance(images, dict) or set(images) != set(WEATHER_MAP_STEPS):
+        return None
+    root_resolved = Path(root).resolve()
+    out = []
+    for step in WEATHER_MAP_STEPS:
+        rel = images[step]
+        if not isinstance(rel, str) or not rel.strip():
+            return None
+        pure = Path(rel)
+        if pure.is_absolute() or pure.drive or pure.anchor or ".." in pure.parts or rel.startswith(("/", "\\")):
+            return None
+        resolved = (root_resolved / pure).resolve()
+        if not resolved.is_relative_to(root_resolved) or not resolved.is_file():
+            return None
+        out.append(resolved)
+    return out
+
+
+def load_weather_map_commentary(path: Path = WEATHER_MAP_COMMENTARY_PATH, root: Path = ROOT
+                                ) -> tuple[str | None, datetime | None, list[Path] | None]:
+    """解説JSONを読み、(本文, based_on, 画像パス3枚)を返す。
+
+    ファイル無し・壊れ・スキーマ違い・based_on不備は(None, None, None)。based_onが読めて本文や画像だけ不備のとき
+    (/1を含む)は、その部分だけNoneにして「最終更新」を理由に添えられるようにする。
+    画像パスはschema /2で、3枚とも検査を通ったときだけ返す(_commentary_image_paths)。
     """
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or data.get("schema") != WEATHER_MAP_COMMENTARY_SCHEMA:
-            return None, None
+        schema = data.get("schema") if isinstance(data, dict) else None
+        if schema != WEATHER_MAP_COMMENTARY_SCHEMA and schema not in WEATHER_MAP_COMMENTARY_LEGACY_SCHEMAS:
+            return None, None, None
         based_on = datetime.fromisoformat(str(data.get("based_on")))
     except (OSError, ValueError, TypeError):
-        return None, None
+        return None, None, None
     if based_on.tzinfo is None:
-        return None, None
+        return None, None, None
     text = data.get("text")
     if not isinstance(text, str) or not text.strip():
-        return None, based_on
-    return text, based_on
+        text = None
+    images = _commentary_image_paths(data.get("images"), root) if schema == WEATHER_MAP_COMMENTARY_SCHEMA else None
+    return text, based_on, images
+
+
+def _valid_commentary(now: datetime, commentary_path: Path | None, root: Path):
+    """解説が有効(schema /2・based_onが期限内・画像3枚が実在)なら(本文, based_on, 画像パス)、そうでなければNone。"""
+    text, based_on, images = load_weather_map_commentary(commentary_path or WEATHER_MAP_COMMENTARY_PATH, root)
+    if text is None or based_on is None or images is None:
+        return None
+    if not 0 <= (now - based_on).total_seconds() / 3600 <= WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS:
+        return None
+    return text, based_on, images
+
+
+def collect_weather_map(now: datetime, commentary_path: Path | None = None, root: Path = ROOT
+                        ) -> tuple[list[Path], datetime | None]:
+    """表示する天気図の画像と取得時刻を返す。解説が有効なら気象庁へ取得に行かず、解説の元にした画像を使う
+    (解説と図の時刻がずれないようにするため)。無効なら従来どおり取得する。"""
+    valid = _valid_commentary(now, commentary_path, root)
+    if valid is not None:
+        print("[天気図] 解説(weather_map_commentary.json)が有効なため、再取得せず解説の元にした画像を使います")
+        return valid[2], valid[1]
+    paths = fetch_jma_weather_map()
+    return paths, read_weather_map_fetched_at()
 
 
 def render_weather_map_section(image_paths: list, now: datetime, commentary_path: Path | None = None,
-                               fetched_at: datetime | None = None) -> str:
-    if not image_paths:
+                               fetched_at: datetime | None = None, root: Path = ROOT) -> str:
+    valid = _valid_commentary(now, commentary_path, root)
+    if valid is not None:
+        text, based_on, image_paths = valid
+        fetched_at = based_on  # 解説の元にした画像の取得時刻
+    elif not image_paths:
         return ""
 
+    root_resolved = Path(root).resolve()
     cards = []
     for p in image_paths:
         step = p.stem.rsplit("_", 1)[-1]
         label = _WEATHER_MAP_STEP_LABELS.get(step, step)
-        rel_src = p.relative_to(ROOT).as_posix()
+        try:
+            rel_src = p.relative_to(root).as_posix()
+        except ValueError:
+            rel_src = p.resolve().relative_to(root_resolved).as_posix()
         cards.append(f"""
           <figure class="wmap-card">
             <img src="{html.escape(rel_src)}" alt="JMA地上天気図({html.escape(label)})" loading="lazy">
             <figcaption>{html.escape(label)}</figcaption>
           </figure>""")
 
-    text, based_on = load_weather_map_commentary(commentary_path or WEATHER_MAP_COMMENTARY_PATH)
-    commentary_html = ""
-    if text is not None and based_on is not None:
-        age_hours = (now - based_on).total_seconds() / 3600
-        if 0 <= age_hours <= WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS:
-            label = based_on.astimezone(JST).strftime("%Y-%m-%d %H:%M")
-            commentary_html = (
-                f'<p class="wmap-commentary">{html.escape(text)}</p>'
-                f'<p class="wmap-caveat">{html.escape(label)} 取得の天気図をもとに記述した解説です。</p>'
-            )
-    if not commentary_html:
+    if valid is not None:
+        label = based_on.astimezone(JST).strftime("%Y-%m-%d %H:%M")
+        commentary_html = (
+            f'<p class="wmap-commentary">{html.escape(text)}</p>'
+            f'<p class="wmap-caveat">{html.escape(label)} 取得の天気図をもとに記述した解説です。</p>'
+        )
+    else:
+        _, based_on, _ = load_weather_map_commentary(commentary_path or WEATHER_MAP_COMMENTARY_PATH, root)
         suffix = f"(最終更新 {based_on.astimezone(JST).strftime('%Y-%m-%d %H時')})" if based_on else ""
         commentary_html = f'<p class="wmap-caveat">解説文は未更新のため表示していません{html.escape(suffix)}</p>'
 
