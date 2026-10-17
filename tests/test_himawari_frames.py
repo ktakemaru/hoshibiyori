@@ -123,11 +123,12 @@ class SolidFillExclusionTest(unittest.TestCase):
     def canvas(self, size=100):
         return Image.new("L", (size, size), 0)
 
-    def test_default_threshold_is_100(self):
-        self.assertEqual(hi.HIGH_CLOUD_BRIGHTNESS_THRESHOLD, 100)
-        im = Image.new("L", (10, 10), 120)
-        self.assertEqual(hi.high_cloud_fraction(im, (0, 0, 10, 10)), 1.0)  # 既定(100)なら雲域
-        self.assertEqual(hi.high_cloud_fraction(im, (0, 0, 10, 10), 130), 0.0)
+    def test_default_threshold_is_80(self):
+        self.assertEqual(hi.HIGH_CLOUD_BRIGHTNESS_THRESHOLD, 80)
+        im = Image.new("L", (10, 10), 90)
+        self.assertEqual(hi.high_cloud_fraction(im, (0, 0, 10, 10)), 1.0)  # 既定(80)なら雲域
+        self.assertEqual(hi.high_cloud_fraction(im, (0, 0, 10, 10), 100), 0.0)
+        self.assertEqual(hi.high_cloud_fraction(Image.new("L", (10, 10), 79), (0, 0, 10, 10)), 0.0)
 
     def test_big_solid_rect_excluded_from_both(self):
         im = self.canvas()
@@ -200,17 +201,17 @@ class FactSentenceTest(unittest.TestCase):
 
     def test_decrease(self):
         out = self.S([("2時間前", 0.38), ("1時間前", 0.25), ("現在", 0.12)])
-        self.assertEqual(out, "雲域の割合: 2時間前 38% → 1時間前 25% → 現在 12%(2時間前から26ポイント減少)")
+        self.assertEqual(out, "雲域の割合: 2時間前 38% → 1時間前 25% → 現在 12%(2時間前から-26.0ポイント(減少)、直近1時間は-13.0ポイント)")
 
     def test_increase(self):
         out = self.S([("2時間前", 0.10), ("現在", 0.30)])
-        self.assertIn("20ポイント増加", out)
+        self.assertIn("2時間前から+20.0ポイント(増加)", out)
 
     def test_flat_boundary(self):
         self.assertIn("ほぼ横ばい", self.S([("2時間前", 0.38), ("現在", 0.33)]))   # -5
         self.assertIn("ほぼ横ばい", self.S([("2時間前", 0.33), ("現在", 0.38)]))   # +5
-        self.assertIn("6ポイント減少", self.S([("2時間前", 0.38), ("現在", 0.32)]))  # -6
-        self.assertIn("6ポイント増加", self.S([("2時間前", 0.32), ("現在", 0.38)]))  # +6
+        self.assertIn("-6.0ポイント(減少)", self.S([("2時間前", 0.38), ("現在", 0.32)]))  # -6
+        self.assertIn("+6.0ポイント(増加)", self.S([("2時間前", 0.32), ("現在", 0.38)]))  # +6
 
     def test_two_and_one_and_zero(self):
         self.assertIn("1時間前 25% → 現在 12%", self.S([("1時間前", 0.25), ("現在", 0.12)]))
@@ -227,6 +228,48 @@ class FactSentenceTest(unittest.TestCase):
         self.assertEqual(gr.himawari_frame_label(base, base), "現在")
         self.assertEqual(gr.himawari_frame_label(base - timedelta(hours=1), base), "1時間前")
         self.assertEqual(gr.himawari_frame_label(base - timedelta(minutes=70), base), "70分前")
+
+
+class PctFormatAndRecentTest(unittest.TestCase):
+    S = staticmethod(gr.high_cloud_fact_sentence)
+
+    def test_format_cloud_pct(self):
+        f = gr.format_cloud_pct
+        self.assertEqual(f(0.0), "0.0%")
+        self.assertEqual(f(0.004), "0.4%")
+        self.assertEqual(f(0.0949), "9.5%")
+        self.assertEqual(f(0.0999), "10%")   # 丸めると10.0になるので整数側
+        self.assertEqual(f(0.10), "10%")
+        self.assertEqual(f(0.125), "12%")
+        self.assertEqual(f(0.38), "38%")
+
+    def test_flat_overall_but_recent_large(self):
+        # 全体 +3.0(横ばい)、直近1時間 +6.0 → 「直近1時間で増加」
+        out = self.S([("2時間前", 0.10), ("1時間前", 0.07), ("現在", 0.13)])
+        self.assertIn("2時間前から+3.0ポイント、直近1時間で増加(+6.0ポイント)", out)
+        self.assertNotIn("ほぼ横ばい", out)
+        out = self.S([("2時間前", 0.20), ("1時間前", 0.26), ("現在", 0.17)])
+        self.assertIn("2時間前から-3.0ポイント、直近1時間で減少(-9.0ポイント)", out)
+
+    def test_flat_overall_recent_exactly_5_is_flat(self):
+        out = self.S([("2時間前", 0.10), ("1時間前", 0.10), ("現在", 0.15)])
+        self.assertIn("2時間前から+5.0ポイント(ほぼ横ばい)、直近1時間は+5.0ポイント", out)
+
+    def test_recent_boundary_over_5(self):
+        out = self.S([("2時間前", 0.10), ("1時間前", 0.049), ("現在", 0.10)])
+        self.assertIn("2時間前から+0.0ポイント、直近1時間で増加(+5.1ポイント)", out)
+        # 全体が5を超える場合は全体の判定語を使い、直近は数値のみ
+        out = self.S([("2時間前", 0.10), ("1時間前", 0.20), ("現在", 0.20)])
+        self.assertIn("2時間前から+10.0ポイント(増加)、直近1時間は+0.0ポイント", out)
+
+    def test_two_frames_omit_recent(self):
+        out = self.S([("1時間前", 0.10), ("現在", 0.04)])
+        self.assertIn("1時間前から-6.0ポイント(減少)", out)
+        self.assertNotIn("直近1時間", out)
+
+    def test_small_value_one_decimal_in_chain(self):
+        out = self.S([("2時間前", 0.004), ("1時間前", 0.0), ("現在", 0.052)])
+        self.assertIn("2時間前 0.4% → 1時間前 0.0% → 現在 5.2%", out)
 
 
 class RenderSectionTest(unittest.TestCase):
@@ -249,7 +292,8 @@ class RenderSectionTest(unittest.TestCase):
         self.assertLess(out.index("1時間前("), out.index("現在("))
         self.assertIn("雲域の割合 38%", out)
         self.assertIn("雲域の割合 12%", out)
-        self.assertIn("2時間前から26ポイント減少", out)
+        self.assertIn("80/255以上", out)
+        self.assertIn("2時間前から-26.0ポイント(減少)、直近1時間は-13.0ポイント", out)
         self.assertIn("低い雲・霧は地面との温度差が小さく見分けにくく", out)
         self.assertIn("気象庁の公式の雲量ではありません", out)
         self.assertIn("(枠線を加筆して作成)", out)

@@ -530,21 +530,39 @@ def himawari_frame_label(basetime_jst: datetime, latest_jst: datetime) -> str:
     return f"{minutes // 60}時間前" if minutes % 60 == 0 else f"{minutes}分前"
 
 
+def format_cloud_pct(fraction: float) -> str:
+    """10%未満は小数第1位まで(0.4%)、10%以上は整数(12%)。"""
+    pct = fraction * 100
+    return f"{pct:.1f}%" if round(pct, 1) < 10 else f"{pct:.0f}%"
+
+
 def high_cloud_fact_sentence(points: list[tuple[str, float]]) -> str:
-    """[(ラベル, 割合0〜1)]を古い順に受け取り、観測値の並びと最古→最新の増減だけを述べる一行にする。
-    先の予想・理由は書かない。割合が無い(空)ときは空文字。"""
+    """[(ラベル, 割合0〜1)]を古い順に受け取り、観測値の並びと増減だけを述べる一行にする。
+    増減は最古→最新(全体)と、3コマ以上のときは直近1コマ(通常は1時間)。±HIMAWARI_TREND_FLAT_PTポイント以内は
+    「ほぼ横ばい」。全体が横ばいでも直近が±5ポイントを超えるときは、全体の判定語ではなく
+    「直近1時間で増加/減少」とする。先の予想・理由は書かない。割合が無い(空)ときは空文字。"""
     if not points:
         return ""
-    pcts = [(label, round(frac * 100)) for label, frac in points]
-    chain = " → ".join(f"{label} {pct}%" for label, pct in pcts)
-    if len(pcts) < 2:
+    chain = " → ".join(f"{label} {format_cloud_pct(frac)}" for label, frac in points)
+    if len(points) < 2:
         return f"雲域の割合: {chain}"
-    diff = pcts[-1][1] - pcts[0][1]
-    if abs(diff) <= HIMAWARI_TREND_FLAT_PT:
-        trend = "ほぼ横ばい"
-    else:
-        trend = f"{abs(diff)}ポイント{'増加' if diff > 0 else '減少'}"
-    return f"雲域の割合: {chain}({pcts[0][0]}から{trend})"
+    pts = [(label, round(frac * 100, 1)) for label, frac in points]
+
+    def delta(a: float, b: float) -> float:
+        return round(b - a, 1) + 0.0  # -0.0を避ける
+
+    def word(d: float) -> str:
+        return "ほぼ横ばい" if abs(d) <= HIMAWARI_TREND_FLAT_PT else ("増加" if d > 0 else "減少")
+
+    total = delta(pts[0][1], pts[-1][1])
+    head = f"{pts[0][0]}から{total:+.1f}ポイント"
+    if len(pts) < 3:
+        return f"雲域の割合: {chain}({head}({word(total)}))"
+    recent = delta(pts[-2][1], pts[-1][1])
+    recent_label = "直近1時間" if pts[-2][0] == "1時間前" else f"{pts[-2][0]}から"
+    if abs(total) <= HIMAWARI_TREND_FLAT_PT < abs(recent):
+        return f"雲域の割合: {chain}({head}、{recent_label}で{word(recent)}({recent:+.1f}ポイント))"
+    return f"雲域の割合: {chain}({head}({word(total)})、{recent_label}は{recent:+.1f}ポイント)"
 
 
 def build_himawari_html() -> str:
@@ -605,7 +623,7 @@ def render_himawari_section(frames: "list[HimawariFrame] | HimawariImage") -> st
     for f in frames:
         rel_src = f.shown_path.relative_to(ROOT).as_posix()
         time_label = f"{f.image.basetime_jst:%Y-%m-%d %H:%M} JST"
-        frac_label = f"雲域の割合 {round(f.fraction * 100)}%" if f.fraction is not None else "割合: 算出できず"
+        frac_label = f"雲域の割合 {format_cloud_pct(f.fraction)}" if f.fraction is not None else "割合: 算出できず"
         cards.append(f"""
           <figure class="wmap-card">
             <img src="{html.escape(rel_src)}" alt="気象衛星ひまわり赤外画像({html.escape(f.label)})" loading="lazy">
