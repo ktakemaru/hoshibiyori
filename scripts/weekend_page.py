@@ -1,7 +1,7 @@
 """「今週末の星空撮影」ページ(HTML)を report.html から生成する(通信しない)。
 
 数値・表・カードはコードが report.html から作る(読み写さない)。結論・天気の概況などの文章は、
-エージェントが書く解説JSON(hoshibiyori-weekend-commentary/1)から差し込む。数値→解説→描画の三層で、
+エージェントが書く解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)から差し込む。数値→解説→描画の三層で、
 星空ガイド(AGENTS.md 第10節)と同じ考え方。解説の数値は、このスクリプトや report_courses.py の出力から取ること。
 
 使い方:
@@ -11,7 +11,11 @@
 
 終了コード: 0=出力した / 2=report.html が無い・生成日時が今日(JST)でない(--allow-stale で出力) /
             3=想定の構造でないため解析できなかった / 4=出力先が既にある(--force で上書き) /
-            5=解説JSON(または access_check_notes.json)が不正。
+            5=解説JSON(または access_check_notes.json)が不正、または verdict が候補データと食い違う。
+
+天気の概況は weekend-commentary には書かない。generate_report.py の天気図解説(weather_map_commentary.json、schema /2)を
+唯一の情報源にし、検証は generate_report._valid_commentary を再利用する(無効・期限切れ・レポートの天気図と食い違うときは
+本文を出さず「未更新」の一行にする。終了コードは0)。
 
 既存のファイルは上書きしない(別セッションが同名のファイルを上書きして、先に作った版が消えた実例がある)。
 HTMLの構造は generate_report.py に合わせてあり、report_courses.py の解析関数を使う。標準ライブラリのみ
@@ -33,12 +37,16 @@ import report_courses as rc  # noqa: E402
 ROOT = rc.ROOT
 JST = rc.JST
 EXIT_OK, EXIT_STALE, EXIT_PARSE, EXIT_EXISTS, EXIT_COMMENTARY = 0, 2, 3, 4, 5
-COMMENTARY_SCHEMA = "hoshibiyori-weekend-commentary/1"
+COMMENTARY_SCHEMA = "hoshibiyori-weekend-commentary/2"
+COMMENTARY_LEGACY_SCHEMAS = ("hoshibiyori-weekend-commentary/1",)  # /1 は読めるが weather 欄は無視する
 ACCESS_NOTES_SCHEMA = "hoshibiyori-access-notes/1"
 TONES = ("good", "neutral", "warn")
 MAX_VERDICTS = 4
 FAR_KM = 250  # generate_report.CASUAL_RADIUS_KM と同じ(気軽コースの距離条件)
 WEEKDAYS = "月火水木金土日"
+WEATHER_ROOT = ROOT  # 天気図の画像パス(weather_map_commentary.json の images)の基準。テストで差し替える
+# generate_report.render_weather_map_section と同じ文言
+WEATHER_SOURCE = "出典: 気象庁ホームページ(https://www.jma.go.jp/bosai/weather_map/)。"
 
 
 class CommentaryError(Exception):
@@ -98,11 +106,32 @@ def parse_footer(text: str) -> list[str]:
     return [re.sub(r"\s+", " ", p).strip() for p in paras]
 
 
+def parse_weather_map(root: rc.Node) -> dict | None:
+    """report.html の「地上天気図(気象庁)」ブロックから、画像のsrc(実況・+24h・+48hの順)と取得時刻を返す。
+    ブロックが無ければ None(Playwright が無く天気図を省略したレポート)。あるのに形が違えば ParseError。"""
+    blocks = [b for b in rc._find_all(root, "div", "wmap-block")
+              if any(h.text().strip().startswith("地上天気図") for h in rc._find_all(b, "h3"))]
+    if not blocks:
+        return None
+    if len(blocks) != 1:
+        raise rc.ParseError(f"天気図: 地上天気図のブロックが{len(blocks)}個(1個を想定)")
+    b = blocks[0]
+    srcs = [i.attrs.get("src") for i in rc._find_all(b, "img")]
+    if len(srcs) != 3 or not all(srcs):
+        raise rc.ParseError(f"天気図: 画像が{len(srcs)}枚(3枚を想定)")
+    fetched = None
+    for p in rc._find_all(b, "p", "wmap-caveat"):
+        m = re.fullmatch(r"天気図の取得時刻:\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", rc._norm(p.text()))
+        if m:
+            fetched = m.group(1)
+    return {"srcs": srcs, "fetched": fetched}
+
+
 def load_report(text: str) -> dict:
     root = rc.parse_html(text)
     generated = rc.parse_generated_at(root)
     courses = rc.parse_courses(root)
-    return {"generated": generated, "courses": courses,
+    return {"generated": generated, "courses": courses, "wmap": parse_weather_map(root),
             "moon": parse_moon_timeline(root, generated.date()), "footer": parse_footer(text)}
 
 
@@ -118,8 +147,12 @@ def _is_str(v) -> bool:
 
 
 def validate_commentary(data) -> dict:
+    """verdict と extra_notes を検査する。weather 欄は廃止(天気図の解説は weather_map_commentary.json が唯一の情報源)で、
+    あっても無視して warnings に入れる(エラーにしない)。"""
     _need(isinstance(data, dict), "解説JSONのトップが{...}(オブジェクト)でない")
-    _need(data.get("schema") == COMMENTARY_SCHEMA, f"schema が {COMMENTARY_SCHEMA!r} でない({data.get('schema')!r})")
+    schema = data.get("schema")
+    _need(schema == COMMENTARY_SCHEMA or schema in COMMENTARY_LEGACY_SCHEMAS,
+          f"schema が {COMMENTARY_SCHEMA!r} でない({schema!r})")
     _need("verdict" in data, "verdict(結論ボックスの配列)が無い")
     verdict = data["verdict"]
     _need(isinstance(verdict, list), "verdict が配列でない")
@@ -130,15 +163,134 @@ def validate_commentary(data) -> dict:
         _need(_is_str(v.get("title")), f"{w}.title が文字列でない・空")
         _need(_is_str(v.get("body")), f"{w}.body が文字列でない・空")
         _need(v.get("tone") in TONES, f"{w}.tone が {'/'.join(TONES)} のいずれかでない({v.get('tone')!r})")
-    _need("weather" in data, "weather(天気の概況)が無い")
-    weather = data["weather"]
-    _need(isinstance(weather, dict), "weather がオブジェクトでない")
-    bullets = weather.get("bullets")
-    _need(isinstance(bullets, list) and all(_is_str(b) for b in bullets), "weather.bullets が文字列の配列でない")
-    _need(isinstance(weather.get("note", ""), str), "weather.note が文字列でない")
     extra = data.get("extra_notes", [])
     _need(isinstance(extra, list) and all(_is_str(x) for x in extra), "extra_notes が文字列の配列でない")
-    return {"verdict": verdict, "weather": {"bullets": bullets, "note": weather.get("note", "")}, "extra_notes": extra}
+    warnings = []
+    if "weather" in data:
+        warnings.append("解説JSONの weather 欄は廃止されたため無視しました(天気の概況は weather_map_commentary.json "
+                        "[schema /2]から出します。AGENTS.md 第12節)。")
+    if schema in COMMENTARY_LEGACY_SCHEMAS:
+        warnings.append(f"解説JSONの schema {schema} は旧形式です。{COMMENTARY_SCHEMA} に改めてください(verdict と extra_notes のみ)。")
+    return {"verdict": verdict, "extra_notes": extra, "warnings": warnings}
+
+
+# --- verdict の機械検査(施設名・時刻・件数・時間・%・距離・空の明るさが候補データと一致するか) ------------------
+
+_COUNT_RE = re.compile(r"(\d+)\s*(?:件|地点|か所|ヶ所|箇所)")
+_HOURS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*時間")
+_PCT_RE = re.compile(r"(\d+(?:\.\d+)?)(?:\s*[〜~～]\s*(\d+(?:\.\d+)?))?\s*%")
+_KM_RE = re.compile(r"(\d+)\s*km")
+_MPSAS_RE = re.compile(r"(\d+\.\d+)\s*mag")
+_TIME_RE = re.compile(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)")
+MIN_ALIAS_LEN = 3
+
+
+def load_spot_names(path: Path | None) -> list[str]:
+    """地点マスター(stargazing_spots.json)の spots の name。無い・読めないときは空(report の地点名だけで照合する)。"""
+    if path is None or not path.is_file():
+        return []
+    try:
+        spots = json.loads(path.read_text(encoding="utf-8")).get("spots", [])
+        return [s["name"] for s in spots if isinstance(s, dict) and isinstance(s.get("name"), str)]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def _aliases(name: str) -> set[str]:
+    """地点名と、「・」「（）」で区切った各部分(「能登半島・白米千枚田」→「白米千枚田」など)。部分は短すぎるものを除く。"""
+    parts = {p.strip() for p in re.split(r"[・（）()]", name)}
+    return {name} | {p for p in parts if len(p) >= MIN_ALIAS_LEN}  # 地点名そのものは短くても(例: 白州)必ず入れる
+
+
+def _hm(s: str) -> str:
+    h, m = s.split(":")
+    return f"{int(h):02d}:{m}"
+
+
+def _window_hours(window: str) -> float | None:
+    m = re.match(r"(\d{2}):(\d{2})〜(\d{2}):(\d{2})", window)
+    if not m:
+        return None
+    a, b = int(m.group(1)) * 60 + int(m.group(2)), int(m.group(3)) * 60 + int(m.group(4))
+    return round(((b - a) % (24 * 60)) / 60, 1)
+
+
+def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None:
+    """verdict の title/body を候補データと照合する。食い違いがあれば、全件をまとめて CommentaryError にする。
+
+    - 地点名(地点マスターの name と、その「・」区切りの部分): レポートの候補にある地点だけ書ける。
+    - HH:MM: いずれかの候補の見頃の始端・終端・狙い目に一致する。文中の地点が1つに決まれば、その地点の時刻に限る。
+    - N件/N地点: コースの件数・夜ごとの件数・全体の件数のどれか。
+    - N時間: 月齢タイムラインの無月時間か、見頃の長さ。N%: 候補の雲量かレポートの気象メモ中の%。
+    - Nkm: 候補の東京からの距離。N.NN mag: 候補の空の明るさ。
+    検査しないもの: 日付、地点名を含まない文での「どの地点の」時刻かの対応、extra_notes。
+    """
+    cands = [c for course in report["courses"] for c in course["candidates"]]
+    report_names = {c["name"] for c in cands}
+    owner: dict[str, set[str]] = {}
+    for n in set(vocabulary) | report_names:
+        for a in _aliases(n):
+            owner.setdefault(a, set()).add(n)
+    times: dict[str, set[str]] = {n: set() for n in report_names}
+    for c in cands:
+        start, end = c["window"].split("〜")
+        times[c["name"]] |= {_hm(start), _hm(end[:5]), _hm(c["best_time"])}
+    all_times = set().union(*times.values()) if times else set()
+    counts = {len(course["candidates"]) for course in report["courses"]}
+    nights = {c["date"] for c in cands}
+    for course in report["courses"]:
+        for d in nights:
+            counts.add(sum(1 for c in course["candidates"] if c["date"] == d))
+    counts |= {sum(1 for c in cands if c["date"] == d) for d in nights} | {len(cands)}
+    hours = {float(re.match(r"(\d+(?:\.\d+)?)", m["detail"]).group(1)) for m in report["moon"].values()
+             if re.match(r"\d", m["detail"])}
+    hours |= {h for h in (_window_hours(c["window"]) for c in cands) if h is not None}
+    pcts = {float(c["obstruction_pct"]) for c in cands}
+    for course in report["courses"]:
+        for x in _PCT_RE.finditer(course.get("weather_note") or ""):
+            pcts |= {float(g) for g in x.groups() if g}
+    pcts |= {float(x) for course in report["courses"] for x in re.findall(r"(\d+)\s*%以下", course.get("condition_note") or "")}
+    kms = {c["distance_km"] for c in cands} | {250}
+    mpsas = {round(c["effective_mpsas"], 2) for c in cands}
+
+    errors = []
+    for i, v in enumerate(commentary["verdict"]):
+        for field in ("title", "body"):
+            where = f"verdict[{i}].{field}"
+            text = v[field]
+            for sentence in re.split(r"(?<=[。!?])", text):
+                found = set()  # この文で言及された地点(レポートの地点名に解決できたもの)
+                for alias in sorted(owner, key=len, reverse=True):
+                    if alias in sentence:
+                        resolved = owner[alias]
+                        if not resolved & report_names:
+                            errors.append(f"{where}: 地点「{alias}」はレポートの候補にありません")
+                        else:
+                            found |= resolved & report_names
+                for m in _TIME_RE.finditer(sentence):
+                    t_ = _hm(f"{m.group(1)}:{m.group(2)}")
+                    if t_ not in all_times:
+                        errors.append(f"{where}: 時刻 {t_} はどの候補の見頃・狙い目にもありません")
+                    elif len(found) == 1 and t_ not in times[next(iter(found))]:
+                        errors.append(f"{where}: 時刻 {t_} は「{next(iter(found))}」の見頃・狙い目ではありません"
+                                      f"({'/'.join(sorted(times[next(iter(found))]))})")
+            for m in _COUNT_RE.finditer(text):
+                if int(m.group(1)) not in counts:
+                    errors.append(f"{where}: 件数「{m.group(0)}」はレポートの件数({'/'.join(map(str, sorted(counts)))})のどれとも違います")
+            for m in _HOURS_RE.finditer(text):
+                if not any(abs(float(m.group(1)) - h) < 0.05 for h in hours):
+                    errors.append(f"{where}: 「{m.group(0)}」は無月時間・見頃の長さ({'/'.join(map(str, sorted(hours)))})のどれとも違います")
+            for m in _PCT_RE.finditer(text):
+                for g in (x for x in m.groups() if x):
+                    if float(g) not in pcts:
+                        errors.append(f"{where}: {g}% は候補の雲量・気象メモの%と一致しません")
+            for m in _KM_RE.finditer(text):
+                if int(m.group(1)) not in kms:
+                    errors.append(f"{where}: 「{m.group(0)}」はどの候補の東京からの距離とも違います")
+            for m in _MPSAS_RE.finditer(text):
+                if round(float(m.group(1)), 2) not in mpsas:
+                    errors.append(f"{where}: 空の明るさ {m.group(1)} はどの候補の値とも違います")
+    _need(not errors, "verdict が候補データと食い違います:\n  - " + "\n  - ".join(dict.fromkeys(errors)))
 
 
 def load_commentary(path: Path | None) -> dict | None:
@@ -179,11 +331,16 @@ def _safe_url(u: str) -> str:
     return u if re.match(r"https?://", u) else "#"
 
 
-def _island_municipalities() -> set[str]:
+def _generate_report():
+    """generate_report を読む(約0.7秒)。天気図の解説の検証と離島の定義を、複製せずここから使う。"""
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    import generate_report as gr  # 軽い(約0.7秒)。離島の定義は気軽コースの除外リストを正とする
-    return set(gr.CASUAL_EXCLUDED_MUNICIPALITIES)
+    import generate_report as gr
+    return gr
+
+
+def _island_municipalities() -> set[str]:
+    return set(_generate_report().CASUAL_EXCLUDED_MUNICIPALITIES)  # 離島の定義は気軽コースの除外リストを正とする
 
 
 def card_tags(c: dict, course_id: str, casual_names: set[str], islands: set[str], notes: dict[str, str]) -> list[tuple[str, str]]:
@@ -275,20 +432,59 @@ def _short_date(iso: str) -> str:
 
 def render_verdict(commentary: dict | None) -> str:
     if commentary is None:
-        return '<p class="note">解説(結論・天気の概況)は未作成です。</p>'
+        return '<p class="note">解説(結論)は未作成です。</p>'
     boxes = "".join(
         f'<div class="box {v["tone"] if v["tone"] != "neutral" else ""}"><h3>{esc(v["title"])}</h3><p>{esc(v["body"])}</p></div>'
         for v in commentary["verdict"])
     return f'<div class="verdict">{boxes}</div>' if boxes else ""
 
 
-def render_weather(commentary: dict | None) -> str:
-    if commentary is None:
-        return ""
-    w = commentary["weather"]
-    bullets = "".join(f"<li>{esc(b)}</li>" for b in w["bullets"])
-    note = f'<p class="note">{esc(w["note"])}</p>' if w["note"] else ""
-    return f'<h2>天気の概況</h2><div class="box">{"<ul>" + bullets + "</ul>" if bullets else ""}{note}</div>'
+def weather_status(report: dict, now: datetime, path: Path | None = None, root: Path | None = None) -> dict:
+    """天気図の解説の状態を返す。有効(generate_report._valid_commentary が通り、かつレポートが示す天気図と一致)なら
+    valid=True と本文・based_on・画像パス。それ以外は valid=False と、理由(reason)・最終更新(based_on があれば)。"""
+    gr = _generate_report()
+    path = path or gr.WEATHER_MAP_COMMENTARY_PATH
+    root = root or WEATHER_ROOT
+    valid = gr._valid_commentary(now, path, root)
+    if valid is None:
+        _, based_on, _ = gr.load_weather_map_commentary(path, root)
+        return {"valid": False, "based_on": based_on,
+                "reason": "解説が無効(ファイル無し・schema /2 でない・期限切れ・画像の不備のいずれか)"}
+    text, based_on, images = valid
+    wmap = report.get("wmap")
+    if wmap is None:
+        return {"valid": False, "based_on": based_on, "reason": "レポートに地上天気図がない(解説との対応を確認できない)"}
+    rels = [Path(p).resolve().relative_to(Path(root).resolve()).as_posix() for p in images]
+    stamp = based_on.astimezone(JST).strftime("%Y-%m-%d %H:%M")
+    if wmap["fetched"] != stamp or wmap["srcs"] != rels:
+        return {"valid": False, "based_on": based_on,
+                "reason": f"レポートの天気図(取得 {wmap['fetched']})と解説(based_on {stamp})の時刻または画像が食い違う"}
+    return {"valid": True, "based_on": based_on, "text": text, "images": images, "reason": ""}
+
+
+_WEATHER_STEP_LABELS = {"now": "実況", "plus24h": "24時間後の予想", "plus48h": "48時間後の予想"}
+
+
+def render_weather(status: dict) -> str:
+    """generate_report.render_weather_map_section と同じ形(3枚の図・取得時刻・解説・出典)。画像は自己完結のため埋め込む。"""
+    if not status["valid"]:
+        based_on = status.get("based_on")
+        suffix = f"(最終更新 {based_on.astimezone(JST).strftime('%Y-%m-%d %H時')})" if based_on else ""
+        return f'<h2>天気の概況</h2><p class="note">天気図の解説は未更新のため表示していません{esc(suffix)}</p>'
+    import base64
+    cards = []
+    for step, p in zip(_WEATHER_STEP_LABELS, status["images"]):
+        label = _WEATHER_STEP_LABELS[step]
+        data = base64.b64encode(Path(p).read_bytes()).decode("ascii")
+        cards.append(f'<figure class="wmap-card"><img src="data:image/png;base64,{data}" '
+                     f'alt="JMA地上天気図({esc(label)})" loading="lazy"><figcaption>{esc(label)}</figcaption></figure>')
+    stamp = status["based_on"].astimezone(JST).strftime("%Y-%m-%d %H:%M")
+    return ('<h2>天気の概況</h2><div class="box"><h3>地上天気図(気象庁)</h3>'
+            f'<div class="wmap-row">{"".join(cards)}</div>'
+            f'<p class="note">天気図の取得時刻: {esc(stamp)}</p>'
+            f'<p class="wmap-text">{esc(status["text"])}</p>'
+            f'<p class="note">{esc(stamp)} 取得の天気図をもとに記述した解説です。</p>'
+            f'<p class="note">{esc(WEATHER_SOURCE)}</p></div>')
 
 
 def render_extra(commentary: dict | None) -> str:
@@ -351,6 +547,9 @@ th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line);
 td small { display:block; color:var(--muted); }
 summary { cursor:pointer; color:var(--muted); margin:.4em 0; }
 .note { font-size:.88rem; color:var(--muted); }
+.wmap-row { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+.wmap-card { margin:0; } .wmap-card img { width:100%; height:auto; border:1px solid var(--line); border-radius:8px; background:#fff; }
+.wmap-card figcaption { font-size:.85rem; color:var(--muted); text-align:center; }
 .empty { color:var(--muted); background:var(--card); border:1px dashed var(--line); border-radius:10px; padding:10px 14px; }
 footer { margin-top:3em; font-size:.82rem; color:var(--muted); border-top:1px solid var(--line); padding-top:1em; }
 a { color:var(--accent); }
@@ -358,7 +557,7 @@ a { color:var(--accent); }
 
 
 def render_page(report: dict, nights: list[date], top: int, commentary: dict | None, notes: dict[str, str],
-                stale_banner: str = "") -> str:
+                stale_banner: str = "", weather: dict | None = None) -> str:
     casual_names = {c["name"] for c in next(x for x in report["courses"] if x["id"] == "casual")["candidates"]}
     islands = _island_municipalities()
     gen = report["generated"].strftime("%Y-%m-%d %H:%M")
@@ -381,7 +580,7 @@ def render_page(report: dict, nights: list[date], top: int, commentary: dict | N
 <p class="lead">hoshibiyoriの探索レポート(生成 {esc(gen)} JST)から作成。<strong>雲量は全天の平均で、方角ごとの雲は分かりません。</strong></p>
 {stale_banner}
 {render_verdict(commentary)}
-{render_weather(commentary)}
+{render_weather(weather) if weather is not None else ""}
 {sections}
 {render_table(report)}
 {render_extra(commentary)}
@@ -405,7 +604,9 @@ def _iso_date(s: str) -> date:
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="今週末の星空撮影ページ(HTML)を report.html から生成する(通信しない)")
     ap.add_argument("--report", type=Path, default=ROOT / "report.html")
-    ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/1)。無ければ解説は出さない")
+    ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)。無ければ結論は出さない")
+    ap.add_argument("--weather-commentary", type=Path, help="天気図の解説(既定: リポジトリ直下の weather_map_commentary.json、schema /2)")
+    ap.add_argument("--spots", type=Path, default=ROOT / "stargazing_spots.json", help="verdict の地点名の照合に使う地点マスター")
     ap.add_argument("--access-notes", type=Path, default=ROOT / "access_check_notes.json")
     ap.add_argument("--dates", nargs="+", type=_iso_date, metavar="YYYY-MM-DD", help="夜の開始日。既定は生成日以降の最初の土曜と日曜")
     ap.add_argument("--top", type=int, default=6, help="夜ごと・コースごとのカード件数(既定6)。一覧表は常に全件")
@@ -443,9 +644,16 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     try:
         commentary = load_commentary(args.commentary)
         notes = load_access_notes(args.access_notes)
+        if commentary is not None:
+            check_verdict(commentary, report, load_spot_names(args.spots))
     except CommentaryError as e:
         print(f"[解説JSON不正] {e}", file=sys.stderr)
         return EXIT_COMMENTARY
+    for w in (commentary or {}).get("warnings", []):
+        print(f"[警告] {w}", file=sys.stderr)
+    weather = weather_status(report, (now or datetime.now(JST)).astimezone(JST), args.weather_commentary)
+    if not weather["valid"]:
+        print(f"[天気図の解説] 未更新として扱います: {weather['reason']}", file=sys.stderr)
 
     nights = sorted(set(args.dates)) if args.dates else default_dates(gen_date)
     out = args.out or ROOT / "out" / f"weekend_stargazing_{nights[0]:%Y%m%d}.html"
@@ -457,7 +665,7 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     if stale:
         banner = (f'<p class="stale">【古いレポートです】生成日時 {esc(report["generated"].strftime("%Y-%m-%d %H:%M"))} JST は今日'
                   f'({esc(today)})ではありません。近日分の予報は更新されている可能性があり、判断の根拠にしないでください。</p>')
-    page = render_page(report, nights, args.top, commentary, notes, banner)
+    page = render_page(report, nights, args.top, commentary, notes, banner, weather)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page, encoding="utf-8")
     print(f"保存しました: {out}")

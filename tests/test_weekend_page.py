@@ -50,12 +50,12 @@ def moon_nights(days=(17, 18, 19), hours=(6.8, 5.8, 0.0)):
 
 
 def build_html(casual=CASUAL, hardcore=HARDCORE, generated="2026-10-17 11:20", weather_note="首都圏は晴れ間が多い見込みです。",
-               nights=None):
+               nights=None, weather_map_html=""):
     nights = moon_nights() if nights is None else nights
     icons = {n.night_date: "🌓" for n in nights}
     gen = datetime.strptime(generated, "%Y-%m-%d %H:%M")
     return gr.render_html(SimpleNamespace(name="天の川銀河中心"), gen, nights, icons, {}, 0, 3, casual, hardcore,
-                          weather_note, {}, [], {}, "概況")
+                          weather_note, {}, [], {}, "概況", weather_map_html=weather_map_html)
 
 
 GOOD_COMMENTARY = {
@@ -63,9 +63,18 @@ GOOD_COMMENTARY = {
     "verdict": [{"title": "土曜が本命", "body": "高気圧に覆われる見込みです。", "tone": "good"},
                 {"title": "日曜は一段下がる", "body": "月の入りが遅くなります。", "tone": "neutral"},
                 {"title": "銀河中心は狙えない", "body": "日没直後に沈みます。", "tone": "warn"}],
-    "weather": {"bullets": ["実況: 高気圧が日本海にあります。"], "note": "公式の天気図の説明にとどめています。"},
     "extra_notes": ["補足の一行"],
 }
+
+WEATHER_TEXT = "17日9時の実況では、日本付近は高気圧に覆われています。"
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+
+
+def weather_commentary(based_on="2026-10-17T10:57:00+09:00", images=None, schema=None, text=WEATHER_TEXT):
+    obj = {"schema": schema or gr.WEATHER_MAP_COMMENTARY_SCHEMA, "based_on": based_on, "text": text}
+    if images is not None:
+        obj["images"] = images
+    return obj
 
 
 class Base(unittest.TestCase):
@@ -73,9 +82,38 @@ class Base(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
+        orig_root = wp.WEATHER_ROOT
+        wp.WEATHER_ROOT = self.dir
+        self.addCleanup(setattr, wp, "WEATHER_ROOT", orig_root)
+        self.images = self.make_images("1057")
+        self.wc_path = self.write_json("weather_map_commentary.json", weather_commentary(images=self.rels(self.images)))
         self.report = self.dir / "report.html"
-        self.report.write_text(build_html(), encoding="utf-8")
+        self.report.write_text(build_html(weather_map_html=self.wmap_block(self.images)), encoding="utf-8")
         self.out = self.dir / "page.html"
+
+    def make_images(self, stamp):
+        d = self.dir / "step5" / "weather_map_cache"
+        d.mkdir(parents=True, exist_ok=True)
+        paths = []
+        for step in gr.WEATHER_MAP_STEPS:
+            p = d / f"jma_weathermap_2026-10-17_{stamp}_{step}.png"
+            p.write_bytes(PNG_BYTES)
+            paths.append(p)
+        return paths
+
+    def rels(self, paths):
+        return dict(zip(gr.WEATHER_MAP_STEPS, (p.relative_to(self.dir).as_posix() for p in paths)))
+
+    def wmap_block(self, images, fetched_at=None):
+        """レポート本体の天気図ブロック(generate_report の実際の描画関数で作る)。解説が有効ならその時刻・画像で描かれる。"""
+        return gr.render_weather_map_section(images, SAT, self.wc_path if hasattr(self, "wc_path") else None,
+                                             fetched_at or datetime(2026, 10, 17, 10, 57, tzinfo=JST), self.dir)
+
+    def set_weather(self, obj, report_images=None, fetched_at=None):
+        """weather_map_commentary.json を差し替え、レポートの天気図ブロックを(指定があればその画像・時刻で)作り直す。"""
+        self.write_json("weather_map_commentary.json", obj)
+        self.report.write_text(build_html(weather_map_html=self.wmap_block(report_images or self.images, fetched_at)),
+                               encoding="utf-8")
 
     def write_json(self, name, obj):
         p = self.dir / name
@@ -83,7 +121,8 @@ class Base(unittest.TestCase):
         return p
 
     def run_cli(self, *argv, now=SAT, report=None, with_out=True):
-        args = ["--report", str(report or self.report), "--access-notes", str(self.dir / "no_notes.json")]
+        args = ["--report", str(report or self.report), "--access-notes", str(self.dir / "no_notes.json"),
+                "--weather-commentary", str(self.wc_path), "--spots", str(self.dir / "no_spots.json")]
         if with_out:
             args += ["--out", str(self.out)]
         out, err = io.StringIO(), io.StringIO()
@@ -246,37 +285,36 @@ class AccessNotesTest(Base):
 
 
 class CommentaryTest(Base):
-    def run_with_commentary(self, obj):
+    def run_with_commentary(self, obj, *argv):
         p = self.write_json("c.json", obj)
-        return self.run_cli("--commentary", str(p))
+        return self.run_cli("--commentary", str(p), *argv)
 
     def test_good_commentary_rendered(self):
         code, _, err = self.run_with_commentary(GOOD_COMMENTARY)
         self.assertEqual(code, 0, err)
+        self.assertEqual(err, "")  # /2 で weather 欄が無ければ警告もない
         page = self.out.read_text(encoding="utf-8")
         self.assertIn('<div class="box good"><h3>土曜が本命</h3>', page)
         self.assertIn('<div class="box "><h3>日曜は一段下がる</h3>', page)  # neutral は色クラスなし
         self.assertIn('<div class="box warn"><h3>銀河中心は狙えない</h3>', page)
-        self.assertIn("実況: 高気圧が日本海にあります。", page)
         self.assertIn("補足の一行", page)
         self.assertNotIn("未作成", page)
 
     def test_without_commentary_says_not_written(self):
         page = self.page()
-        self.assertIn("解説(結論・天気の概況)は未作成です。", page)
-        self.assertNotIn("<h2>天気の概況", page)
+        self.assertIn("解説(結論)は未作成です。", page)
         self.assertIn("全候補の一覧", page)  # 数値の部分は出る
+        self.assertIn(WEATHER_TEXT, page)  # 天気の概況は weekend-commentary と無関係に出る
 
     def test_html_in_commentary_is_escaped(self):
         obj = json.loads(json.dumps(GOOD_COMMENTARY))
         obj["verdict"][0]["title"] = "<img src=x onerror=alert(1)>"
         obj["verdict"][0]["body"] = "<script>alert(1)</script>&"
-        obj["weather"]["bullets"] = ["<b>太字</b>"]
         obj["extra_notes"] = ["<i>x</i>"]
         code, _, err = self.run_with_commentary(obj)
         self.assertEqual(code, 0, err)
         page = self.out.read_text(encoding="utf-8")
-        for raw in ("<img src=x", "<script>alert", "<b>太字</b>", "<i>x</i>"):
+        for raw in ("<img src=x", "<script>alert", "<i>x</i>"):
             self.assertNotIn(raw, page)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;&amp;", page)
 
@@ -286,14 +324,12 @@ class CommentaryTest(Base):
             f(o)
             return o
         cases = {
-            "schema違い": mutate(lambda o: o.update(schema="hoshibiyori-weekend-commentary/2")),
+            "schema違い": mutate(lambda o: o.update(schema="hoshibiyori-weekend-commentary/3")),
             "verdict欠け": mutate(lambda o: o.pop("verdict")),
-            "weather欠け": mutate(lambda o: o.pop("weather")),
             "verdictが5件": mutate(lambda o: o.update(verdict=o["verdict"] * 2)),
             "toneが不正": mutate(lambda o: o["verdict"][0].update(tone="red")),
             "titleが数値": mutate(lambda o: o["verdict"][0].update(title=3)),
             "bodyが無い": mutate(lambda o: o["verdict"][0].pop("body")),
-            "bulletsが文字列": mutate(lambda o: o["weather"].update(bullets="x")),
             "extra_notesが文字列": mutate(lambda o: o.update(extra_notes="x")),
             "トップが配列": [],
         }
@@ -316,9 +352,200 @@ class CommentaryTest(Base):
         self.assertEqual(self.run_cli("--commentary", str(p))[0], 5)
         self.assertEqual(self.run_cli("--commentary", str(self.dir / "none.json"))[0], 5)
 
-    def test_zero_verdicts_and_optional_parts_allowed(self):
-        o = {"schema": wp.COMMENTARY_SCHEMA, "verdict": [], "weather": {"bullets": []}}
+    def test_zero_verdicts_allowed(self):
+        o = {"schema": wp.COMMENTARY_SCHEMA, "verdict": []}
         self.assertEqual(self.run_with_commentary(o)[0], 0)
+
+    def test_legacy_v1_weather_is_ignored_with_warning(self):
+        o = json.loads(json.dumps(GOOD_COMMENTARY))
+        o["schema"] = "hoshibiyori-weekend-commentary/1"
+        o["weather"] = {"bullets": ["古い実況: 6時の数値は1030hPaでした。"], "note": "旧note"}
+        code, _, err = self.run_with_commentary(o)
+        self.assertEqual(code, 0, err)  # エラーにしない
+        self.assertIn("[警告] 解説JSONの weather 欄は廃止されたため無視しました", err)
+        page = self.out.read_text(encoding="utf-8")
+        self.assertNotIn("古い実況", page)
+        self.assertNotIn("旧note", page)
+        self.assertIn(WEATHER_TEXT, page)  # 概況は weather_map_commentary.json から
+
+    def test_weather_field_in_v2_is_ignored_with_warning(self):
+        o = json.loads(json.dumps(GOOD_COMMENTARY))
+        o["weather"] = {"bullets": ["書いてはいけない"]}
+        code, _, err = self.run_with_commentary(o)
+        self.assertEqual(code, 0, err)
+        self.assertIn("weather 欄は廃止", err)
+        self.assertNotIn("書いてはいけない", self.out.read_text(encoding="utf-8"))
+
+
+class VerdictCheckTest(Base):
+    """verdict の施設名・時刻・件数などが候補データ(レポート)と一致するか。"""
+
+    def setUp(self):
+        super().setUp()
+        # 地点マスター: レポートの候補に無い地点(ヘブンスそのはら)を語彙として持つ
+        self.spots = self.write_json("spots.json", {"spots": [{"name": "奥只見ダム"}, {"name": "ヘブンスそのはら"},
+                                                             {"name": "能登半島・白米千枚田"}]})
+
+    def run_verdict(self, body, title="結論"):
+        o = {"schema": wp.COMMENTARY_SCHEMA, "verdict": [{"title": title, "body": body, "tone": "good"}]}
+        p = self.write_json("c.json", o)
+        return self.run_cli("--commentary", str(p), "--spots", str(self.spots))
+
+    def assertRejected(self, body, needle, title="結論"):
+        self.out.unlink(missing_ok=True)
+        code, _, err = self.run_verdict(body, title)
+        self.assertEqual(code, 5, body)
+        self.assertIn(needle, err)
+        self.assertFalse(self.out.exists(), body)
+
+    def test_correct_statements_pass(self):
+        body = ("奥只見ダムは21:15から04:15まで、狙い目は23:00です。無月は6.8時間(土曜)と5.8時間(日曜)で、"
+                "雲量は12%と3%、東京から174km、空の明るさは21.81 mag/arcsec²です。気軽コースは4件、日曜の夜は1件です。"
+                "白米千枚田は東京から250km超の遠征圏です。")
+        code, _, err = self.run_verdict(body)
+        self.assertEqual(code, 0, err)
+
+    def test_unknown_facility(self):
+        self.assertRejected("ヘブンスそのはらが狙い目です。", "地点「ヘブンスそのはら」はレポートの候補にありません")
+
+    def test_alias_of_unknown_facility(self):
+        self.assertRejected("ヘブンスそのはらは21:15です。", "ヘブンスそのはら")
+
+    def test_time_not_in_any_candidate(self):
+        self.assertRejected("奥只見ダムは23:45が狙い目です。", "時刻 23:45")
+
+    def test_time_of_other_facility(self):
+        # 22:29 は奥只見ダム(日曜)の見頃の始端。白州の時刻ではない
+        self.assertRejected("白州は22:29からが見頃です。", "「白州」の見頃・狙い目ではありません")
+
+    def test_count_mismatch(self):
+        self.assertRejected("上位9件が条件を満たしました。", "件数「9件」")
+
+    def test_hours_mismatch(self):
+        self.assertRejected("土曜の無月は9.5時間あります。", "9.5時間")
+
+    def test_percent_mismatch(self):
+        self.assertRejected("雲量は77%です。", "77%")
+
+    def test_distance_mismatch(self):
+        self.assertRejected("東京から999kmです。", "999km")
+
+    def test_mpsas_mismatch(self):
+        self.assertRejected("空の明るさは22.50 mag/arcsec²です。", "22.50")
+
+    def test_errors_are_collected_and_title_is_checked(self):
+        self.assertRejected("雲量は77%、東京から999kmです。", "999km", title="ヘブンスそのはら")
+        _, _, err = self.run_verdict("雲量は77%、東京から999kmです。", title="ヘブンスそのはら")
+        self.assertIn("verdict[0].title", err)
+        self.assertIn("77%", err)
+
+    def test_without_spots_master_report_names_still_checked(self):
+        o = {"schema": wp.COMMENTARY_SCHEMA, "verdict": [{"title": "t", "body": "白州は22:29です。", "tone": "good"}]}
+        p = self.write_json("c2.json", o)
+        code, _, _ = self.run_cli("--commentary", str(p))  # 既定の --spots は存在しない
+        self.assertEqual(code, 5)
+
+
+class WeatherSectionTest(Base):
+    """天気の概況は weather_map_commentary.json(schema /2)だけが情報源。"""
+
+    def test_valid_v2_shows_text_and_three_images(self):
+        page = self.page()
+        w = page[page.index("<h2>天気の概況"):page.index("土曜の夜")]
+        self.assertIn(WEATHER_TEXT, w)
+        self.assertEqual(w.count('src="data:image/png;base64,'), 3)
+        for label in ("実況", "24時間後の予想", "48時間後の予想"):
+            self.assertIn(f"<figcaption>{label}</figcaption>", w)
+        self.assertIn("天気図の取得時刻: 2026-10-17 10:57", w)
+        self.assertIn("2026-10-17 10:57 取得の天気図をもとに記述した解説です。", w)
+        self.assertIn("出典: 気象庁ホームページ(https://www.jma.go.jp/bosai/weather_map/)。", w)
+        self.assertNotIn("未更新", w)
+
+    def test_same_wording_as_report(self):
+        # レポート本体の天気図ブロックの出典・説明の文言と同じ(generate_report の描画関数と揃っている)
+        block = self.wmap_block(self.images)
+        page = self.page()
+        for phrase in ("出典: 気象庁ホームページ(https://www.jma.go.jp/bosai/weather_map/)。",
+                       "取得の天気図をもとに記述した解説です。", "天気図の取得時刻:"):
+            self.assertIn(phrase, block)
+            self.assertIn(phrase, page)
+
+    def assertNotUpdated(self, suffix=None, expect_text_absent=True):
+        code, _, err = self.run_cli()
+        self.assertEqual(code, 0, err)  # 終了コードは0
+        page = self.out.read_text(encoding="utf-8")
+        w = page[page.index("<h2>天気の概況"):page.index("土曜の夜")]
+        self.assertIn("天気図の解説は未更新のため表示していません", w)
+        if suffix:
+            self.assertIn(suffix, w)
+        self.assertNotIn("data:image/png", w)
+        self.assertNotIn(WEATHER_TEXT, page)
+        self.assertIn("未更新として扱います", err)
+        return w
+
+    def test_legacy_v1_is_not_shown(self):
+        self.set_weather(weather_commentary(schema="hoshibiyori-weathermap-commentary/1"))
+        self.assertNotUpdated("(最終更新 2026-10-17 10時)")
+
+    def test_expired_is_not_shown(self):
+        # based_on から13時間後(SAT 15:00 の13時間前は 02:00)。上限は12時間
+        self.set_weather(weather_commentary(based_on="2026-10-17T01:30:00+09:00", images=self.rels(self.images)),
+                         fetched_at=datetime(2026, 10, 17, 1, 30, tzinfo=JST))
+        self.assertNotUpdated("(最終更新 2026-10-17 01時)")
+
+    def test_future_based_on_is_not_shown(self):
+        self.set_weather(weather_commentary(based_on="2026-10-17T16:00:00+09:00", images=self.rels(self.images)))
+        self.assertNotUpdated()
+
+    def test_missing_image_is_not_shown(self):
+        rels = self.rels(self.images)
+        rels["plus48h"] = "step5/weather_map_cache/nothing.png"
+        self.set_weather(weather_commentary(images=rels))
+        self.assertNotUpdated("(最終更新 2026-10-17 10時)")
+
+    def test_bad_image_path_is_not_shown(self):
+        rels = self.rels(self.images)
+        rels["now"] = "../outside.png"
+        self.set_weather(weather_commentary(images=rels))
+        self.assertNotUpdated()
+
+    def test_commentary_file_missing_shows_not_updated_without_suffix(self):
+        self.wc_path.unlink()
+        w = self.assertNotUpdated()
+        self.assertNotIn("最終更新", w)
+
+    def test_report_shows_different_fetch_time_is_not_shown(self):
+        # 解説は有効(10:57)だが、レポートの天気図は別の取得(11:31)の画像・時刻 → 食い違い
+        newer = self.make_images("1131")
+        self.report.write_text(
+            build_html(weather_map_html=gr.render_weather_map_section(
+                newer, SAT, self.dir / "none.json", datetime(2026, 10, 17, 11, 31, tzinfo=JST), self.dir)),
+            encoding="utf-8")
+        self.assertNotUpdated("(最終更新 2026-10-17 10時)")
+
+    def test_report_images_differ_but_same_time_is_not_shown(self):
+        newer = self.make_images("1131")
+        self.report.write_text(
+            build_html(weather_map_html=gr.render_weather_map_section(
+                newer, SAT, self.dir / "none.json", datetime(2026, 10, 17, 10, 57, tzinfo=JST), self.dir)),
+            encoding="utf-8")
+        self.assertNotUpdated()
+
+    def test_report_without_weather_map_is_not_shown(self):
+        self.report.write_text(build_html(), encoding="utf-8")
+        self.assertNotUpdated("(最終更新 2026-10-17 10時)")
+
+    def test_report_parse_of_weather_block(self):
+        wm = wp.load_report(self.report.read_text(encoding="utf-8"))["wmap"]
+        self.assertEqual(wm["fetched"], "2026-10-17 10:57")
+        self.assertEqual(wm["srcs"], [p.relative_to(self.dir).as_posix() for p in self.images])
+        self.assertIsNone(wp.load_report(build_html())["wmap"])
+
+    def test_validation_logic_is_reused_not_copied(self):
+        src = (ROOT / "scripts" / "weekend_page.py").read_text(encoding="utf-8")
+        self.assertIn("gr._valid_commentary", src)
+        self.assertIn("gr.load_weather_map_commentary", src)
+        self.assertNotIn("WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS =", src)
 
 
 class OverwriteTest(Base):
