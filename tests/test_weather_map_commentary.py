@@ -35,7 +35,7 @@ class CommentaryAgeTest(unittest.TestCase):
     def test_within_12h_shown(self):
         out = _render(_doc((NOW - timedelta(hours=11)).isoformat()))
         self.assertIn(BODY, out)
-        self.assertIn("19時の天気図をもとに記述", out)
+        self.assertIn("2026-10-17 19:00 取得の天気図をもとに記述した解説です", out)
 
     def test_exactly_12h_shown(self):
         self.assertIn(BODY, _render(_doc((NOW - timedelta(hours=12)).isoformat())))
