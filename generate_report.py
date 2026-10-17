@@ -782,10 +782,10 @@ def render_weather_map_section(image_paths: list, now: datetime, commentary_path
     if text is not None and based_on is not None:
         age_hours = (now - based_on).total_seconds() / 3600
         if 0 <= age_hours <= WEATHER_MAP_COMMENTARY_MAX_AGE_HOURS:
-            label = based_on.astimezone(JST).strftime("%Y-%m-%d %H時")
+            label = based_on.astimezone(JST).strftime("%Y-%m-%d %H:%M")
             commentary_html = (
                 f'<p class="wmap-commentary">{html.escape(text)}</p>'
-                f'<p class="wmap-caveat">{html.escape(label)}の天気図をもとに記述した解説です。</p>'
+                f'<p class="wmap-caveat">{html.escape(label)} 取得の天気図をもとに記述した解説です。</p>'
             )
     if not commentary_html:
         suffix = f"(最終更新 {based_on.astimezone(JST).strftime('%Y-%m-%d %H時')})" if based_on else ""
