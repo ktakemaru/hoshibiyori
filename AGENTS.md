@@ -102,7 +102,9 @@ py -m venv .venv
    - 雲量を入れたいときは `--estimate` の結果と所要時間・リクエスト数を伝え、承認を得てから `--cloud fetch --allow-network` を使う(第10節と同じ)。
 5. 数値の扱いは第10節のとおり(数値を自分で書かない)。
 6. 「今週末(または◯日)の星空撮影に適した所を、HTMLで」と頼まれたら、`scripts/weekend_page.py` を使う(数値・表・カードはコードが作る。読み写さない)。
-   - 手順: ①今日の `report.html` を確認(無ければ第5節)②天気図の取得と解説(第12節)③解説JSON(`hoshibiyori-weekend-commentary/1`: `verdict`[`title`/`body`/`tone`=good|neutral|warn、最大4件]・`weather`[`bullets`/`note`]・`extra_notes`)を書く ④ `py -X utf8 scripts/weekend_page.py --commentary …` ⑤保存先を伝える。
+   - 手順: ①今日の `report.html` を確認(無ければ第5節)②天気図の取得と解説(第12節)③解説JSON(`hoshibiyori-weekend-commentary/2`: `verdict`[`title`/`body`/`tone`=good|neutral|warn、最大4件]と `extra_notes` のみ。`weather` 欄は廃止)を書く ④ `py -X utf8 scripts/weekend_page.py --commentary …` ⑤保存先を伝える。
+   - 天気の概況は `weather_map_commentary.json`(schema /2、第12節)だけが情報源で、週末ページ側では書かない。有効(12時間以内・画像3枚が実在)かつレポートの天気図と取得時刻・画像が一致するときだけ本文と3枚の図を出し、それ以外は「天気図の解説は未更新のため表示していません」の一行(終了コード0)になる。②で第12節の更新をしてから実行する。
+   - `verdict` の地点名・時刻(HH:MM)・件数・N時間・%・km・空の明るさは、レポートの候補データと機械照合され、食い違えば終了コード5。数値はスクリプト/`report_courses.py` の出力から取る。旧 `/1` の `weather` 欄は無視して警告する。
    - 解説は、公式の天気図・衛星画像の説明にとどめ、独自の予報(通過時刻の予測など)を書かない。解説の数値は `weekend_page.py` / `report_courses.py` の出力から取る(自分で書かない)。
    - 出力先(既定 `out/weekend_stargazing_<最初の夜>.html`)に同名のファイルがあると、上書きせず終了コード4で止まる。別名(`--out`)にするかユーザーに確認し、`--force` はユーザーの許可なしに使わない。終了コード: 2=古い/無い、3=構造違い、5=解説JSON不正。
    - 「アクセス要確認」の注記は `access_check_notes.json`(確認済みの事実ではない)。追加はユーザーが指示したときだけ。
