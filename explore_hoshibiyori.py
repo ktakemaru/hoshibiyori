@@ -50,6 +50,7 @@ from moon_brightness import combine_sky_brightness  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
+from hb_paths import DATA_ROOT  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 
@@ -728,7 +729,9 @@ def _explore(cache: GridCloudCache) -> None:
     t_start = time.time()
 
     ts = load.timescale()
-    eph = load(str(ROOT / "step1_astronomy" / "de421.bsp"))
+    eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
+    eph_path.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
+    eph = load(str(eph_path))
 
     sites = load_candidate_sites()
     primary_sites = [s for s in sites if is_primary_origin(s["origin"])]
@@ -737,7 +740,7 @@ def _explore(cache: GridCloudCache) -> None:
           f" + 参考候補(OSM展望データ) {len(reference_sites)}件 = 計{len(sites)}件を読み込み"
           f"(うち地形地平線データあり: {sum(1 for s in sites if s['horizon_csv'])}件)\n")
 
-    lp_store = LightPollutionTileStore(cache_dir=str(ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
+    lp_store = LightPollutionTileStore(cache_dir=str(DATA_ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
 
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
     nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"])

@@ -30,6 +30,7 @@ py -m venv .venv
 - Skyfield の暦 `step1_astronomy/de421.bsp`(約17MB)は、無い場合の初回実行時に自動ダウンロードされる(JPL へ通信)。単体テストには不要。
 - Playwright は任意(無ければ天気図セクションを省略)。
 - Python は 3.15 RC で通し実行を確認。3.13 は依存の導入・`check_setup.py`・単体テストまで確認(通し実行は未確認)。
+- 保存先の切り替え(任意): 環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、キャッシュ・天文暦・生成物(`report.html`・`out/`・`weather_map_commentary.json` など)の書き込み先がそのフォルダになる(リポジトリと同じ相対構成。`hb_paths.py` が決める)。**未設定または空なら従来どおりリポジトリ直下で、動作は変わらない。** 読み取り専用の静的データ(`areas.json`・`stargazing_spots.json`・horizon CSV など)は常にリポジトリ側。PowerShell の例: `$env:HOSHIBIYORI_DATA_DIR="C:\tmp\hb_data"`。`scripts/check_setup.py` が「データ領域」を表示する。
 
 ## 5. 実行(ユーザーが頼んだときだけ)
 - `py generate_report.py`(引数なし): **10〜30分・Open-Meteo API 約220回(加えて気象庁へ、ひまわりの時刻一覧1回と赤外タイル最大12枚[3コマ×2×2、basetimeごとにキャッシュ]、天気図1セッション)**(候補146件で実測約21分。候補数に比例して増える)。固定の `report.html`(git管理外、.gitignore 済み)を上書きする。終了コード: 0=出力済み、2=失敗セル率20%以上または HTTP 429(`report.html` は更新しない)。

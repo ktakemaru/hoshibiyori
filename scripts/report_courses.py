@@ -28,6 +28,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # リポジトリ直下の hb_paths を見つけるため
+from hb_paths import resolve_data_root  # noqa: E402
 JST = timezone(timedelta(hours=9))
 SCHEMA = "hoshibiyori-course-report/1"
 COURSES = (("casual", "気軽コース"), ("hardcore", "硬派コース"))
@@ -243,7 +246,7 @@ def format_text(result: dict, today_label: str) -> str:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="report.html から気軽・硬派コースの上位候補を表示する(通信しない)")
-    ap.add_argument("--report", type=Path, default=ROOT / "report.html")
+    ap.add_argument("--report", type=Path, default=resolve_data_root(ROOT) / "report.html")
     ap.add_argument("--top", type=int, default=3)
     ap.add_argument("--allow-stale", action="store_true", help="生成日時が今日でなくても、古い旨を明記して出力する")
     ap.add_argument("--json-out", type=Path)

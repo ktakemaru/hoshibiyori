@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import io
 import math
+import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -54,7 +55,12 @@ IMG_TYPES = {
     "strengthen": "SND/ETC",  # 雲頂強調画像
 }
 
-DEFAULT_CACHE_DIR = Path(__file__).parent / "himawari_cache"
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.append(str(_ROOT))  # リポジトリ直下の hb_paths を見つけるため
+from hb_paths import DATA_ROOT  # noqa: E402
+
+DEFAULT_CACHE_DIR = DATA_ROOT / "step5_cloud_forecast" / "himawari_cache"
 
 _USER_AGENT = "hoshibiyori-himawari/0.1 (personal astrophotography tool; low-volume, tile-cached)"
 _MAX_RETRIES = 3

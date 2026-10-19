@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # リポジトリ直下の hb_paths を見つけるため
+from hb_paths import DATA_ROOT, ENV_VAR  # noqa: E402
 VERIFIED_PYTHON = (3, 15)  # 動作確認済みの版。READMEの「3.13以降」はコードからの推定で、実機確認は3.15のみ
 REQUIRED = ["skyfield", "requests", "numpy", "PIL"]
 OPTIONAL = ["playwright"]
@@ -22,7 +26,7 @@ CACHE_DIRS = [
     "step2_terrain/dem_cache", "step3_light_pollution/tile_cache", "step5_cloud_forecast/cloud_cache",
     "step5_cloud_forecast/weather_map_cache", "step5_cloud_forecast/himawari_cache",
 ]
-EPHEMERIS = ROOT / "step1_astronomy" / "de421.bsp"
+EPHEMERIS = DATA_ROOT / "step1_astronomy" / "de421.bsp"
 
 
 def check_python(version: tuple[int, int]) -> tuple[str, str]:
@@ -78,8 +82,9 @@ def run(network: bool = False) -> int:
         results.append(("OK" if ok else "WARN", f"任意パッケージ {m}" + ("" if ok else "(無くても可。天気図セクションが省略される)")))
     enc = (getattr(sys.stdout, "encoding", None) or "").lower().replace("-", "")
     results.append(("OK", "標準出力はUTF-8") if enc == "utf8" else ("WARN", f"標準出力が{enc or '不明'}: -X utf8 を付けると日本語の文字化けを避けられる"))
+    results.append(("INFO", f"データ領域: {DATA_ROOT}" + ("" if os.environ.get(ENV_VAR, "").strip() else f"({ENV_VAR} 未設定: リポジトリ内)")))
     for d in CACHE_DIRS:
-        results.append(("OK", f"書き込み可 {d}") if check_writable(ROOT / d) else ("NG", f"書き込み不可 {d}"))
+        results.append(("OK", f"書き込み可 {d}") if check_writable(DATA_ROOT / d) else ("NG", f"書き込み不可 {d}"))
     if EPHEMERIS.exists():
         results.append(("OK", f"暦ファイル {EPHEMERIS.name} あり"))
     else:

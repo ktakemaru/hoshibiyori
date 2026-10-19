@@ -20,11 +20,12 @@ for _sub in ("step1_astronomy", "step4_moonlight"):
 from skyfield.api import wgs84  # noqa: E402
 
 from catalog import Target, get_target  # noqa: E402
+from hb_paths import DATA_ROOT  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
 from sky_engine import altaz_at_time  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
-EPHEMERIS_PATH = ROOT / "step1_astronomy" / "de421.bsp"
+EPHEMERIS_PATH = DATA_ROOT / "step1_astronomy" / "de421.bsp"
 _PKG = Path(__file__).parent
 GC_TARGET_ID = "galactic_center"
 PLANETS = {"水星": "mercury", "金星": "venus", "火星": "mars barycenter", "木星": "jupiter barycenter", "土星": "saturn barycenter"}
