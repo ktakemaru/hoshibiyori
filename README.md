@@ -6,7 +6,18 @@
 
 登山者向けの姉妹プロジェクト[ヤマビヨリ](https://github.com/ktakemaru/yamabiyori)と同じデータ源(Open-Meteo経由の気象庁MSM+ECMWF IFS)を使うが、評価の軸は独立に設計している。登山者が「稜線がガスに巻かれるか・濡れるか」を見るのに対し、星空撮影者は「頭上の空のどれだけが雲に覆われるか」「薄い巻雲で天の川のコントラストが消えないか」を見る。この違いは`CLAUDE.md`の「観測者に寄り添う」セクションに比較表として記録している。
 
-## できること(2026-10-12時点)
+[![tests](https://github.com/ktakemaru/hoshibiyori/actions/workflows/ci.yml/badge.svg)](https://github.com/ktakemaru/hoshibiyori/actions/workflows/ci.yml) ライセンス: [MIT](LICENSE)
+
+> **Claude Code プラグインとして使う(最短)** — 個人利用の検証段階(0.1.0)です。
+>
+> ```bash
+> claude plugin marketplace add ktakemaru/hoshibiyori
+> claude plugin install hoshibiyori@hoshibiyori-marketplace
+> ```
+>
+> 詳細・注意・未確認事項は[「Claude Code プラグインとして使う」](#claude-code-プラグインとして使う)を参照。
+
+## できること(2026-10-19時点)
 
 - **探索モード**(`explore_hoshibiyori.py`) — 直近14夜 × 候補地点146件を「月 → 雲 → 方角」の3段階漏斗で絞り込み、天の川銀河中心が狙える組み合わせをスコア順に出す。
   - 月フィルタ: 天文薄明終了〜開始(太陽高度−18°)のうち月が沈んでいる、または新月に近い時間帯を地点ごとに計算。
@@ -68,6 +79,10 @@ ender_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara
 | `out/` | 星空ガイドなどの生成物の出力先(git管理外) |
 | `scripts/` | `check_setup.py`(通信しない環境確認)、`make_sky_guide.py`・`render_sky_guide.py`(星空ガイド) |
 | `CLAUDE.md` | 設計方針・経緯・既知の制約の記録(開発ログ兼仕様書) |
+| `CHANGELOG.md` | 変更履歴(Keep a Changelog 形式。実際にmainにマージされた変更のみ) |
+| `.claude-plugin/` | Claude Code プラグインの定義(`plugin.json`・`marketplace.json`) |
+| `skills/hoshibiyori/` | プラグインのスキル(`SKILL.md`。手順・閾値・数値の正本は `AGENTS.md`) |
+| `hb_paths.py` | 保存先(キャッシュ・天文暦・生成物)と読み取り専用の静的データの場所を決める。環境変数 `HOSHIBIYORI_DATA_DIR` に対応 |
 
 ## セットアップ
 
@@ -88,7 +103,7 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests
 ```
 
-Skyfieldの暦ファイル(`de421.bsp`)は無い場合、初回実行時に自動ダウンロードされる(単体テストには不要)。外部データ(DEMタイル・光害タイル・雲量予報・天気図)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
+Skyfieldの暦ファイル(`de421.bsp`)は無い場合、初回実行時に自動ダウンロードされる(単体テストには不要)。キャッシュ・暦・生成物の書き込み先は、環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、そのフォルダに切り替えられる(未設定または空なら従来どおりリポジトリ直下。詳細は`AGENTS.md`第4節)。外部データ(DEMタイル・光害タイル・雲量予報・天気図)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
 
 ## Codexで試す
 
@@ -173,6 +188,8 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 ## ステータス
 
 ステップ1〜7まで実装・検証済み。個人利用の検証段階であり、公開サービスではない。今後の課題は`CLAUDE.md`「今後の課題」参照。
+
+Claude Code プラグインは 0.1.0(個人利用の検証段階)。変更履歴は[`CHANGELOG.md`](CHANGELOG.md)。
 
 ## ライセンス
 
