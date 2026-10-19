@@ -9,7 +9,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -154,6 +156,60 @@ class CliDefaultsTest(unittest.TestCase):
             self.assertFalse(sub.exists())
         r = self.run_script(None, str(ROOT / "scripts" / "check_setup.py"))
         self.assertIn("未設定: リポジトリ内", r.stdout)
+
+
+class EphemerisDirTest(unittest.TestCase):
+    """データ領域が空(step1_astronomy/ が無い)でも、Skyfield が暦を書く先のフォルダができていること。通信しない。
+
+    Skyfield は保存先のフォルダを作らないため、暦を取得する前に呼び出し側が mkdir する。Skyfield の load を差し替え、
+    呼ばれた時点でフォルダが存在し、書き込めることを確かめる(実際のダウンロードはしない)。
+    """
+
+    class _Stop(Exception):
+        pass
+
+    def _fake_load(self, seen):
+        def load(path, *a, **k):
+            p = Path(path)
+            seen["dir_existed"] = p.parent.is_dir()
+            p.write_bytes(b"dummy")      # 保存先に書き込めること
+            seen["written"] = p.is_file()
+            raise self._Stop()
+        fake = mock.MagicMock(side_effect=load)
+        return fake
+
+    def test_empty_data_dir_gets_ephemeris_directory(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import moon_nights as mn
+        from skyguide import astro, build
+        with tempfile.TemporaryDirectory() as d:
+            for label in ("moon_nights", "skyguide.build"):
+                with self.subTest(label=label):
+                    eph = Path(d) / label / "step1_astronomy" / "de421.bsp"   # フォルダが無い状態
+                    self.assertFalse(eph.parent.exists())
+                    seen = {}
+                    fake = self._fake_load(seen)
+                    if label == "moon_nights":
+                        with mock.patch.object(mn, "EPHEMERIS_PATH", eph), mock.patch.object(mn, "load", fake):
+                            with self.assertRaises(self._Stop):
+                                mn.main(["--allow-network", "--days", "1"])
+                    else:
+                        spot = {"lat": 36.8, "lon": 139.4, "elevation_m": 1400}
+                        with mock.patch.object(astro, "EPHEMERIS_PATH", eph), mock.patch("skyfield.api.load", fake):
+                            with self.assertRaises(self._Stop):
+                                build.build_data(spot=spot, night_date=date(2026, 10, 9), allow_network=True, cloud_mode="off")
+                    self.assertTrue(seen.get("dir_existed"), "load が呼ばれた時点で保存先フォルダが無い")
+                    self.assertTrue(seen.get("written"))
+
+    def test_without_allow_network_no_directory_is_created(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import moon_nights as mn
+        with tempfile.TemporaryDirectory() as d:
+            eph = Path(d) / "step1_astronomy" / "de421.bsp"
+            with mock.patch.object(mn, "EPHEMERIS_PATH", eph), mock.patch.object(mn, "load", mock.MagicMock()) as load:
+                self.assertNotEqual(mn.main(["--days", "1"]), 0)   # 暦が無く、通信の許可も無い → 何もせず終了
+                load.assert_not_called()
+            self.assertFalse(eph.parent.exists())
 
 
 if __name__ == "__main__":

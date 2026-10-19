@@ -112,6 +112,7 @@ def build_data(*, spot: dict, night_date: date, allow_network: bool = False, clo
         raise SkyGuideError("暦ファイル step1_astronomy/de421.bsp がありません(初回は自動ダウンロード=通信が必要)。--allow-network を付けるか、先に用意してください")
     lat, lon, elev = spot["lat"], spot["lon"], spot["elevation_m"]
     ts = load.timescale()
+    astro.EPHEMERIS_PATH.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
     eph = load(str(astro.EPHEMERIS_PATH))
     ds, de = ex.find_astro_dark_events(ts, eph, lat, lon, datetime(night_date.year, night_date.month, night_date.day, tzinfo=JST))
     if ds is None or de is None:

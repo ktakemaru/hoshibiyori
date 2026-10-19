@@ -231,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
             raise MoonNightsError("天文暦 step1_astronomy/de421.bsp がありません(初回は自動ダウンロード=通信が必要なため、ここでは行いません)。"
                                   "--allow-network を付けるか、先に用意してください(通信の前に承認を得ること)")
         ts = load.timescale()
+        EPHEMERIS_PATH.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
         eph = load(str(EPHEMERIS_PATH))
         rows = compute_rows(ts, eph, ref["lat"], ref["lon"], start, a.days)
     except MoonNightsError as e:
