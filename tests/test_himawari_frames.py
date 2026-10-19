@@ -201,7 +201,7 @@ class FactSentenceTest(unittest.TestCase):
 
     def test_decrease(self):
         out = self.S([("2時間前", 0.38), ("1時間前", 0.25), ("現在", 0.12)])
-        self.assertEqual(out, "雲域の割合: 2時間前 38% → 1時間前 25% → 現在 12%(2時間前から-26.0ポイント(減少)、直近1時間は-13.0ポイント)")
+        self.assertEqual(out, "雲域の割合: 2時間前 38.0% → 1時間前 25.0% → 現在 12.0%(2時間前から-26.0ポイント(減少)、直近1時間は-13.0ポイント)")
 
     def test_increase(self):
         out = self.S([("2時間前", 0.10), ("現在", 0.30)])
@@ -214,8 +214,8 @@ class FactSentenceTest(unittest.TestCase):
         self.assertIn("+6.0ポイント(増加)", self.S([("2時間前", 0.32), ("現在", 0.38)]))  # +6
 
     def test_two_and_one_and_zero(self):
-        self.assertIn("1時間前 25% → 現在 12%", self.S([("1時間前", 0.25), ("現在", 0.12)]))
-        self.assertEqual(self.S([("現在", 0.12)]), "雲域の割合: 現在 12%")
+        self.assertIn("1時間前 25.0% → 現在 12.0%", self.S([("1時間前", 0.25), ("現在", 0.12)]))
+        self.assertEqual(self.S([("現在", 0.12)]), "雲域の割合: 現在 12.0%")
         self.assertEqual(self.S([]), "")
 
     def test_no_forecast_words(self):
@@ -271,6 +271,12 @@ class PctFormatAndRecentTest(unittest.TestCase):
         out = self.S([("2時間前", 0.004), ("1時間前", 0.0), ("現在", 0.052)])
         self.assertIn("2時間前 0.4% → 1時間前 0.0% → 現在 5.2%", out)
 
+    def test_chain_always_one_decimal_and_delta_matches(self):
+        # 2026-10-19 夜の実測値。10%以上でも小数第1位で表示し、表示の差と変化量が食い違わない
+        out = self.S([("2時間前", 0.8182011632855725), ("1時間前", 0.7938714711306568), ("現在", 0.8570009930486594)])
+        self.assertEqual(out, "雲域の割合: 2時間前 81.8% → 1時間前 79.4% → 現在 85.7%"
+                              "(2時間前から+3.9ポイント、直近1時間で増加(+6.3ポイント))")
+
 
 class RenderSectionTest(unittest.TestCase):
     def frame(self, hhmm, label, frac):
@@ -303,7 +309,7 @@ class RenderSectionTest(unittest.TestCase):
         self.assertEqual(gr.render_himawari_section(self.three()[1:]).count("<figure"), 2)
         one = gr.render_himawari_section(self.three()[2:])
         self.assertEqual(one.count("<figure"), 1)
-        self.assertIn("雲域の割合: 現在 12%", one)
+        self.assertIn("雲域の割合: 現在 12.0%", one)
         self.assertEqual(gr.render_himawari_section([]), "")
 
     def test_frame_without_fraction(self):

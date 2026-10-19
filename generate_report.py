@@ -522,7 +522,7 @@ HIMAWARI_TREND_FLAT_PT = 5  # 最古と最新の差がこのポイント以内�
 class HimawariFrame:
     image: HimawariImage
     label: str                 # 「2時間前」「現在」など(最新のbasetimeからの差)
-    fraction: float | None     # 高い雲の割合(0〜1)。算出できなければNone
+    fraction: float | None     # 雲域の割合(0〜1)。算出できなければNone
     shown_path: Path           # 表示する画像(エリアの外枠を重ね書きしたもの)
 
 
@@ -540,13 +540,13 @@ def format_cloud_pct(fraction: float) -> str:
 
 
 def high_cloud_fact_sentence(points: list[tuple[str, float]]) -> str:
-    """[(ラベル, 割合0〜1)]を古い順に受け取り、観測値の並びと増減だけを述べる一行にする。
+    """[(ラベル, 割合0〜1)]を古い順に受け取り、観測値の並びと増減だけを述べる一行にする(割合は常に小数第1位)。
     増減は最古→最新(全体)と、3コマ以上のときは直近1コマ(通常は1時間)。±HIMAWARI_TREND_FLAT_PTポイント以内は
     「ほぼ横ばい」。全体が横ばいでも直近が±5ポイントを超えるときは、全体の判定語ではなく
     「直近1時間で増加/減少」とする。先の予想・理由は書かない。割合が無い(空)ときは空文字。"""
     if not points:
         return ""
-    chain = " → ".join(f"{label} {format_cloud_pct(frac)}" for label, frac in points)
+    chain = " → ".join(f"{label} {frac * 100:.1f}%" for label, frac in points)
     if len(points) < 2:
         return f"雲域の割合: {chain}"
     pts = [(label, round(frac * 100, 1)) for label, frac in points]
