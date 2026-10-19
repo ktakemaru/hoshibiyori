@@ -135,8 +135,8 @@ class SkillTest(unittest.TestCase):
             self.assertIn(sec, self.text)
 
     def test_both_shell_forms_documented(self):
-        self.assertIn('HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8', self.text)
-        self.assertIn('$env:HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}"; py -X utf8', self.text)
+        self.assertIn('HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8', self.text)
+        self.assertIn('$env:HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}"; py -B -X utf8', self.text)
 
     def test_allowed_tools_are_read_only_no_network(self):
         tools = self.fm["allowed-tools"]
@@ -144,6 +144,7 @@ class SkillTest(unittest.TestCase):
         for t in tools:
             with self.subTest(t=t):
                 self.assertTrue(t.startswith("Bash("))
+                self.assertIn(" -B -X utf8 ", t)  # プラグイン側に __pycache__ を書かせない
                 for banned in ("generate_report", "explore_hoshibiyori", "--network", "--allow-network", "pip", "git "):
                     self.assertNotIn(banned, t)
         # check_setup は引数なしの完全一致(--network を許可しない)

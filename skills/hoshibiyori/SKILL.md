@@ -3,11 +3,11 @@ name: hoshibiyori
 description: '「今週末の星空撮影に適した場所は」「◯◯の星空」「天の川はいつ見える」「星景撮影の天気」「星空ガイドを作って」のように、星空・天の川・星景写真の撮影に適した日と場所、地点の星空の見え方を聞かれたときに使う。月・雲量・光害・地形で夜と場所を絞り、星空シミュレーター付きの星空ガイドを作る。手順・閾値・数値の正本はプラグイン直下の AGENTS.md。'
 when_to_use: '星空・天の川・星景写真の撮影計画、月明かりと雲量の見込み、地点ごとの星空ガイド(シミュレーター付き)、今週末の撮影候補ページ、天気図の解説の更新。'
 allowed-tools:
-  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_setup.py")
-  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/moon_nights.py" *)
-  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/report_courses.py" *)
-  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/sky_lookup.py" *)
-  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_sky_guide_text.py" *)
+  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_setup.py")
+  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/moon_nights.py" *)
+  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/report_courses.py" *)
+  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/sky_lookup.py" *)
+  - Bash(HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_sky_guide_text.py" *)
 ---
 
 # ホシビヨリ(星景撮影の天気予報)
@@ -26,9 +26,9 @@ allowed-tools:
 
 - `${CLAUDE_PLUGIN_ROOT}`(コードの置き場所。更新のたびに変わる)と `${CLAUDE_PLUGIN_DATA}`(更新後も残るデータ領域)は、Bash の環境変数としては入らず、**このスキル本文の文字列として置換**されます。コマンドの先頭に展開済みの値を付けて渡します。
 - **読み替え(1文)**: AGENTS.md の `scripts/…`・`generate_report.py` などは `${CLAUDE_PLUGIN_ROOT}/` からの相対とし、AGENTS.md の `report.html`・`out/`・`weather_map_commentary.json`(とその `images` の相対パス)は、プラグイン利用時は「リポジトリ直下」ではなく**データ領域 `${CLAUDE_PLUGIN_DATA}` の下**と読み替える(`HOSHIBIYORI_DATA_DIR` を付けて実行する。AGENTS.md §4)。静的データ(`areas.json`・`stargazing_spots.json`・horizon CSV など)は `${CLAUDE_PLUGIN_ROOT}` 側のままです。
-- **bash**: `HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_setup.py"`
-- **PowerShell**: `$env:HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}"; py -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_setup.py"`(AGENTS.md §8: 出力を `>` や `|` で受けない)
-- **Python**: `${CLAUDE_PLUGIN_DATA}/venv` があればそれ(Windows は `venv/Scripts/python.exe`、それ以外は `venv/bin/python`)。無ければシステムの `py`(Windows)/`python3`。Windows では bash でも `py` を使う(`python3` は Microsoft Store のスタブで失敗することがある)。**常に `-X utf8` を付ける。**
+- **bash**: `HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}" python3 -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_setup.py"`
+- **PowerShell**: `$env:HOSHIBIYORI_DATA_DIR="${CLAUDE_PLUGIN_DATA}"; py -B -X utf8 "${CLAUDE_PLUGIN_ROOT}/scripts/check_setup.py"`(AGENTS.md §8: 出力を `>` や `|` で受けない)
+- **Python**: `${CLAUDE_PLUGIN_DATA}/venv` があればそれ(Windows は `venv/Scripts/python.exe`、それ以外は `venv/bin/python`)。無ければシステムの `py`(Windows)/`python3`。Windows では bash でも `py` を使う(`python3` は Microsoft Store のスタブで失敗することがある)。**常に `-B -X utf8` を付ける**(`-B` はバイトコード `__pycache__` をプラグイン側に書かせないため)。
 
 ## 2. セットアップ(初回・不足があるとき)
 
