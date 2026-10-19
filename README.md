@@ -103,6 +103,54 @@ AIコーディングエージェント(Codex / Claude Code)にこのリポジト
 
 エージェントに守らせたいこと(`AGENTS.md`に詳細): 姉妹プロジェクトのコードを参照しない、星空撮影者の目線で評価する、スコア・閾値・雲量判定は指示なしに変えない、外部サイトのキャッシュ・間隔・User-Agentを維持する、429が出たら即中止する。
 
+## Claude Code プラグインとして使う
+
+**位置づけ**: 個人利用の検証段階(`version` 0.1.0)です。動作確認の範囲は Windows、Python 3.13(CI の単体テスト)、Python 3.15 RC(手元)。**macOS・Linux は未確認**です。
+
+### インストール
+
+GitHub のリポジトリをマーケットプレイスとして追加し、プラグインを入れます(書式は [Create a marketplace](https://code.claude.com/docs/en/plugin-marketplaces) と [Host and maintain a marketplace](https://code.claude.com/docs/en/plugins/host-marketplace) で確認)。
+
+```bash
+claude plugin marketplace add ktakemaru/hoshibiyori
+claude plugin install hoshibiyori@hoshibiyori-marketplace
+```
+
+セッション内では `/plugin marketplace add ktakemaru/hoshibiyori` でも追加できます。`hoshibiyori-marketplace` は `.claude-plugin/marketplace.json` の `name`、`hoshibiyori` はプラグイン名です。
+
+**注意**: この開発フォルダ(`.gitignore` 済みの約23GBのDEMタイル等を含む)を、そのままローカルのマーケットプレイスとして追加しないでください。必ず GitHub 経由で入れます。
+
+### データ領域
+
+プラグインの書き込み先(キャッシュ・天文暦・生成物の `report.html`・`out/`・`weather_map_commentary.json` など)は `${CLAUDE_PLUGIN_DATA}` で、環境変数 `HOSHIBIYORI_DATA_DIR` として渡されます(`hb_paths.py`)。場所は `~/.claude/plugins/data/<id>/` で、`<id>` はプラグイン識別子(`hoshibiyori@hoshibiyori-marketplace`)の英数字・`_`・`-` 以外を `-` に置き換えたもの、つまり `~/.claude/plugins/data/hoshibiyori-hoshibiyori-marketplace` です([Plugins reference](https://code.claude.com/docs/en/plugins-reference))。プラグインの更新後も残ります。
+
+**最後のインストール先からアンインストールすると、既定でこのフォルダは削除されます**(再取得に時間のかかるキャッシュも消えます)。残したいときは `claude plugin uninstall hoshibiyori@hoshibiyori-marketplace --keep-data`([Plugin commands reference](https://code.claude.com/docs/en/plugins/cli-reference))。
+
+### 初回セットアップ
+
+1. 通信しない環境確認から始めます(`scripts/check_setup.py`。データ領域の場所も表示されます)。
+2. Python の依存(`requirements.txt`)は、`${CLAUDE_PLUGIN_DATA}/venv` に venv を作って入れます。PyPI へ通信するため、**承認を得てから**行います(自動では入れません)。
+3. 天文暦 `de421.bsp`(約17MB)は、無い場合の初回実行時に Skyfield が JPL(`https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de421.bsp`)から自動ダウンロードします。手動で置く場合は、データ領域の `step1_astronomy/de421.bsp` に保存します。
+
+### 通信を伴う処理
+
+次の処理は、所要時間・通信先・回数・書き込み先を確認し、承認を得てから行います。
+
+- `generate_report.py`: 10〜30分、Open-Meteo API 約220回。加えて気象庁(ひまわり・天気図)と光害タイル(Light Pollution Atlas)へも通信します。
+- 星空ガイドの雲量取得(`--cloud fetch --allow-network`。先に `--estimate`)。
+
+**HTTP 429 が出たら即中止**し、別経路やリトライの連打で回避しません(`AGENTS.md` 第7節)。
+
+### 更新
+
+`plugin.json` で `version` を明示しているため、利用者に更新が届くのは **`version` を上げたときだけ**です。同じ `version` のまま新しいコミットをpushしても届きません。公式ドキュメントの「Release a new version」(上記 Host and maintain a marketplace)が根拠です。マーケットプレイスの自動更新は既定でオフで、利用者が `/plugin` で有効にするか、`claude plugin update hoshibiyori@hoshibiyori-marketplace` を実行します。
+
+### 未確認事項
+
+- venv の作成と、PyPI からの依存のインストール(プラグイン経由)
+- `generate_report.py` の全体実行(プラグイン経由)
+- macOS・Linux での動作
+
 ## データ出典と利用上の注意
 
 本ソフトウェア自体はMITライセンス(`LICENSE`)だが、実行時に取得・表示する各データにはそれぞれの提供元の条件が適用される。生成されるレポート(`report.html`)のフッターにも同じ出典表示を自動で含めている。
