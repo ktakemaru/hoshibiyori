@@ -1,0 +1,12 @@
+{
+  "name": "hoshibiyori",
+  "displayName": "ホシビヨリ",
+  "description": "星景写真撮影に特化した天気予報ツール。月・雲量・光害・地形の条件が揃う「夜 × 場所 × 時間帯」を探し、星空シミュレーター付きの星空ガイドを作る。観測者(地表から見上げる撮影者)の目線で雲を評価し、数値の限界はREADMEに明示。",
+  "version": "0.1.0",
+  "author": {
+    "name": "takemaru",
+    "email": "ktakemaru@users.noreply.github.com"
+  },
+  "license": "MIT",
+  "keywords": ["astronomy", "astrophotography", "stargazing", "milky-way", "weather", "japan", "星空", "星景", "天の川"]
+}

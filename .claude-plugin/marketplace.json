@@ -1,0 +1,15 @@
+{
+  "name": "hoshibiyori-marketplace",
+  "description": "ホシビヨリ(星景写真撮影に特化した天気予報ツール)のマーケットプレイス。",
+  "owner": {
+    "name": "takemaru",
+    "email": "ktakemaru@users.noreply.github.com"
+  },
+  "plugins": [
+    {
+      "name": "hoshibiyori",
+      "source": "./",
+      "description": "月・雲量・光害・地形で星景撮影に適した夜と場所を探し、星空シミュレーター付きの星空ガイドを作る。"
+    }
+  ]
+}
