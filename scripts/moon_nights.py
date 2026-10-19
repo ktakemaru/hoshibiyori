@@ -27,10 +27,9 @@ sys.path.insert(0, str(ROOT))
 for _sub in ["step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_moonlight", "step5_cloud_forecast"]:
     sys.path.insert(0, str(ROOT / _sub))
 
-from skyfield.api import load  # noqa: E402
 
 import explore_hoshibiyori as ex  # noqa: E402
-from hb_paths import DATA_ROOT  # noqa: E402
+from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 EPHEMERIS_PATH = DATA_ROOT / "step1_astronomy" / "de421.bsp"

@@ -40,7 +40,7 @@ for sub in ["step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_
     sys.path.insert(0, str(ROOT / sub))
 
 from skyfield import almanac  # noqa: E402
-from skyfield.api import load, wgs84  # noqa: E402
+from skyfield.api import wgs84  # noqa: E402
 
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_time  # noqa: E402
@@ -50,7 +50,7 @@ from moon_brightness import combine_sky_brightness  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
-from hb_paths import DATA_ROOT  # noqa: E402
+from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 
@@ -730,7 +730,6 @@ def _explore(cache: GridCloudCache) -> None:
 
     ts = load.timescale()
     eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
-    eph_path.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
     eph = load(str(eph_path))
 
     sites = load_candidate_sites()

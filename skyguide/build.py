@@ -105,7 +105,7 @@ def cloud_by_hour(lat, lon, elev, name, dark_start: datetime, dark_end: datetime
 
 def build_data(*, spot: dict, night_date: date, allow_network: bool = False, cloud_mode: str = "cache") -> dict:
     """spot: {name, prefecture?, municipality?, lat, lon, elevation_m, lpi?, mpsas?, horizon_profile?, coordinate_source?}"""
-    from skyfield.api import load
+    from hb_paths import ephemeris_load as load
     import explore_hoshibiyori as ex
 
     if not astro.EPHEMERIS_PATH.exists() and not allow_network:

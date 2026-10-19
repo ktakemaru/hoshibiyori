@@ -23,3 +23,25 @@ def resolve_data_root(default: Path | None = None, env=None) -> Path:
 
 
 DATA_ROOT = resolve_data_root()
+
+
+class _EphemerisLoad:
+    """skyfield.api.load と同じ使い方(load.timescale()・load(暦ファイルのパス))で、暦を、そのファイルのフォルダを保存先にして開く。
+
+    Skyfield は load('<絶対パス>') だと、パス全体を取得先URLの末尾に連結してしまい(…/bsp/C:/…/de421.bsp → 404)、
+    暦が無いときに自動ダウンロードできない。保存先のフォルダを指定した Loader('<フォルダ>')('<ファイル名>') で開けば、
+    取得先URLが正しくなる(…/bsp/de421.bsp)。フォルダは Loader が作る。暦が既にあれば通信しない。
+    """
+
+    @staticmethod
+    def timescale(*args, **kwargs):
+        from skyfield.api import load
+        return load.timescale(*args, **kwargs)
+
+    def __call__(self, path, **kwargs):
+        from skyfield.api import Loader
+        p = Path(path)
+        return Loader(str(p.parent))(p.name, **kwargs)
+
+
+ephemeris_load = _EphemerisLoad()

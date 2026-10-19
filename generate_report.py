@@ -37,7 +37,7 @@ ROOT = Path(__file__).parent
 for sub in ["step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_moonlight", "step5_cloud_forecast"]:
     sys.path.insert(0, str(ROOT / sub))
 
-from skyfield.api import load  # noqa: E402
+from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_datetime  # noqa: E402
@@ -61,7 +61,6 @@ from himawari_image import (  # noqa: E402
     recent_basetimes, regional_view,
 )
 from areas import load_areas  # noqa: E402
-from hb_paths import DATA_ROOT  # noqa: E402
 
 OUTPUT_PATH = DATA_ROOT / "report.html"
 TOP_N_TIER2 = 10
@@ -393,7 +392,6 @@ def _generate(cache: GridCloudCache) -> int:
     t_start = datetime.now(JST)
     ts = load.timescale()
     eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
-    eph_path.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
     eph = load(str(eph_path))
     target = get_target(TARGET_ID)
 

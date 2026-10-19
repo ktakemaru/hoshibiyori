@@ -5,11 +5,13 @@
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -154,6 +156,69 @@ class CliDefaultsTest(unittest.TestCase):
             self.assertFalse(sub.exists())
         r = self.run_script(None, str(ROOT / "scripts" / "check_setup.py"))
         self.assertIn("未設定: リポジトリ内", r.stdout)
+
+
+class EphemerisLoadTest(unittest.TestCase):
+    """暦(de421.bsp)の取得。通信しない: 取得元を file:// のローカルURLに向け、空のデータ領域へ取得させる。
+
+    Skyfield の load('<絶対パス>') は、パス全体を取得先URLに連結して(…/bsp/C:/…/de421.bsp)404になる。
+    hb_paths.ephemeris_load は Loader('<フォルダ>')('<ファイル名>') で開くので、URLが正しく(ベースURL + de421.bsp)、
+    保存先のフォルダは Loader が作り、暦が既にあれば取得しない。ダミーの中身は暦として読めず例外になるが、取得できたかは
+    保存先のファイルで確かめる。
+    """
+
+    DUMMY = b"not a real ephemeris"
+
+    def _source(self, d):
+        src = Path(d) / "source"
+        src.mkdir()
+        (src / "de421.bsp").write_bytes(self.DUMMY)
+        return src
+
+    def test_downloads_from_local_url_into_missing_directory(self):
+        import skyfield.iokit as iokit
+        with tempfile.TemporaryDirectory() as d:
+            src = self._source(d)
+            target = Path(d) / "data" / "step1_astronomy" / "de421.bsp"        # フォルダが無い(空のデータ領域)
+            before = sorted(os.listdir("."))
+            with mock.patch.object(iokit, "_JPL", src.as_uri() + "/"):
+                with self.assertRaises(Exception) as cm:                        # ダミーなので暦としては読めない
+                    hb_paths.ephemeris_load(str(target))
+            self.assertNotIn("cannot download", str(cm.exception))             # 取得自体は成功している
+            self.assertTrue(target.is_file())
+            self.assertEqual(target.read_bytes(), self.DUMMY)
+            self.assertEqual(sorted(os.listdir(".")), before)                   # 作業フォルダ(cwd)に何も作らない
+
+    def test_existing_file_is_not_downloaded(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d) / "step1_astronomy" / "de421.bsp"
+            target.parent.mkdir()
+            target.write_bytes(self.DUMMY)
+            with mock.patch("skyfield.iokit.download") as download:
+                with self.assertRaises(Exception):                              # 読めないだけ。取得は試みない
+                    hb_paths.ephemeris_load(str(target))
+            download.assert_not_called()
+
+    def test_timescale_is_available_like_skyfield_load(self):
+        ts = hb_paths.ephemeris_load.timescale()
+        self.assertEqual(ts.utc(2026, 10, 19).utc_datetime().year, 2026)
+
+    def test_four_call_sites_use_it_instead_of_absolute_path_load(self):
+        for rel in ("generate_report.py", "explore_hoshibiyori.py", "scripts/moon_nights.py", "skyguide/build.py"):
+            with self.subTest(rel=rel):
+                src = (ROOT / rel).read_text(encoding="utf-8")
+                self.assertIn("ephemeris_load as load", src)
+                self.assertIsNone(re.search(r"from skyfield\.api import[^\n]*\bload\b", src))   # 絶対パスの load に戻さない
+
+    def test_without_allow_network_no_directory_is_created(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import moon_nights as mn
+        with tempfile.TemporaryDirectory() as d:
+            eph = Path(d) / "step1_astronomy" / "de421.bsp"
+            with mock.patch.object(mn, "EPHEMERIS_PATH", eph), mock.patch.object(mn, "load", mock.MagicMock()) as load:
+                self.assertNotEqual(mn.main(["--days", "1"]), 0)   # 暦が無く、通信の許可も無い → 何もせず終了
+                load.assert_not_called()
+            self.assertFalse(eph.parent.exists())
 
 
 if __name__ == "__main__":
