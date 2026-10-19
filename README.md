@@ -107,12 +107,17 @@ Skyfieldの暦ファイル(`de421.bsp`)は無い場合、初回実行時に自�
 
 ## Codexで試す
 
-AIコーディングエージェント(Codex / Claude Code)にこのリポジトリを渡して使うときの手順です。共通のルールは `AGENTS.md` にまとまっています(Codexは `AGENTS.md` を読みます。設計の経緯を書いた `CLAUDE.md` は約64KBあり、Codexの既定の読み込み上限32KiBを超えるため、短い `AGENTS.md` に分けています)。
+ChatGPTアプリのCodexで、コマンドを自分で打たずに試せます。事前に、Git と Python 3.13以降を入れておいてください。
 
-1. clone して、上の「セットアップ」の手順で `.venv` を作り、`requirements.txt` を入れる。
-2. `scripts\check_setup.py` で環境を確認する(通信しません)。
-3. 単体テストを実行する(通信しません)。最後の行が `OK` ならよい。
-4. `generate_report.py` は**重い**ので、最初の動作確認には使わないでください。引数なしで10〜30分・Open-Meteo API約220回かかり、`report.html`(git管理外)を上書きします。実行はエージェントに任せず、時間と回数を理解したうえで自分で行うのがおすすめです。
+1. Windows PCにChatGPTアプリをインストールして、サインインする。
+2. Codexに切り替えて、「ファイル → フォルダを開く → 新しいフォルダ」で、hoshibiyori フォルダ(プロジェクト)を作る。
+3. チャット欄で、Codexに次のように指示する。
+
+> https://github.com/ktakemaru/hoshibiyori.git をこのフォルダに clone して、AGENTS.md の手順どおりにセットアップし、通信しない確認(check_setup と単体テスト)まで実行してください。
+
+通信や承認を求められたら、内容を確認してから許可してください。`generate_report.py` は重い(10〜30分・Open-Meteo 約220回)ので、最初の確認には使わないでください。
+
+共通のルールは `AGENTS.md` にまとまっています(Codexは `AGENTS.md` を読みます。設計の経緯を書いた `CLAUDE.md` は約64KBあり、Codexの既定の読み込み上限32KiBを超えるため、短い `AGENTS.md` に分けています)。
 
 「適した日と場所」を聞くときの流れ(探索 → 星空ガイド)は `AGENTS.md` 第11節にあります。月の条件だけで夜を絞るなら、通信なし・数秒の `py -X utf8 scripts\moon_nights.py` が使えます(雲量は未評価)。
 
