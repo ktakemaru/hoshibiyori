@@ -33,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import report_courses as rc  # noqa: E402
+from hb_paths import resolve_data_root  # noqa: E402
 
 ROOT = rc.ROOT
 JST = rc.JST
@@ -44,7 +45,7 @@ TONES = ("good", "neutral", "warn")
 MAX_VERDICTS = 4
 FAR_KM = 250  # generate_report.CASUAL_RADIUS_KM と同じ(気軽コースの距離条件)
 WEEKDAYS = "月火水木金土日"
-WEATHER_ROOT = ROOT  # 天気図の画像パス(weather_map_commentary.json の images)の基準。テストで差し替える
+WEATHER_ROOT = resolve_data_root(ROOT)  # 天気図の画像パス(weather_map_commentary.json の images)の基準。テストで差し替える
 # generate_report.render_weather_map_section と同じ文言
 WEATHER_SOURCE = "出典: 気象庁ホームページ(https://www.jma.go.jp/bosai/weather_map/)。"
 
@@ -603,7 +604,7 @@ def _iso_date(s: str) -> date:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="今週末の星空撮影ページ(HTML)を report.html から生成する(通信しない)")
-    ap.add_argument("--report", type=Path, default=ROOT / "report.html")
+    ap.add_argument("--report", type=Path, default=resolve_data_root(ROOT) / "report.html")
     ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)。無ければ結論は出さない")
     ap.add_argument("--weather-commentary", type=Path, help="天気図の解説(既定: リポジトリ直下の weather_map_commentary.json、schema /2)")
     ap.add_argument("--spots", type=Path, default=ROOT / "stargazing_spots.json", help="verdict の地点名の照合に使う地点マスター")
@@ -656,7 +657,7 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
         print(f"[天気図の解説] 未更新として扱います: {weather['reason']}", file=sys.stderr)
 
     nights = sorted(set(args.dates)) if args.dates else default_dates(gen_date)
-    out = args.out or ROOT / "out" / f"weekend_stargazing_{nights[0]:%Y%m%d}.html"
+    out = args.out or resolve_data_root(ROOT) / "out" / f"weekend_stargazing_{nights[0]:%Y%m%d}.html"
     if out.exists() and not args.force:
         print(f"[中止] {out} は既に存在します。別名にするか --force を付けてください(何も書いていません)。", file=sys.stderr)
         return EXIT_EXISTS

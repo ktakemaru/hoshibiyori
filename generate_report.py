@@ -61,8 +61,9 @@ from himawari_image import (  # noqa: E402
     recent_basetimes, regional_view,
 )
 from areas import load_areas  # noqa: E402
+from hb_paths import DATA_ROOT  # noqa: E402
 
-OUTPUT_PATH = ROOT / "report.html"
+OUTPUT_PATH = DATA_ROOT / "report.html"
 TOP_N_TIER2 = 10
 
 # --- JMA地上天気図(2段目「直近・行動用」、2026-09-06追加) ---
@@ -70,7 +71,7 @@ TOP_N_TIER2 = 10
 # 解説文は「Claudeが画像を見て書いた文章」で自動更新されないため、リポジトリ直下の
 # weather_map_commentary.json(git管理外)から読み、based_onからWEATHER_MAP_COMMENTARY_MAX_AGE_HOURS
 # 以内のときだけ表示する。それ以外は古い本文を出さず、画像と理由の一行だけを表示する。
-WEATHER_MAP_COMMENTARY_PATH = ROOT / "weather_map_commentary.json"
+WEATHER_MAP_COMMENTARY_PATH = DATA_ROOT / "weather_map_commentary.json"
 WEATHER_MAP_COMMENTARY_SCHEMA = "hoshibiyori-weathermap-commentary/2"
 # /1(imagesなし)は、解説が元にした画像を特定できないため解説を表示しない(画像だけを出す)。
 WEATHER_MAP_COMMENTARY_LEGACY_SCHEMAS = ("hoshibiyori-weathermap-commentary/1",)
@@ -391,7 +392,9 @@ def main() -> int:
 def _generate(cache: GridCloudCache) -> int:
     t_start = datetime.now(JST)
     ts = load.timescale()
-    eph = load(str(ROOT / "step1_astronomy" / "de421.bsp"))
+    eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
+    eph_path.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
+    eph = load(str(eph_path))
     target = get_target(TARGET_ID)
 
     # レポートは星空撮影名所として調査済みのcurated由来地点のみを対象とする
@@ -401,7 +404,7 @@ def _generate(cache: GridCloudCache) -> int:
     sites = [s for s in all_sites if is_primary_origin(s["origin"])]
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
 
-    lp_store = LightPollutionTileStore(cache_dir=str(ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
+    lp_store = LightPollutionTileStore(cache_dir=str(DATA_ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
 
     print(f"候補地点: {len(sites)}件を読み込み(curated由来のみ、viewpoint参考データ{len(all_sites)-len(sites)}件は対象外)")
 
@@ -506,6 +509,7 @@ def _generate(cache: GridCloudCache) -> int:
         weather_map_html=weather_map_html, night_view_items=night_view_items,
         fetch_warning_html=fetch_warning_html,
     )
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(html_out, encoding="utf-8")
 
     t_end = datetime.now(JST)
@@ -624,7 +628,7 @@ def render_himawari_section(frames: "list[HimawariFrame] | HimawariImage") -> st
         return ""
     cards = []
     for f in frames:
-        rel_src = f.shown_path.relative_to(ROOT).as_posix()
+        rel_src = f.shown_path.relative_to(DATA_ROOT).as_posix()
         time_label = f"{f.image.basetime_jst:%Y-%m-%d %H:%M} JST"
         frac_label = f"雲域の割合 {format_cloud_pct(f.fraction)}" if f.fraction is not None else "割合: 算出できず"
         cards.append(f"""
@@ -871,7 +875,7 @@ def _commentary_image_paths(images, root: Path) -> list[Path] | None:
     return out
 
 
-def load_weather_map_commentary(path: Path = WEATHER_MAP_COMMENTARY_PATH, root: Path = ROOT
+def load_weather_map_commentary(path: Path = WEATHER_MAP_COMMENTARY_PATH, root: Path = DATA_ROOT
                                 ) -> tuple[str | None, datetime | None, list[Path] | None]:
     """解説JSONを読み、(本文, based_on, 画像パス3枚)を返す。
 
@@ -906,7 +910,7 @@ def _valid_commentary(now: datetime, commentary_path: Path | None, root: Path):
     return text, based_on, images
 
 
-def collect_weather_map(now: datetime, commentary_path: Path | None = None, root: Path = ROOT
+def collect_weather_map(now: datetime, commentary_path: Path | None = None, root: Path = DATA_ROOT
                         ) -> tuple[list[Path], datetime | None]:
     """表示する天気図の画像と取得時刻を返す。解説が有効なら気象庁へ取得に行かず、解説の元にした画像を使う
     (解説と図の時刻がずれないようにするため)。無効なら従来どおり取得する。"""
@@ -919,7 +923,7 @@ def collect_weather_map(now: datetime, commentary_path: Path | None = None, root
 
 
 def render_weather_map_section(image_paths: list, now: datetime, commentary_path: Path | None = None,
-                               fetched_at: datetime | None = None, root: Path = ROOT) -> str:
+                               fetched_at: datetime | None = None, root: Path = DATA_ROOT) -> str:
     valid = _valid_commentary(now, commentary_path, root)
     if valid is not None:
         text, based_on, image_paths = valid

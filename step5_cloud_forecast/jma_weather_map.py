@@ -24,11 +24,17 @@ JMA側の仕様を把握した。コード自体は移植・コピーしてお�
 """
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 JMA_WEATHER_MAP_URL = "https://www.jma.go.jp/bosai/weather_map/"
-DEFAULT_OUT_DIR = Path(__file__).parent / "weather_map_cache"
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.append(str(_ROOT))  # リポジトリ直下の hb_paths を見つけるため
+from hb_paths import DATA_ROOT  # noqa: E402
+
+DEFAULT_OUT_DIR = DATA_ROOT / "step5_cloud_forecast" / "weather_map_cache"
 
 # JMAの天気図ページの「ひとつ後の時間を表示」ボタンは、実況から数えて+24h予想・+48h予想の
 # 2段階までしか進まない(ページ自体の仕様。将来ページ側の挙動が変われば要調整)。

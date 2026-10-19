@@ -30,9 +30,10 @@ for _sub in ["step1_astronomy", "step2_terrain", "step3_light_pollution", "step4
 from skyfield.api import load  # noqa: E402
 
 import explore_hoshibiyori as ex  # noqa: E402
+from hb_paths import DATA_ROOT  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
-EPHEMERIS_PATH = ROOT / "step1_astronomy" / "de421.bsp"
+EPHEMERIS_PATH = DATA_ROOT / "step1_astronomy" / "de421.bsp"
 SCHEMA = "hoshibiyori-moon-nights/1"
 DEFAULT_REF_SPOT = "石廊崎"  # generate_report.py の概況タイムラインの基準地点
 DEFAULT_TOP = 5

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -37,7 +38,12 @@ GRID_STEP_DEG = {
     ECMWF_MODEL: {"lat": 0.25, "lon": 0.25},
 }
 
-_DEFAULT_CACHE_DIR = Path(__file__).parent / "cloud_cache"
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.append(str(_ROOT))  # リポジトリ直下の hb_paths を見つけるため
+from hb_paths import DATA_ROOT  # noqa: E402
+
+_DEFAULT_CACHE_DIR = DATA_ROOT / "step5_cloud_forecast" / "cloud_cache"
 
 # 取得失敗セル率(失敗セル数÷この実行で要求したユニークセル数)がこの値以上なら、
 # レポートを出さずに異常終了(終了コード2)する。未満で1件以上の失敗なら警告付きで出力する。
