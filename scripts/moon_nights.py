@@ -27,10 +27,9 @@ sys.path.insert(0, str(ROOT))
 for _sub in ["step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_moonlight", "step5_cloud_forecast"]:
     sys.path.insert(0, str(ROOT / _sub))
 
-from skyfield.api import load  # noqa: E402
 
 import explore_hoshibiyori as ex  # noqa: E402
-from hb_paths import DATA_ROOT  # noqa: E402
+from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 EPHEMERIS_PATH = DATA_ROOT / "step1_astronomy" / "de421.bsp"
@@ -231,7 +230,6 @@ def main(argv: list[str] | None = None) -> int:
             raise MoonNightsError("天文暦 step1_astronomy/de421.bsp がありません(初回は自動ダウンロード=通信が必要なため、ここでは行いません)。"
                                   "--allow-network を付けるか、先に用意してください(通信の前に承認を得ること)")
         ts = load.timescale()
-        EPHEMERIS_PATH.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
         eph = load(str(EPHEMERIS_PATH))
         rows = compute_rows(ts, eph, ref["lat"], ref["lon"], start, a.days)
     except MoonNightsError as e:

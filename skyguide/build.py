@@ -105,14 +105,13 @@ def cloud_by_hour(lat, lon, elev, name, dark_start: datetime, dark_end: datetime
 
 def build_data(*, spot: dict, night_date: date, allow_network: bool = False, cloud_mode: str = "cache") -> dict:
     """spot: {name, prefecture?, municipality?, lat, lon, elevation_m, lpi?, mpsas?, horizon_profile?, coordinate_source?}"""
-    from skyfield.api import load
+    from hb_paths import ephemeris_load as load
     import explore_hoshibiyori as ex
 
     if not astro.EPHEMERIS_PATH.exists() and not allow_network:
         raise SkyGuideError("暦ファイル step1_astronomy/de421.bsp がありません(初回は自動ダウンロード=通信が必要)。--allow-network を付けるか、先に用意してください")
     lat, lon, elev = spot["lat"], spot["lon"], spot["elevation_m"]
     ts = load.timescale()
-    astro.EPHEMERIS_PATH.parent.mkdir(parents=True, exist_ok=True)  # 無ければSkyfieldがここへ自動ダウンロードする
     eph = load(str(astro.EPHEMERIS_PATH))
     ds, de = ex.find_astro_dark_events(ts, eph, lat, lon, datetime(night_date.year, night_date.month, night_date.day, tzinfo=JST))
     if ds is None or de is None:
