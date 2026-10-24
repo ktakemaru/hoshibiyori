@@ -11,7 +11,7 @@ venv/
 # --- Runtime caches of external data (regenerable; access-politeness rules in CLAUDE.md) ---
 # 国土地理院 標高タイル(約23GB)
 step2_terrain/dem_cache/
-# Light Pollution Atlas バイナリタイル
+# 旧光害タイルのキャッシュ(取得処理は段階LP3bで削除。手元に残っている場合に誤ってコミットしないため除外を残す)
 step3_light_pollution/tile_cache/
 # NASA Black Marble の生HDF5と比較用の中間生成物(約1GB。段階LP1、年1回の再生成で作り直せる)
 step3_light_pollution/blackmarble_cache/
@@ -38,9 +38,8 @@ out/
 
 # 生成物(generate_report.py が毎回上書きする。古い版が残ると誤読されるため追跡しない)
 /report.html
-# 光害の入力をlegacy(LPI)にして生成したレポート(段階LP3。既定のbmは report.html)
+# 段階LP2・LP3で作った比較用レポート(段階LP3bで生成しなくなった。手元に残っている場合のため除外を残す)
 /report_legacy.html
-# 段階LP2で作った試験用レポート(段階LP3以降は生成しない)
 /report_bm.html
 /artifact_report.html
 

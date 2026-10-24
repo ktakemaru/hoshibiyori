@@ -75,8 +75,8 @@ allowed-tools:
 
 ユーザーの明示的な依頼がない限り実行しない。
 
-- リポジトリ直下: `static_ranking.py`、`classify_site_darkness.py`、`run_area_classification.py`、`merge_external_spots_20260907.py`、`check_external_spots_dedup.py`、`fix_curated_external_prefecture_20260907.py`
-- `step2_terrain/precompute_terrain.py`・`step2_terrain/horizon_profile.py`、`step3_light_pollution/run_5points.py`、`step6_viewpoint_survey/`、`step7_geocoding/`、`step1_astronomy/run_seasonal_verification.py`、`step4_moonlight/run_verification.py`、`scripts/extract_sky_guide_sample.py`
+- リポジトリ直下: `classify_site_darkness.py`、`run_area_classification.py`、`check_external_spots_dedup.py`、`fix_curated_external_prefecture_20260907.py`
+- `step2_terrain/precompute_terrain.py`・`step2_terrain/horizon_profile.py`、`step3_light_pollution/`(Black Marble の取得・生成・検証)、`step6_viewpoint_survey/`、`step7_geocoding/`、`step1_astronomy/run_seasonal_verification.py`、`step4_moonlight/run_verification.py`
 - `tests/`(プラグイン利用時は実行しない)
 
 ## 8. 完了時

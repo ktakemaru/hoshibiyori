@@ -25,16 +25,16 @@ NOW = datetime(2026, 10, 17, 15, 0, tzinfo=JST)
 
 
 def card(name, muni, score, lat, lon, night=date(2026, 10, 17), start=(21, 15), end=(4, 15), best=(23, 0),
-         obstruction=12.4, mpsas=21.806, origin="curated"):
+         obstruction=12.4, alr=2.34, rank=41.0, origin="curated"):
     ws = datetime(2026, 10, night.day, *start, tzinfo=JST)
     we = datetime(2026, 10, night.day + (1 if end < start else 0), *end, tzinfo=JST)
     return SimpleNamespace(
         site_name=name, municipality=muni, score=score, origin=origin, site_lat=lat, site_lon=lon,
         window_start=ws, window_end=we, best_time=datetime(2026, 10, night.day, *best, tzinfo=JST),
-        night_date=night, mean_obstruction=obstruction, effective_mpsas=mpsas)
+        night_date=night, mean_obstruction=obstruction, alr=alr, alr_rank_pct=rank)
 
 
-CASUAL = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("枝折峠", "魚沼市", 117.2, 37.1, 139.2, mpsas=21.65),
+CASUAL = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("枝折峠", "魚沼市", 117.2, 37.1, 139.2, alr=3.1, rank=55.0),
           card("白州", "北杜市", 100.0, 35.8, 138.3, obstruction=3.0), card("四番目", "どこか市", 90.0, 36.0, 139.0)]
 HARDCORE = [card("白米千枚田", "輪島市", 118.6, 37.3, 136.8), card("白木峰展望台", "佐渡市", 118.0, 38.0, 138.3),
             card("三番目", "県内市", 99.0, 36.5, 137.5)]
@@ -61,7 +61,7 @@ class Base(unittest.TestCase):
     def run_cli(self, *argv, now=NOW):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = rc.main(["--lp-source", "legacy"] + list(argv), now=now)  # このテストのレポートはlegacy形式
+            code = rc.main(list(argv), now=now)
         return code, out.getvalue(), err.getvalue()
 
 
@@ -74,7 +74,7 @@ class NormalTest(Base):
         self.assertLess(out.index("気軽コース"), out.index("硬派コース"))
         self.assertIn("1. 奥只見ダム(魚沼市) スコア119 / 東京から直線", out)
         self.assertIn("日付 2026-10-17 / 見頃 21:15〜04:15(翌)(狙い目 23:00) / 視界遮蔽雲量 平均12% / "
-                      "実効的な空の明るさ 21.81 mag/arcsec²", out)
+                      "光害(相対指数) ALR 2.34(主軸の地点のうち暗い方から41%)", out)
         self.assertIn("平均3%", out)  # 3件目
         self.assertNotIn("四番目", out)  # 気軽は上位3件まで
         self.assertIn("3. 三番目(県内市)", out)  # 硬派は3件しか無い
@@ -173,8 +173,8 @@ class BadStructureTest(Base):
         self.assertIn("視界遮蔽雲量", err)
 
     def test_changed_value_format(self):
-        err = self.assert_exit3(build_html().replace("mag/arcsec&sup2;", "等級"))
-        self.assertIn("空の明るさ", err)
+        err = self.assert_exit3(build_html().replace("ALR 2.34", "相対 2.34"))
+        self.assertIn("光害(相対指数)", err)
 
     def test_no_generated_at(self):
         p = self.write_report(build_html().replace("生成日時", "作成"))
@@ -206,10 +206,10 @@ class JsonOutTest(Base):
         self.assertIsNone(casual["empty_note"])
         k = casual["candidates"][0]
         self.assertEqual(set(k), {"rank", "name", "municipality", "score", "distance_km", "origin", "date", "window",
-                                  "best_time", "obstruction_pct", "effective_mpsas", "maps_url"})
+                                  "best_time", "obstruction_pct", "alr", "alr_rank_pct", "maps_url"})
         self.assertEqual((k["rank"], k["name"], k["municipality"], k["score"]), (1, "奥只見ダム", "魚沼市", 119))
         self.assertEqual((k["date"], k["window"], k["best_time"]), ("2026-10-17", "21:15〜04:15(翌)", "23:00"))
-        self.assertEqual((k["obstruction_pct"], k["effective_mpsas"]), (12, 21.81))
+        self.assertEqual((k["obstruction_pct"], k["alr"], k["alr_rank_pct"]), (12, 2.34, 41))
         self.assertTrue(k["maps_url"].startswith("https://www.google.com/maps?q="))
         self.assertEqual(txt.read_text(encoding="utf-8"), out)
 

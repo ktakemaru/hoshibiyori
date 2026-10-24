@@ -52,33 +52,17 @@ def main() -> int:
 
     grid = sg.DerivedGrid.load(args.grid)
     spots = json.loads(sg.SPOTS_PATH.read_text(encoding="utf-8"))["spots"]
-    import legacy_ref  # 事前計算のlpiは外したので、光害タイルから計算する
-    for s, v in zip(spots, legacy_ref.legacy_lpi(spots)):
-        s["lpi"] = float(v)
     ann = sg.annotate_spots(spots, grid)
     res = {"grid": str(args.grid.name), "n_spots": len(spots)}
-
-    # 1. 既存LPIとの順位相関
-    ok = [i for i, s in enumerate(ann) if s["skyglow_bm_index"] is not None and s.get("lpi") is not None]
+    # (段階LP1〜LP3の「旧データとの順位相関」は、旧データの取得処理とともに段階LP3bで削除した。結果は REPORT_LP1.md)
+    ok = [i for i, s in enumerate(ann) if s["skyglow_bm_index"] is not None]
     bm = np.array([ann[i]["skyglow_bm_index"] for i in ok])
-    lpi = np.array([ann[i]["lpi"] for i in ok])
-    res["n_compared"] = len(ok)
-    res["spearman_lpi"] = spearman(bm, lpi)
-    res["spearman_log"] = float(np.corrcoef(np.log10(np.maximum(bm, 1e-4)), np.log10(np.maximum(lpi, 1e-4)))[0, 1])
-    pb, pl = sg.rank_pct(bm), sg.rank_pct(lpi)
-    diff = pb - pl
-    order = np.argsort(-np.abs(diff))[:15]
-    top = []
-    for j in order:
-        s = ann[ok[j]]
-        city, dkm = nearest_city(s["lat"], s["lon"])
-        top.append({"name": s["name"], "pref": s.get("prefecture"), "lat": s["lat"], "lon": s["lon"],
-                    "elev_m": s.get("elevation_m"), "lpi": s["lpi"], "bm_alr": s["skyglow_bm_index"],
-                    "rank_lpi": round(float(pl[j]), 1), "rank_bm": round(float(pb[j]), 1),
-                    "diff_pt": round(float(diff[j]), 1), "nearest_city": city, "city_km": round(dkm)})
-    res["top_disagreements"] = top
+    pb = sg.rank_pct(bm)
+    res["n_evaluated"] = len(ok)
+    res["spots_nearest_city"] = {ann[ok[j]]["name"]: nearest_city(ann[ok[j]]["lat"], ann[ok[j]]["lon"])[0]
+                                 for j in np.argsort(-bm)[:5]}
 
-    # 2. 常識的な確認
+    # 1. 常識的な確認
     pts = {**CITIES, **DARK_REFERENCE}
     vals = grid.at([v[0] for v in pts.values()], [v[1] for v in pts.values()])
     res["landmarks"] = {k: (None if not np.isfinite(v) else round(float(v), 3)) for k, v in zip(pts, vals)}
@@ -90,7 +74,7 @@ def main() -> int:
     res["spots_darkest5"] = [(ann[ok[j]]["name"], ann[ok[j]]["skyglow_bm_index"]) for j in np.argsort(bm)[:5]]
     res["spots_brightest5"] = [(ann[ok[j]]["name"], ann[ok[j]]["skyglow_bm_index"]) for j in np.argsort(-bm)[:5]]
 
-    # 3. 近接2地点(3km以内)の比
+    # 2. 近接2地点(3km以内)の比
     pairs = []
     for a in range(len(ok)):
         for b in range(a + 1, len(ok)):
@@ -103,7 +87,7 @@ def main() -> int:
     pairs.sort(key=lambda p: -p["ratio"])
     res["near_pairs"] = {"n": len(pairs), "max_ratio": pairs[0]["ratio"] if pairs else None, "worst5": pairs[:5]}
 
-    # 4. 別入力(別年・別衛星)との比較
+    # 3. 別入力(別年・別衛星)との比較
     res["others"] = {}
     for item in args.other:
         label, path = item.split("=", 1)

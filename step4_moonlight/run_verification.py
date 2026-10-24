@@ -8,12 +8,13 @@ from skyfield.api import load
 from moon_brightness import combine_sky_brightness
 from moon_position import JST, compute_moon_position
 
-# 石廊崎(既存ステップ3の結果: LPI=0.285 -> mag/arcsec^2=21.73)
+# 石廊崎の位置で、月の影響の大きさだけを見る検証。背景の空の明るさは仮定値(この地点の実測・計算値ではない)。
+# 段階LP3bで、以前の光害データ由来の値をやめ、21.5 mag/arcsec^2 を仮定した(月の影響の大きさを見るための例で、根拠のある地点値ではない)。
 SITE_NAME = "石廊崎"
 SITE_LAT = 34.602778
 SITE_LON = 138.845278
 SITE_ELEV = 60.0
-BACKGROUND_MPSAS = 21.73  # step3で計算済みの光害由来の空の明るさ(月を含まない)
+BACKGROUND_MPSAS = 21.5  # 仮定の背景輝度(月を含まない)。地点の光害を表す値ではない
 
 TEST_CASES = [
     ("新月(2026-06-15)夜", datetime(2026, 6, 15, 23, 0, 0)),
@@ -25,7 +26,7 @@ if __name__ == "__main__":
     eph = load("de421.bsp")
 
     print(f"=== {SITE_NAME} (緯度{SITE_LAT}, 経度{SITE_LON}) ===")
-    print(f"光害由来の背景輝度(step3): {BACKGROUND_MPSAS} mag/arcsec^2\n")
+    print(f"背景輝度(仮定値): {BACKGROUND_MPSAS} mag/arcsec^2\n")
 
     for label, dt_naive in TEST_CASES:
         dt_local = dt_naive.replace(tzinfo=JST)

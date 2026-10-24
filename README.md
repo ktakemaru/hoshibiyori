@@ -24,9 +24,9 @@
   - 雲フィルタ: 時間別の**視界遮蔽雲量**(観測者より上の雲)が30%以下で連続1時間以上続く「晴れ間」があるものだけ残し、その晴れ間を「見頃」として表示。直近約3日は気象庁MSM(約5km格子)、それ以降はECMWF IFS(0.25°)を時刻ごとに自動結合。
   - 方角フィルタ: 対象天体の方位・高度を計算し、地形地平線(国土地理院DEM)を上回り、光害(Black Marble由来のスカイグロー指数ALR。日本で未較正の相対指数)が仮閾値以下の地点だけ残す。
 - **レポート生成**(`generate_report.py`) — 探索結果を`report.html`に出力。「気軽コース」(東京から直線250km圏内で、離島・本格登山・リフト要の地点を除く)と「硬派コース」(距離・アクセスを問わず条件のみ)のTOP10(「星空撮影に適した日と場所は?」と聞くと両コースを示す。`scripts/report_courses.py`を使う)、夜景系スポットの別枠、2週間先までの中期見込み(ECMWF、雲量は晴天率の参考表示のみ)、気象庁天気図のスクリーンショット、気象衛星ひまわり赤外画像(「現況の雲の様子(参考)」)を含む。ひまわり画像は実況の参考表示のみで、スコア・順位・足切りには使わない。
-- **光害の指数について(相対指数であること)** — 既定の光害は、NASA Black Marble(VNP46A4、2025年)から Duriscoe et al. 2018 の手法で求めたスカイグロー指数 **ALR** です(`--lp-source bm`、既定)。**日本では較正していない相対指数で、空の明るさの絶対値(mag/arcsec²)やボートルスケールではありません**(全天平均で、標高・地形遮蔽は扱いません)。このため画面には ALR と順位だけを出し、足切りには仮閾値(ALR 10.66。従来の判定と同じ件数が通る値で、論文の目安値ではありません)を使います。従来の入力(LPI)と比べた上位の順位差は小さく(見込みの上位10件のうち6件が共通、上位2件は同じ。入れ替わりは光害の減点が2点前後違うだけで動く範囲)、最終的な判断は実地の経験に基づいて行ってください。従来の入力は `--lp-source legacy`(出力は `report_legacy.html`)で使えます。
+- **光害の指数について(相対指数であること)** — 光害は、NASA Black Marble(VNP46A4、2025年)から Duriscoe et al. 2018 の手法で求めたスカイグロー指数 **ALR** です。**日本では較正していない相対指数で、空の明るさの絶対値(mag/arcsec²)やボートルスケールではありません**(全天平均で、標高・地形遮蔽は扱いません)。このため画面には ALR と順位だけを出し、足切りには仮閾値(ALR 10.66。以前の判定と同じ件数が通る値で、論文の目安値ではありません)を使います。以前の光害データと比べた上位の順位差は小さく(見込みの上位10件のうち6件が共通、上位2件は同じ。入れ替わりは光害の減点が2点前後違うだけで動く範囲)、最終的な判断は実地の経験に基づいて行ってください。
 - **取得失敗の扱い** — Open-Meteoが429(利用上限)を返したら即中止する。失敗セル率(要求したユニークセルのうち取得に失敗した割合)が20%未満なら、`report.html`冒頭に警告バナーを出して続行する(終了コード0)。20%以上、または429の場合は`report.html`を更新せず終了コード2で終わる(閾値は`grid_cache.py`の`FAILED_CELL_RATE_ABORT`)。
-- **候補地点マスター**(`stargazing_spots.json`) — 星空撮影の専門家・愛好家サイトのWeb調査と外部リスト取り込みによる主軸146件(`spots`)と、OSM `tourism=viewpoint`由来の参考データ751件(`viewpoint_reference`)。各地点に`site_type`(暗い空/夜景系。ALRの仮閾値で分類)を付与。光害の数値(LPI・簡易ボートル値)は、Lorenz氏のデータ由来のため段階LP3で外した。
+- **候補地点マスター**(`stargazing_spots.json`) — 星空撮影の専門家・愛好家サイトのWeb調査と外部リスト取り込みによる主軸146件(`spots`)と、OSM `tourism=viewpoint`由来の参考データ751件(`viewpoint_reference`)。各地点に`site_type`(暗い空/夜景系。ALRの仮閾値で分類)を付与。
 
 ## 見上げ型ハイブリッド雲量判定
 
@@ -52,7 +52,7 @@
 
 恒星の座標(`skyguide/objects.json`)は標準的な恒星カタログ値の手入力で、**Hipparcosとの機械照合は未実施**です(見本の天体位置との差は最大0.11°)。
 
-見本(`docs/examples/`、読み取り専用)の再現はテストで確認しています(天体の方位・高度は0.2°以内、稜線は一致)。出典・免責は下の表と、生成ページの下部に入ります。
+2026-10-09の見本から抽出したゴールデン(`tests/fixtures/sky_guide/`)を基準に、描画の回帰をテストで確認しています(見本のHTML自体は、以前の光害データを含んでいたため削除しました)。出典・免責は下の表と、生成ページの下部に入ります。
 
 ## ディレクトリ構成
 
@@ -60,7 +60,7 @@
 |---|---|
 | `step1_astronomy/` | 天体位置・薄明計算(Skyfield) |
 | `step2_terrain/` | 国土地理院DEMタイルから方位角別の地形地平線仰角プロファイル |
-| `step3_light_pollution/` | 光害(既定: Black Marble由来のスカイグロー指数ALR。`--lp-source legacy` のときだけ Light Pollution Atlas のタイルを使う) |
+| `step3_light_pollution/` | 光害(Black Marble由来のスカイグロー指数ALR。派生データ `data/`、手法 `METHOD.md`、年次の更新 `UPDATE.md`) |
 | `step4_moonlight/` | 月明かりによる空の明るさ増加(Krisciunas & Schaefer 1991) |
 | `step5_cloud_forecast/` | Open-Meteo雲量予報、見上げ型ハイブリッド雲量判定、格子セルキャッシュ、気象庁天気図取得、ひまわり赤外画像取得(`himawari_image.py`) |
 | `step6_viewpoint_survey/` | OSM viewpoint収集(参考データ) |
@@ -156,7 +156,7 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 
 次の処理は、所要時間・通信先・回数・書き込み先を確認し、承認を得てから行います。
 
-- `generate_report.py`: 10〜30分、Open-Meteo API 約220回。加えて気象庁(ひまわり・天気図)へも通信します。光害は既定(bm)では同梱の派生データを読むだけで通信しません(`--lp-source legacy` のときだけ光害タイル[Light Pollution Atlas]へ通信します)。
+- `generate_report.py`: 10〜30分、Open-Meteo API 約220回。加えて気象庁(ひまわり・天気図)へも通信します。光害は同梱の派生データを読むだけで通信しません。
 - 星空ガイドの雲量取得(`--cloud fetch --allow-network`。先に `--estimate`)。
 
 **HTTP 429 が出たら即中止**し、別経路やリトライの連打で回避しません(`AGENTS.md` 第7節)。
@@ -182,7 +182,6 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 | 気象予報(雲量・気圧面・ジオポテンシャル高度) | [Open-Meteo.com](https://open-meteo.com/)(気象庁MSM・ECMWF IFSの数値予報を配信) | データは [CC BY 4.0](https://open-meteo.com/en/licence)。無料APIは[利用規約](https://open-meteo.com/en/terms)で**非商用に限る**(1日1万回・1時間5千回・1分600回未満)。元データとして JMA(JMA の条件)・ECMWF(CC BY)が挙げられている | データを表示する所の近くに Open-Meteo へのリンク(例「Weather data by Open-Meteo.com」)と、加工した旨。レポートのフッターに「Weather data by Open-Meteo.com」(リンク)・CC BY 4.0・雲量を加工した旨を表示 | 2026-10-24 |
 | 標高(地形地平線) | [国土地理院 地理院タイル(標高タイル)](https://maps.gsi.go.jp/development/ichiran.html) | [国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)(令和7年11月20日改正、公共データ利用規約 第1.0版に準拠)。地理院タイル一覧では、標高タイルは「出典の記載のみで(申請なく)利用可能なもの」に分類 | 出典と、加工した旨。「出典：国土地理院 地理院タイル(標高タイル)を加工して作成」(フッター・地平線CSVの見出し) | 2026-10-24 |
 | 光害(スカイグロー指数。**既定**) | [NASA Black Marble VNP46A4](https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A4/)(DOI [10.5067/VIIRS/VNP46A4.002](https://doi.org/10.5067/VIIRS/VNP46A4.002))。手法は Duriscoe et al. 2018(CC BY) | NASA主導ミッションのデータは CC0(制限なし)。[NASA Earthdata のデータ利用ガイダンス](https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance)(2026-10-21更新)で引用を強く推奨 | 製品ページの推奨引用: NASA VIIRS Land Science Investigator-led Processing System. (2025). VIIRS/NPP Lunar BRDF-Adjusted Nighttime Lights Yearly L3 Global 15 arc second Linear Lat Lon Grid [Dataset]. NASA Level 1 and Atmosphere Archive and Distribution System Distributed Active Archive Center. https://doi.org/10.5067/VIIRS/VNP46A4.002 。製品の論文: Román et al. (2018), Remote Sensing of Environment 210, 113–143, doi:10.1016/j.rse.2018.03.017。派生データ(`step3_light_pollution/data/`)のみ同梱し、実行時の通信・トークンは不要。日本では未較正の相対指数(`step3_light_pollution/METHOD.md`) | 2026-10-24(Duriscoe の CC BY は 2026-10-23) |
-| 光害(人工夜空輝度。**`--lp-source legacy` のときだけ使用**) | David Lorenz, [Light Pollution Atlas](https://djlorenz.github.io/astronomy/lp/) | 明示的なライセンス表記なし(未確認のまま)。著者への利用可否確認は未実施 | legacy のレポートのフッターに出典を表示。このデータ由来の値は、現行のファイルには同梱していない(下の「光害データの変更」) | 2026-09-06(サイトの確認) |
 | 地上天気図・予想天気図 | [気象庁ホームページ](https://www.jma.go.jp/bosai/weather_map/) | [気象庁ホームページについて(利用規約)](https://www.jma.go.jp/jma/kishou/info/coment.html)(公共データ利用規約 第1.0版に準拠)。一部のコンテンツは気象業務法(予報業務の許可・警報の制限)による制約あり。**プログラムでの自動取得についての記載は利用規約に見当たらない(未確認)** | 「出典：気象庁ホームページ(当該ページのURL)」と、加工した場合はその旨。フッターと図の下に表示 | 2026-10-24 |
 | 気象衛星ひまわり画像(現況の雲の様子・参考表示のみ) | [気象庁ホームページ](https://www.jma.go.jp/bosai/map.html) | 同上 | 「出典：気象庁ホームページ (https://www.jma.go.jp/bosai/map.html)」。画像は実況で予報ではなく、スコアには使わない。Pillowが必要 | 2026-10-24 |
 | 候補地点(OSM展望データ)・地名・座標(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | データは [ODbL 1.0](https://opendatacommons.org/licenses/odbl/)(改変・組み込んだデータを配布する場合は同じライセンス)。Nominatim は[利用方針](https://operations.osmfoundation.org/policies/nominatim/)(最大1リクエスト/秒、識別可能なUser-Agent、結果のキャッシュ必須、大量のジオコーディングは推奨されない、格子状の逆ジオコーディングなどの系統的な問い合わせは禁止) | 「© OpenStreetMap contributors」と ODbL へのリンク。データとして配布する場合は、データ内か利用者が見る場所(README等)に表示([帰属表示ガイドライン](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines))。下の「データファイルのライセンス」 | 2026-10-24 |
@@ -219,4 +218,4 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 
 ## 光害データの変更(1.0.0)
 
-光害データは、当初 David Lorenz 氏の Light Pollution Atlas を検討・使用していたが、ライセンスが不明瞭なため、NASA Black Marble(VNP46A4)由来の自前計算(スカイグロー指数 ALR、日本で未較正の相対指数)に変更した。**以前のコミットには旧データ(LPI・mpsas・ボートル近似)が含まれる**(履歴は書き換えていない)。従来の入力は `--lp-source legacy` で引き続き選べる(その場合だけ Light Pollution Atlas のタイルを取得する)。
+光害データは、当初 David Lorenz 氏の Light Pollution Atlas を検討・使用していたが、ライセンスが不明瞭なため、NASA Black Marble(VNP46A4)由来の自前計算(スカイグロー指数 ALR)に変更した。**以前のコミットには旧データが含まれる**(履歴は書き換えていない)。

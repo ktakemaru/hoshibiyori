@@ -128,19 +128,12 @@ def parse_weather_map(root: rc.Node) -> dict | None:
     return {"srcs": srcs, "fetched": fetched}
 
 
-def load_report(text: str, lp_source: str = rc.DEFAULT_LP_SOURCE) -> dict:
+def load_report(text: str) -> dict:
     root = rc.parse_html(text)
     generated = rc.parse_generated_at(root)
-    courses = rc.parse_courses(root, lp_source)
-    report = {"generated": generated, "courses": courses, "wmap": parse_weather_map(root),
-              "moon": parse_moon_timeline(root, generated.date()), "footer": parse_footer(text)}
-    if lp_source == "bm":  # legacyの戻り値は従来のまま
-        report["lp_source"] = "bm"
-    return report
-
-
-def is_bm(report: dict) -> bool:
-    return report.get("lp_source") == "bm"
+    courses = rc.parse_courses(root)
+    return {"generated": generated, "courses": courses, "wmap": parse_weather_map(root),
+            "moon": parse_moon_timeline(root, generated.date()), "footer": parse_footer(text)}
 
 
 # --- 解説JSON・アクセス注記 ---------------------------------------------------------------------
@@ -182,7 +175,7 @@ def validate_commentary(data) -> dict:
     return {"verdict": verdict, "extra_notes": extra, "warnings": warnings}
 
 
-# --- verdict の機械検査(施設名・時刻・件数・時間・%・距離・空の明るさが候補データと一致するか) ------------------
+# --- verdict の機械検査(施設名・時刻・件数・時間・%・距離・光害(ALR)が候補データと一致するか) ------------------
 
 _COUNT_RE = re.compile(r"(\d+)\s*(?:件|地点|か所|ヶ所|箇所)")
 _HOURS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*時間")
@@ -231,7 +224,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
     - HH:MM: いずれかの候補の見頃の始端・終端・狙い目に一致する。文中の地点が1つに決まれば、その地点の時刻に限る。
     - N件/N地点: コースの件数・夜ごとの件数・全体の件数のどれか。
     - N時間: 月齢タイムラインの無月時間か、見頃の長さ。N%: 候補の雲量かレポートの気象メモ中の%。
-    - Nkm: 候補の東京からの距離。N.NN mag: 候補の空の明るさ。
+    - Nkm: 候補の東京からの距離。ALR N.NN: 候補の光害(相対指数)。N.NN mag(空の明るさの等級)はレポートに無いので書けない。
     検査しないもの: 日付、地点名を含まない文での「どの地点の」時刻かの対応、extra_notes。
     """
     cands = [c for course in report["courses"] for c in course["candidates"]]
@@ -260,9 +253,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
             pcts |= {float(g) for g in x.groups() if g}
     pcts |= {float(x) for course in report["courses"] for x in re.findall(r"(\d+)\s*%以下", course.get("condition_note") or "")}
     kms = {c["distance_km"] for c in cands} | {250}
-    bm = is_bm(report)
-    mpsas = set() if bm else {round(c["effective_mpsas"], 2) for c in cands}  # bmには等級が無い
-    alrs = {round(c["alr"], 2) for c in cands} if bm else set()
+    alrs = {round(c["alr"], 2) for c in cands}
 
     errors = []
     for i, v in enumerate(commentary["verdict"]):
@@ -299,14 +290,10 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
                 if int(m.group(1)) not in kms:
                     errors.append(f"{where}: 「{m.group(0)}」はどの候補の東京からの距離とも違います")
             for m in _MPSAS_RE.finditer(text):
-                if bm:
-                    errors.append(f"{where}: 「{m.group(0)}」は書けません(bmのレポートには空の明るさの等級が無い。相対指数ALRで書く)")
-                elif round(float(m.group(1)), 2) not in mpsas:
-                    errors.append(f"{where}: 空の明るさ {m.group(1)} はどの候補の値とも違います")
+                errors.append(f"{where}: 「{m.group(0)}」は書けません(レポートに空の明るさの等級は無い。相対指数ALRで書く)")
             for m in _ALR_RE.finditer(text):
                 if round(float(m.group(1)), 2) not in alrs:
-                    errors.append(f"{where}: ALR {m.group(1)} はどの候補の値とも違います"
-                                  + ("" if bm else "(legacyのレポートにはALRが無い)"))
+                    errors.append(f"{where}: ALR {m.group(1)} はどの候補の値とも違います")
     _need(not errors, "verdict が候補データと食い違います:\n  - " + "\n  - ".join(dict.fromkeys(errors)))
 
 
@@ -373,12 +360,10 @@ def card_tags(c: dict, course_id: str, casual_names: set[str], islands: set[str]
 
 
 def _lp_row(c: dict) -> str:
-    """カードの光害の欄。legacyは空の明るさ(mag/arcsec²)、bm(cにalrがある)は相対指数ALRと順位。"""
-    if "alr" in c:
-        rank = f"暗い方から{c['alr_rank_pct']}%・" if c["alr_rank_pct"] is not None else ""
-        return (f"<div><dt>光害(相対指数)</dt><dd>ALR {c['alr']:.2f}"
-                f"<small>({rank}小さいほど暗い・絶対値ではない)</small></dd></div>")
-    return f"<div><dt>空の明るさ</dt><dd>{c['effective_mpsas']:.2f} mag/arcsec²<small>(大きいほど暗い)</small></dd></div>"
+    """カードの光害の欄(相対指数ALRと順位)。"""
+    rank = f"暗い方から{c['alr_rank_pct']}%・" if c["alr_rank_pct"] is not None else ""
+    return (f"<div><dt>光害(相対指数)</dt><dd>ALR {c['alr']:.2f}"
+            f"<small>({rank}小さいほど暗い・絶対値ではない)</small></dd></div>")
 
 
 def render_card(c: dict, rank: int, course_id: str, casual_names, islands, notes) -> str:
@@ -429,10 +414,6 @@ def render_night(night: date, report: dict, top: int, casual_names, islands, not
     return f'<h2>{esc(night_name(night))}({night.month}/{night.day}) {moon_html}</h2>{blocks}'
 
 
-def _lp_cell(k: dict) -> str:
-    return f"{k['alr']:.2f}" if "alr" in k else f"{k['effective_mpsas']:.2f}"
-
-
 def render_table(report: dict) -> str:
     parts = []
     for c in report["courses"]:
@@ -445,12 +426,11 @@ def render_table(report: dict) -> str:
             f"<td><a href=\"{esc(_safe_url(k['maps_url']))}\" target=\"_blank\" rel=\"noopener\">{esc(k['name'])}</a>"
             f"<small>{esc(k['municipality'])}</small></td>"
             f"<td>{esc(_short_date(k['date']))}</td><td>{esc(k['window'])}</td><td>{k['obstruction_pct']}%</td>"
-            f"<td>{_lp_cell(k)}</td><td>{k['distance_km']}km</td><td>{k['score']}</td></tr>"
+            f"<td>{k['alr']:.2f}</td><td>{k['distance_km']}km</td><td>{k['score']}</td></tr>"
             for k in c["candidates"])
-        lp_head = ("光害(相対指数)<br>ALR" if is_bm(report) else "空の明るさ<br>mag/arcsec²")
         parts.append(f"""<h3>{esc(label)}(レポート内{len(c['candidates'])}件)</h3>
 <div class="tablewrap"><table>
-<thead><tr><th>順位</th><th>地点</th><th>日付</th><th>見頃</th><th>雲量</th><th>{lp_head}</th><th>東京から</th><th>スコア</th></tr></thead>
+<thead><tr><th>順位</th><th>地点</th><th>日付</th><th>見頃</th><th>雲量</th><th>光害(相対指数)<br>ALR</th><th>東京から</th><th>スコア</th></tr></thead>
 <tbody>{rows}</tbody></table></div>""")
     return ('<h2>全候補の一覧</h2><details open><summary>レポートに載った全件(夜を問わず・レポートの順位順)</summary>'
             + "".join(parts) + "</details>")
@@ -597,8 +577,7 @@ def render_page(report: dict, nights: list[date], top: int, commentary: dict | N
     sections = "".join(render_night(n, report, top, casual_names, islands, notes) for n in nights)
     has_notes = any(c["name"] in notes for crs in report["courses"] for c in crs["candidates"])
     footer = "".join(f"<p>{p}</p>" for p in report["footer"])
-    lp_note = (f'<p class="note">{esc(rc.BM_NOTE)}空の明るさ(mag/arcsec²)は表示していません。</p>'
-               if is_bm(report) else "")
+    lp_note = f'<p class="note">{esc(rc.BM_NOTE)}空の明るさ(mag/arcsec²)は表示していません。</p>'
     return f"""<!doctype html>
 <html lang="ja">
 <head>
@@ -636,9 +615,7 @@ def _iso_date(s: str) -> date:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="今週末の星空撮影ページ(HTML)を report.html から生成する(通信しない)")
-    ap.add_argument("--lp-source", choices=rc.LP_SOURCES, default=rc.DEFAULT_LP_SOURCE,
-                    help="読むレポートの光害の入力。bm=report.html(既定)、legacy=report_legacy.html(generate_report.py --lp-source legacy)")
-    ap.add_argument("--report", type=Path, default=None, help="既定: bmはreport.html、legacyはreport_legacy.html")
+    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html")
     ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)。無ければ結論は出さない")
     ap.add_argument("--weather-commentary", type=Path, help="天気図の解説(既定: リポジトリ直下の weather_map_commentary.json、schema /2)")
     ap.add_argument("--spots", type=Path, default=ROOT / "stargazing_spots.json", help="verdict の地点名の照合に使う地点マスター")
@@ -659,15 +636,14 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
     if args.report is None:
-        args.report = resolve_data_root(ROOT) / (rc.LEGACY_REPORT_NAME if args.lp_source == "legacy" else "report.html")
+        args.report = resolve_data_root(ROOT) / "report.html"
     if not args.report.is_file():
-        gen_cmd = "py -X utf8 generate_report.py" + (" --lp-source legacy" if args.lp_source == "legacy" else "")
-        print(f"[中止] {args.report} がありません。{gen_cmd} で生成してください"
+        print(f"[中止] {args.report} がありません。py -X utf8 generate_report.py で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)
         return EXIT_STALE
     try:
         text = args.report.read_text(encoding="utf-8")
-        report = load_report(text, args.lp_source)
+        report = load_report(text)
     except rc.ParseError as e:
         print(f"[解析失敗] report.html が想定の構造ではありません: {e}\n"
               "(generate_report.py の構造が変わった可能性があります。推測では埋めません。)", file=sys.stderr)
@@ -694,8 +670,7 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
         print(f"[天気図の解説] 未更新として扱います: {weather['reason']}", file=sys.stderr)
 
     nights = sorted(set(args.dates)) if args.dates else default_dates(gen_date)
-    suffix = "_legacy" if args.lp_source == "legacy" else ""  # legacyのページは既定(bm)のページと別名にする
-    out = args.out or resolve_data_root(ROOT) / "out" / f"weekend_stargazing_{nights[0]:%Y%m%d}{suffix}.html"
+    out = args.out or resolve_data_root(ROOT) / "out" / f"weekend_stargazing_{nights[0]:%Y%m%d}.html"
     if out.exists() and not args.force:
         print(f"[中止] {out} は既に存在します。別名にするか --force を付けてください(何も書いていません)。", file=sys.stderr)
         return EXIT_EXISTS

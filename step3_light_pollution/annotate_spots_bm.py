@@ -1,7 +1,6 @@
 """各地点にスカイグロー指数(別フィールド)を付けて `stargazing_spots.bm.json` に出す(段階LP1)。
 
-`stargazing_spots.json` は変更しない。numpyのみ・通信なし。出力には突き合わせのため id/name/prefecture/lat/lon/site_type を写す
-(段階LP3でLorenz氏由来の lpi は写さないことにした)。
+`stargazing_spots.json` は変更しない。numpyのみ・通信なし。出力には突き合わせのため id/name/prefecture/lat/lon/site_type を写す。
 
     py -X utf8 step3_light_pollution/annotate_spots_bm.py [--grid ...npz] [--out stargazing_spots.bm.json]
 """

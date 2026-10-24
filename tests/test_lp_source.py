@@ -1,6 +1,10 @@
-"""光害の入力の切り替え(--lp-source legacy|bm、段階LP2)の単体テスト。合成データのみ・通信しない。"""
+"""光害の入力(Black Marble由来のALR、lp_source.py)の単体テスト。合成データのみ・通信しない。
+
+段階LP2で legacy(以前の光害データ)との切り替えとして作り、段階LP3bで ALR だけの形に直した。
+"""
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import unittest
@@ -18,7 +22,6 @@ import bm_threshold as bt  # noqa: E402
 import explore_hoshibiyori as ex  # noqa: E402
 import generate_report as gr  # noqa: E402
 import lp_source as lp  # noqa: E402
-import report_courses as rc_mod  # noqa: E402
 import skyglow_bm as sg  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
@@ -36,9 +39,6 @@ def lon_for_alr(alr: float) -> float:
 
 
 class ThresholdTests(unittest.TestCase):
-    def test_reference_matches_explore_threshold(self):
-        self.assertEqual(lp.LPI_THRESHOLD_REF, ex.LPI_THRESHOLD)
-
     def test_threshold_for_count_is_midpoint_and_reproduces_count(self):
         alr = np.array([5.0, 1.0, 9.0, 3.0, 7.0])
         t = bt.threshold_for_count(alr, 3)
@@ -51,32 +51,36 @@ class ThresholdTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             bt.threshold_for_count(np.array([1.0, 2.0]), 2)
 
-    def test_constant_reproduces_legacy_pass_count_on_committed_data(self):
-        """仮閾値が、現行の通過件数(LPI<=閾値)と同じ件数をALRで通す(データが変わったら気づける)。"""
-        spots, alr = bt.load_pairs()
-        n_legacy = lp.BM_THRESHOLD_N_PASS
-        self.assertEqual(int((alr <= lp.BM_ALR_THRESHOLD).sum()), n_legacy)
+    def test_constant_reproduces_pass_count_on_committed_data(self):
+        """仮閾値が、決めたときの通過件数(N=141)をALRで通す(データが変わったら気づける)。"""
+        _, alr = bt.load_pairs()
+        n = lp.BM_THRESHOLD_N_PASS
+        self.assertEqual(int((alr <= lp.BM_ALR_THRESHOLD).sum()), n)
         s = np.sort(alr)
-        self.assertLess(s[n_legacy - 1], lp.BM_ALR_THRESHOLD)
-        self.assertLess(lp.BM_ALR_THRESHOLD, s[n_legacy])
+        self.assertLess(s[n - 1], lp.BM_ALR_THRESHOLD)
+        self.assertLess(lp.BM_ALR_THRESHOLD, s[n])
 
 
 class BmStoreTests(unittest.TestCase):
     def setUp(self):
         self.store = lp.BmLightPollutionStore(grid=synthetic_grid(), reference=np.array([1.0, 2.0, 5.0, 10.0]),
-                                              alr_threshold=10.0, lpi_threshold=5.0)
+                                              alr_threshold=10.0, index_limit=5.0)
 
     def test_threshold_test_in_explore_is_exactly_alr_threshold(self):
         for alr, passes in ((9.9, True), (10.0, True), (10.1, False), (0.5, True), (19.0, False)):
             r = self.store.get(35.5, lon_for_alr(alr))
             self.assertAlmostEqual(r.alr, alr, places=6)
-            # 探索側の判定式そのまま
-            self.assertEqual(r.brightness_ratio <= ex.LPI_THRESHOLD + 1e-9, passes, alr)
+            # 探索側の判定式そのまま(既定の LP_INDEX_LIMIT と同じ 5.0 で規格化した store)
+            self.assertEqual(r.brightness_ratio <= ex.LP_INDEX_LIMIT + 1e-9, passes, alr)
 
-    def test_no_mpsas_or_bortle(self):
+    def test_default_store_matches_alr_threshold(self):
+        store = lp.BmLightPollutionStore(grid=synthetic_grid(), reference=np.array([1.0]))
+        self.assertAlmostEqual(store.scale * lp.BM_ALR_THRESHOLD, lp.LP_INDEX_LIMIT)
+
+    def test_reading_has_no_magnitude_fields(self):
         r = self.store.get(35.5, lon_for_alr(3.0))
-        self.assertIsNone(r.mpsas)
-        self.assertIsNone(r.bortle_approx)
+        self.assertFalse(hasattr(r, "mpsas"))
+        self.assertFalse(hasattr(r, "bortle_approx"))
 
     def test_rank_pct_is_share_of_reference_at_or_below(self):
         self.assertEqual(self.store.get(35.5, lon_for_alr(0.5)).rank_pct, 0.0)
@@ -88,7 +92,7 @@ class BmStoreTests(unittest.TestCase):
         self.assertIsNone(r.alr)
         self.assertIsNone(r.rank_pct)
         self.assertEqual(r.brightness_ratio, float("inf"))
-        self.assertGreater(r.brightness_ratio, ex.LPI_THRESHOLD)
+        self.assertGreater(r.brightness_ratio, ex.LP_INDEX_LIMIT)
         self.assertIsNone(self.store.site_type(50.0, 138.5))
 
     def test_site_type(self):
@@ -102,51 +106,26 @@ class BmStoreTests(unittest.TestCase):
         self.assertNotIn("mag", lp.describe_alr(2.5, 40.0))
 
 
-class ExploreSwitchTests(unittest.TestCase):
-    def test_default_is_bm(self):
-        self.assertEqual(lp.DEFAULT_LP_SOURCE, "bm")
-        self.assertEqual(ex.parse_args([]).lp_source, "bm")
-        self.assertEqual(gr.parse_args([]).lp_source, "bm")
-        self.assertEqual(rc_mod.DEFAULT_LP_SOURCE, lp.DEFAULT_LP_SOURCE)  # report_courses.py・weekend_page.py の既定も同じ
+class SingleSourceTests(unittest.TestCase):
+    """段階LP3b: ALRが唯一の方式。以前の光害データの切り替え・取得処理は無い。"""
+
+    def test_no_lp_source_option(self):
+        for parse in (ex.parse_args, gr.parse_args):
+            with self.assertRaises(SystemExit):
+                parse(["--lp-source", "bm"])
         self.assertIsInstance(ex.make_lp_store(), lp.BmLightPollutionStore)
 
-    def test_legacy_still_selectable(self):
-        self.assertEqual(ex.parse_args(["--lp-source", "legacy"]).lp_source, "legacy")
-        self.assertEqual(gr.parse_args(["--lp-source", "legacy"]).lp_source, "legacy")
-
-    def test_option_accepts_only_known_sources(self):
-        self.assertEqual(ex.parse_args(["--lp-source", "bm"]).lp_source, "bm")
-        with self.assertRaises(SystemExit):
-            ex.parse_args(["--lp-source", "other"])
-
-    def test_make_lp_store(self):
-        self.assertIsInstance(ex.make_lp_store("bm"), lp.BmLightPollutionStore)
-        self.assertNotIsInstance(ex.make_lp_store("legacy"), lp.BmLightPollutionStore)
-        with self.assertRaises(ValueError):
-            ex.make_lp_store("nope")
-
-    def test_effective_mpsas_helper(self):
-        moon = SimpleNamespace(alt_deg=-10.0, phase_angle_deg=90.0)
-        self.assertIsNone(ex._effective_mpsas(SimpleNamespace(mpsas=None), moon))
-        v = ex._effective_mpsas(SimpleNamespace(mpsas=21.5), moon)
-        self.assertIsInstance(v, float)
+    def test_old_modules_are_gone(self):
+        for name in ("light_pollution", "legacy_ref"):
+            self.assertIsNone(importlib.util.find_spec(name), name)
+        self.assertFalse(hasattr(gr, "OUTPUT_PATH_LEGACY"))
+        self.assertEqual(gr.OUTPUT_PATH.name, "report.html")
 
     def test_limit_text(self):
         self.assertIn("ALR", ex.lp_limit_text(lp.BmLightPollutionStore(grid=synthetic_grid(), reference=np.array([1.0]))))
-        self.assertIn("LPI", ex.lp_limit_text(object()))
 
-    def test_legacy_output_does_not_overwrite_default_report(self):
-        self.assertEqual(gr.output_path_for("bm"), gr.OUTPUT_PATH)
-        self.assertEqual(gr.output_path_for("legacy"), gr.OUTPUT_PATH_LEGACY)
-        self.assertNotEqual(gr.OUTPUT_PATH_LEGACY, gr.OUTPUT_PATH)
-
-    def test_default_threshold_ref_matches_explore(self):
-        self.assertEqual(lp.LPI_THRESHOLD_REF, ex.LPI_THRESHOLD)
-        import legacy_ref
-        self.assertEqual(legacy_ref.LPI_THRESHOLD_LEGACY, ex.LPI_THRESHOLD)
-
-    def test_committed_spots_have_no_lorenz_values(self):
-        """段階LP3: 現行の地点ファイルに Lorenz 氏由来の値(lpi/mpsas/bortle_approx/light_pollution_computed)が無い。"""
+    def test_committed_spots_have_no_old_light_pollution_values(self):
+        """現行の地点ファイルに、以前の光害データの値(lpi/mpsas/bortle_approx/light_pollution_computed)が無い。"""
         for path in (sg.SPOTS_PATH, sg.REPO_ROOT / "stargazing_spots.bm.json"):
             data = json.loads(path.read_text(encoding="utf-8"))
             for arr in ("spots", "viewpoint_reference"):
@@ -160,60 +139,51 @@ class ExploreSwitchTests(unittest.TestCase):
             self.assertEqual(s["site_type"], store.site_type(s["lat"], s["lon"]), s["name"])
 
 
-def _card(effective_mpsas, alr=None, rank=None):
+def _card(alr=2.34, rank=41.0):
     return SimpleNamespace(
         site_name="テスト地点", municipality="市", score=100.0, origin="curated", site_lat=36.0, site_lon=138.5,
         window_start=datetime(2026, 10, 17, 21, 15, tzinfo=JST), window_end=datetime(2026, 10, 18, 4, 15, tzinfo=JST),
         best_time=datetime(2026, 10, 17, 23, tzinfo=JST), night_date=D, mean_obstruction=12.0,
-        effective_mpsas=effective_mpsas, alr=alr, alr_rank_pct=rank)
+        alr=alr, alr_rank_pct=rank)
 
 
-def _render(lp_source="legacy", nv=None, cards=None):
+def _render(nv=None, cards=None):
     nights = [SimpleNamespace(night_date=D, moon_free_hours=6.0, window_start=datetime(2026, 10, 17, 21, tzinfo=JST))]
-    cards = cards or [_card(21.8)]
+    cards = cards or [_card()]
     return gr.render_html(SimpleNamespace(name="天の川銀河中心"), datetime(2026, 10, 17, 11, 20), nights,
-                          {D: "🌓"}, {}, 0, 3, cards, cards, "", {}, [], {}, "概況", night_view_items=nv, lp_source=lp_source)
+                          {D: "🌓"}, {}, 0, 3, cards, cards, "", {}, [], {}, "概況", night_view_items=nv)
 
 
 class ReportRenderTests(unittest.TestCase):
-    def test_legacy_card_shows_mpsas_and_lorenz_footer_and_no_bm_notice(self):
-        h = _render("legacy")
-        self.assertIn("実効的な空の明るさ", h)
-        self.assertIn("mag/arcsec", h)
-        self.assertIn("Light Pollution Atlas", h)
-        self.assertNotIn("Black Marble", h)
-        self.assertNotIn("相対指数", h)
-
-    def test_bm_card_shows_alr_not_mpsas(self):
-        h = _render("bm", cards=[_card(None, alr=2.34, rank=41.0)])
+    def test_card_shows_alr_not_magnitude(self):
+        h = _render()
         self.assertIn("光害(相対指数)", h)
         self.assertIn("ALR 2.34", h)
         self.assertNotIn("mag/arcsec", h)
         self.assertNotIn("実効的な空の明るさ", h)
         self.assertNotIn("ボートル", h)
 
-    def test_bm_footer_and_notice(self):
-        h = _render("bm", cards=[_card(None, alr=2.34, rank=41.0)])
+    def test_footer_and_notice(self):
+        h = _render()
         self.assertIn("10.5067/VIIRS/VNP46A4.002", h)
         self.assertIn("Duriscoe et al. 2018", h)
         self.assertIn("相対指数", h)
         self.assertIn("絶対値", h)
         self.assertIn(str(lp.BM_ALR_THRESHOLD), h)
         self.assertNotIn("Light Pollution Atlas", h)
+        self.assertNotIn("Lorenz", h)
 
-    def test_night_view_group_bm_vs_legacy(self):
-        base = {"site_name": "菜の花台", "municipality": "横須賀市", "lat": 35.2, "lon": 139.6, "night_date": D,
+    def test_night_view_group(self):
+        item = {"site_name": "菜の花台", "municipality": "横須賀市", "lat": 35.2, "lon": 139.6, "night_date": D,
                 "window_start": datetime(2026, 10, 17, 21, tzinfo=JST), "window_end": datetime(2026, 10, 17, 23, tzinfo=JST),
-                "mean_obstruction": 10.0, "lpi": 6.49}
-        legacy = gr.render_night_view_group([dict(base)])
-        self.assertIn("光害LPI", legacy)
-        bm = gr.render_night_view_group([dict(base, alr=17.3, alr_rank_pct=98.0)])
-        self.assertIn("光害(相対指数)", bm)
-        self.assertIn("ALR 17.30", bm)
-        self.assertNotIn("光害LPI", bm)
+                "mean_obstruction": 10.0, "alr": 17.3, "alr_rank_pct": 98.0}
+        h = gr.render_night_view_group([item])
+        self.assertIn("光害(相対指数)", h)
+        self.assertIn("ALR 17.30", h)
+        self.assertNotIn("LPI", h)
 
-    def test_bm_cards_without_alr_fields_do_not_crash(self):
-        c = _card(None)
+    def test_cards_without_alr_fields_do_not_crash(self):
+        c = _card()
         del c.alr, c.alr_rank_pct
         self.assertIn("範囲外(未評価)", gr._light_pollution_stat(c))
 

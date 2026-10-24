@@ -10778,5 +10778,5 @@
       "note": "該当なし"
     }
   ],
-  "_note_site_type": "2026-10-24(段階LP3)に更新。spots配列の各エントリのsite_typeは、dark_sky(暗い空、天の川など淡い対象向け)/night_view(夜景系、光害あり)の分類で、Black Marble由来のスカイグロー指数ALR(日本で未較正の相対指数)が仮閾値10.66(step3_light_pollution/lp_source.py BM_ALR_THRESHOLD)以下ならdark_skyとして引き直した。それ以前はLight Pollution Atlas(David Lorenz氏)由来のLPIで分類しlpi/mpsas/bortle_approx/light_pollution_computedも持っていたが、公開リポジトリの現行ファイルから外した(git履歴には残る)。夜景で有名な高台が「星空スポット」として混入しているため、機械的に見分ける目的で付けている。閾値の経緯はCLAUDE.mdとstep3_light_pollution/REPORT_LP2.md・REPORT_LP3.mdを参照。"
+  "_note_site_type": "2026-10-24(段階LP3b)に更新。spots配列の各エントリのsite_typeは、dark_sky(暗い空、天の川など淡い対象向け)/night_view(夜景系、光害あり)の分類で、Black Marble由来のスカイグロー指数ALR(日本で未較正の相対指数)が仮閾値10.66(step3_light_pollution/lp_source.py BM_ALR_THRESHOLD)以下ならdark_skyとした。夜景で有名な高台が「星空スポット」として混入しているため、機械的に見分ける目的で付けている(classify_site_darkness.py)。光害データの経緯はREADME「光害データの変更(1.0.0)」を参照。"
 }

@@ -87,8 +87,8 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
 - 現在のフェーズ(2026-09-06時点): **ステップ1〜7まで実装・検証済み。ステップ8以降は未着手。**
   - ステップ1(`step1_astronomy/`): 天体（星、天の川、月など）の位置計算。Skyfieldベース。実装済み・妥当性確認済み。
   - ステップ2(`step2_terrain/`): 観測地点周囲の地形DEM(国土地理院タイル)から方位角ごとの地平線仰角プロファイルを計算。実装済み・妥当性確認済み。検証済み7地点(下記参照)のみ計算済みで、候補地点全件へのバッチ計算は未着手(「今後の課題」参照)。
-  - ステップ3(`step3_light_pollution/`): 観測地点の光害レベル(人工夜空光害・ボートルスケール近似)を取得。実装済み・妥当性確認済み。当初依頼のあったFalchi et al. 2016原本データおよびNOAA/EOG VIIRSデータはいずれも認証必須で取得不可だったため、代替データソース(David Lorenz "Light Pollution Atlas")を使用している。詳細は下記セクション参照。
-  - ステップ4(`step4_moonlight/`): 月明かりによる空の明るさ増加モデル。Krisciunas & Schaefer (1991)の天頂輝度モデルを実装(`moon_brightness.py`)し、Skyfieldで月の高度・位相角を計算(`moon_position.py`)。石廊崎(ステップ3で光害由来の背景輝度21.73 mag/arcsec^2と算出済み)を例に、新月夜(2026-06-15)と満月夜(2026-06-30)で実効的な空の明るさがどう悪化するかを比較検証済み(`run_verification.py`)。ステップ3の光害データが天頂輝度のみを扱うため、本モデルも評価点を天頂に固定した簡易版。
+  - ステップ3(`step3_light_pollution/`): 観測地点の光害。NASA Black Marble(VNP46A4)由来のスカイグロー指数ALR(日本で未較正の相対指数)。経緯と詳細は下記「光害データ(Black Marble 由来の指数)」セクション参照。
+  - ステップ4(`step4_moonlight/`): 月明かりによる空の明るさ増加モデル。Krisciunas & Schaefer (1991)の天頂輝度モデルを実装(`moon_brightness.py`)し、Skyfieldで月の高度・位相角を計算(`moon_position.py`)。石廊崎の位置を例に(背景の空の明るさは仮定値)、新月夜(2026-06-15)と満月夜(2026-06-30)で実効的な空の明るさがどう悪化するかを比較検証済み(`run_verification.py`)。評価点を天頂に固定した簡易版。現在の光害の指数(ALR)は等級ではないため、探索・レポートでは月込みの空の明るさを出していない。
   - ステップ5(`step5_cloud_forecast/`): 雲量予報の取得と標高考慮。Open-Meteo APIで雲量予報を取得し、直近はJMA MSM(高解像度・短期)、それ以降はECMWF IFS025(粗い・長期)を使い分け(`cloud_forecast.py`)。「視界遮蔽雲量」(観測者より上の雲=見上げた空の覆われ方)と「雲海指数」(観測者より下の雲)を算出(`elevation_cloud.py`)。2026-09-13の再設計後は、モデル本来の全層/下層/中層/上層雲量(`cloud_cover`系)を主指標とし、気圧面別雲量(1000〜300hPaの10面、各面の高度は毎時のジオポテンシャル高度)は観測者より下の雲を差し引く用途に限定する「見上げ型ハイブリッド」(経緯・検証は下記の専用セクションと「観測者に寄り添う」セクション参照)。エリア代表点(areas.jsonの7エリア)による粗い事前スクリーニングで悪天候エリア×夜を丸ごとスキップする仕組み(`area_prescreen.py`)と、気象格子セル単位でAPI呼び出しを共有するキャッシュ(`grid_cache.py`、JMA MSM=緯度0.05°×経度0.0625°、ECMWF=0.25°×0.25°)を実装済み。
   - ステップ6(`step6_viewpoint_survey/`): 候補地点データの網羅性検証。Overpass API(認証不要)で関東地方(bbox: 緯度34.5〜37.0、経度138.0〜141.0)の`tourism=viewpoint`タグ付きノードを取得(`fetch_viewpoints.py`)。1826件取得し、うち名前(name タグ)ありは754件(`viewpoints_kanto.json`)。**この方法はOSM上の「展望が良い場所」を機械的に収集したもので、星空・星景撮影への適合性は保証しない**(今後の主軸との違いは次のセクション参照)。
   - ステップ7(`step7_geocoding/`): 候補地点の座標確定とDB化。
@@ -108,7 +108,7 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
    - 奥多摩湖ダムサイトパーキング・山中湖パノラマ台・美し森展望台(いずれもviewpoint側と14.5m以内): curated(Nominatim)座標を維持(viewpoint側に追加データが無いため)。
    - 統合されなかったcandidate_sites.db由来の残り751件(viewpoint 747件+test_site 4件: 富士山頂・須走口五合目・八ヶ岳南麓天文台・いすみ鉄道踏切)は`viewpoint_reference`配列に**補助的な参考データ**として同梱(星空適性は未フィルタである旨を明示)。2の`pending_manual_geocoding`(要手動確認15件)もそのまま引き継いでいる。
    各エントリは`origin`(`curated` / `curated+test_site` / `curated+viewpoint` / `viewpoint` / `test_site` / `curated_external`)、`horizon_profile`(パスまたはnull)、`light_pollution_computed`(bool)で由来と付随データの有無を判別できる。
-4. **外部システム由来のスポットリストのマージ(2026-09-07)**: ユーザーが別システムで収集した「場所名+座標」のみのリスト100件(`external_spots_20260907.csv`)を、`check_external_spots_dedup.py`で既存`spots`(84件)+`viewpoint_reference`(751件)と座標ベース(1.5km以内)+名前一致(完全一致/部分文字列包含、`step7_geocoding/dedup.py`の`_names_match`を再利用)で突合した。高確度重複25件は自動スキップ、残り75件は目視判断が必要と判定し、ユーザーに一覧を提示して確認を得た(重複と判断した13件はスキップ、別地点と判断した12件は追加、判断が割れなかった50件はそのまま追加)。採用した**62件**を`merge_external_spots_20260907.py`で逆ジオコーディング(市区町村・都道府県)・標高取得(GSI DEMタイル)・光害計算(LPI/mpsas/bortle_approx/site_type)のうえ`spots`配列に追加した(新設origin=`curated_external`、`ORIGIN_LABELS`/`PRIMARY_ORIGINS`に追加済み)。curated(Web調査による説明文あり)と区別するため、`description`は`null`のまま(出所となる説明文が無いため)。追加後の`spots`合計146件(dark_sky 141件/night_view 5件)。実行前に`stargazing_spots.json.bak_before_external_merge_*.json`としてバックアップを取得済み。
+4. **外部システム由来のスポットリストのマージ(2026-09-07)**: ユーザーが別システムで収集した「場所名+座標」のみのリスト100件(`external_spots_20260907.csv`)を、`check_external_spots_dedup.py`で既存`spots`(84件)+`viewpoint_reference`(751件)と座標ベース(1.5km以内)+名前一致(完全一致/部分文字列包含、`step7_geocoding/dedup.py`の`_names_match`を再利用)で突合した。高確度重複25件は自動スキップ、残り75件は目視判断が必要と判定し、ユーザーに一覧を提示して確認を得た(重複と判断した13件はスキップ、別地点と判断した12件は追加、判断が割れなかった50件はそのまま追加)。採用した**62件**を`merge_external_spots_20260907.py`(段階LP3bで削除)で逆ジオコーディング(市区町村・都道府県)・標高取得(GSI DEMタイル)・光害の分類(site_type)のうえ`spots`配列に追加した(新設origin=`curated_external`、`ORIGIN_LABELS`/`PRIMARY_ORIGINS`に追加済み)。curated(Web調査による説明文あり)と区別するため、`description`は`null`のまま(出所となる説明文が無いため)。追加後の`spots`合計146件(dark_sky 141件/night_view 5件)。実行前に`stargazing_spots.json.bak_before_external_merge_*.json`としてバックアップを取得済み。
    - **副産物のバグ発見**: `reverse_geocode.py`の`_MUNICIPALITY_KEYS`優先順位(`city`>`town`>`village`...)が、東京都の山間部(奥多摩町・檜原村)では逆転して機能しないことが判明した。Nominatimがこれらの地域では実際の市区町村を`town`/`village`キーに、`東京都`自体を`city`キーに入れて返すため、`city`優先の現ロジックでは市区町村が「東京都」に誤認識される。今回追加した2件(奥多摩周遊道路・月夜見第一駐車場、檜原都民の森)は手動で`prefecture`/`municipality`を修正したが、**既存の757件(`candidate_sites.db`)側で同様の誤りが無いか未検証**。東京都西部の山間地点(奥多摩町・檜原村・桧原村エリア)を扱う際は要注意。
    - また逆ジオコーディングの都道府県取得で、日本の住所は`state`キーではなく`province`キーに入ることが判明した(`fix_curated_external_prefecture_20260907.py`で修正)。`reverse_geocode.py`の`GeocodeResult`は`municipality`のみ返し`raw_address`を呼び出し側に渡す設計のため、都道府県が必要な場合は呼び出し側で`raw_address.get("province")`を参照すること。
    - **`requires_lift_access`の付与漏れ(2026-09-07)**: マージ時、`merge_external_spots_20260907.py`は`requires_lift_access`フィールド自体を設定していなかった(未設定時は`_build_site()`で`False`扱い)。このため千畳敷カール(駒ヶ岳ロープウェイでのみアクセス可)・日光白根山ロープウェイ山頂駅(名称通りロープウェイ必須)・上高地（河童橋）(マイカー規制、シャトルバス/タクシーのみ)が誤って「気軽コース」のTOP10に入った。ユーザーの指摘で発覚し、この3件に`requires_lift_access: true`と`requires_lift_access_note`を手動追加して修正した。**新規追加した62件のうち、他にも同様の交通規制がある地点(例: 乗鞍岳スカイライン・平湯峠、伊吹山ドライブウェイ山頂駐車場は要確認)が残っている可能性があり、全件のレビューは未実施。**
@@ -117,13 +117,13 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
 
 **(2026-09-07時点で対応済み)**: 探索モード本体`explore_hoshibiyori.py`の`load_candidate_sites()`は、当初`candidate_sites.db`のみを読み込んでいたが、現在は`stargazing_spots.json`(`spots`配列を主、`viewpoint_reference`を補助)を読み込むよう切り替え済み。`generate_report.py`もこれを経由するため、レポート生成は既に本ファイルが対象になっている。
 
-**「夜景系」スポットの分類タグ追加(2026-09-07)**: ユーザーから神奈川県内の候補地点の状況を尋ねられ回答する中で、「菜の花台は夜景スポットとして有名だが星空スポットとも呼ばれている、この辺の評価が難しい」との指摘があった。curated_spots.jsonはWeb調査(星空撮影の専門家・愛好家サイト)で「星空スポット」と紹介されている地点を光害データを見ずに収集しているため、実際には夜景で有名な高台(光害が高く、天の川のような淡い対象には本来向かない)が「星空スポット」として混入している。両者を機械的に見分けられるよう、`classify_site_darkness.py`を追加し、`stargazing_spots.json`の`spots`配列(curated由来84件)全件にLight Pollution Atlas由来の`lpi`/`mpsas`/`bortle_approx`と、`explore_hoshibiyori.py`のLPI_THRESHOLDと同じ基準で分類した`site_type`(`dark_sky`=暗い空・淡い対象向け/`night_view`=夜景系・光害あり)を計算・付与した。`classify_site_darkness.py`は閾値を独自定義せず`explore_hoshibiyori.py`から`LPI_THRESHOLD`をimportして使う(重複定義による将来の食い違いを防ぐため)。`load_candidate_sites()`の`_build_site()`にも`site_type`/`lpi_precomputed`を追加し、パイプライン側からも参照できるようにした。ただし現状は`explore_hoshibiyori.py`のスコアリング・レポート表示ロジックには組み込んでおらず(既存の`stage3_direction_filter`等は引き続きlight_pollution.pyから都度ライブ計算したLPIで足切りしており、この事前計算値はまだ使っていない)、地点データを閲覧・問い合わせる際の参考情報としての追加にとどまる。実行前に`stargazing_spots.json.bak_before_darkness_*.json`としてバックアップを取得済み。
+**「夜景系」スポットの分類タグ追加(2026-09-07)**: ユーザーから神奈川県内の候補地点の状況を尋ねられ回答する中で、「菜の花台は夜景スポットとして有名だが星空スポットとも呼ばれている、この辺の評価が難しい」との指摘があった。curated_spots.jsonはWeb調査(星空撮影の専門家・愛好家サイト)で「星空スポット」と紹介されている地点を光害データを見ずに収集しているため、実際には夜景で有名な高台(光害が高く、天の川のような淡い対象には本来向かない)が「星空スポット」として混入している。両者を機械的に見分けられるよう、`classify_site_darkness.py`を追加し、`stargazing_spots.json`の`spots`配列(curated由来84件)全件に、当時の光害データの値と、探索の光害の閾値と同じ基準で分類した`site_type`(`dark_sky`=暗い空・淡い対象向け/`night_view`=夜景系・光害あり)を計算・付与した。`classify_site_darkness.py`は閾値を独自定義せず探索側の閾値をimportして使う(重複定義による将来の食い違いを防ぐため)。`load_candidate_sites()`の`_build_site()`にも`site_type`を追加し、パイプライン側からも参照できるようにした。ただし現状は`explore_hoshibiyori.py`のスコアリング・レポート表示ロジックには組み込んでおらず(当時の`stage3_direction_filter`等は光害の値を都度計算して足切りしており、この事前計算値は使っていなかった。現在の分類はALRによる。段階LP3以降)、地点データを閲覧・問い合わせる際の参考情報としての追加にとどまる。実行前に`stargazing_spots.json.bak_before_darkness_*.json`としてバックアップを取得済み。
 
-**LPI_THRESHOLDの実地経験による引き上げ(2026-09-07、3.0→5.0)**: 上記の分類タグ追加を受け、ユーザーから「このLPIのワーストリストの中で、神磯の鳥居と安房埼灯台で天の川を撮影することができました」との実地報告があった。撮影方法を確認したところ単発長時間露光(ISO3200・20秒程度、赤道儀や比較明合成等の特別な機材は不使用)とのことで、特別な技術を要さない標準的な方法でLPI 4.93(神磯の鳥居)まで撮影可能であることが判明した。さらに「高尾山や菜の花台の場合は天の川などの撮影は難しく、特に明るい天体を中心とした星空を見に行くという目的のような気がしている」との補足があり、成功実績(神磯の鳥居LPI4.93・安房埼灯台LPI3.27)と失敗経験(菜の花台LPI6.49・高尾山LPI10.18)の間に閾値を置くのが妥当と判断し、`LPI_THRESHOLD`を3.0から5.0に引き上げた(`explore_hoshibiyori.py`)。スコア計算式には`- LPI×10.0`という比例減点項が別途あるため、閾値を緩めても光害の強い地点が上位に来すぎる心配は小さい。反映後、`classify_site_darkness.py`を再実行して`site_type`を再分類(dark_sky 74→82件、night_view 10→2件[高尾山・菜の花台のみ])、`generate_report.py`を再実行してレポート全体に反映した(方角フィルタ通過数43件→48件に増加)。この閾値はまだ限られた実地データ(成功2件・失敗2件相当)に基づく暫定値であり、他地点での成功/失敗例が増えれば再調整の余地がある。
+**光害の閾値の実地経験による引き上げ(2026-09-07)**: 上記の分類タグ追加を受け、ユーザーから「光害のワーストリストの中で、神磯の鳥居と安房埼灯台で天の川を撮影することができました」との実地報告があった(単発長時間露光、ISO3200・20秒程度、赤道儀や比較明合成等の特別な機材は不使用)。さらに「高尾山や菜の花台の場合は天の川などの撮影は難しく、特に明るい天体を中心とした星空を見に行くという目的のような気がしている」との補足があり、成功例(神磯の鳥居・安房埼灯台)と失敗例(菜の花台・高尾山)の間に閾値を置くよう、当時の光害データの閾値を引き上げた。スコア計算式には光害の比例減点項が別途あるため、閾値を緩めても光害の強い地点が上位に来すぎる心配は小さい。反映後、`site_type`を再分類(dark_sky 74→82件、night_view 10→2件[高尾山・菜の花台のみ])、方角フィルタ通過数は43件→48件に増えた。限られた実地データ(成功2件・失敗2件相当)に基づく暫定値。**現在のALRの仮閾値(10.66)は、この判定と同じ件数が通るように決めた(段階LP2)。**
 
-**追加の確認データ(2026-09-07)**: 千葉県内のcurated地点の光害一覧を提示した際、ユーザーから「野島埼灯台(LPI 1.12)、月の沙漠記念公園(LPI 1.92)などで天の川の撮影ができることを確認しました」との報告があった。両地点とも当初の閾値(3.0)より暗く、dark_sky判定の妥当性を裏付ける確認データ(閾値の変更は不要)。
+**追加の確認データ(2026-09-07)**: 千葉県内のcurated地点の光害一覧を提示した際、ユーザーから「野島埼灯台、月の沙漠記念公園などで天の川の撮影ができることを確認しました」との報告があった。両地点とも当時の閾値より暗く、dark_sky判定の妥当性を裏付ける確認データ(閾値の変更は不要)。
 
-**「星空観賞向き」バッジの追加(2026-09-07)**: ユーザーから「『星空が期待できる』と『星空撮影に適する』をユーザが見分ける方法あるかな?」との相談があり、両者を別バッジ(別セクション)として併記する案を提案・承認され実装した。夜景系(`site_type=="night_view"`、現状は高尾山・菜の花台)は光害LPIが`LPI_THRESHOLD`を超えるため引き続き気軽/硬派コースのランキングからは除外されるが、`generate_report.py`の`main()`で`stage2_cloud_filter()`の出力(`survivors`、LPI/地形の足切り前)から`site_type=="night_view"`のものだけを抜き出し、地点ごとに最も晴れる夜1件を選んで「🌃 星空観賞向きスポット(天の川撮影には不向き)」という別枠セクション(`render_night_view_group()`)に表示するようにした。これにより「天の川撮影には向かないが、晴れていれば星や夜景を楽しむには十分」という情報が失われずに残る。表示位置は「直近・行動用」セクション(気軽/硬派コースの下)。ランキングスコアは付けず、晴れ間の時間帯・視界遮蔽雲量・光害LPIのみを表示する簡易カード形式。
+**「星空観賞向き」バッジの追加(2026-09-07)**: ユーザーから「『星空が期待できる』と『星空撮影に適する』をユーザが見分ける方法あるかな?」との相談があり、両者を別バッジ(別セクション)として併記する案を提案・承認され実装した。夜景系(`site_type=="night_view"`、現状は高尾山・菜の花台)は光害が閾値を超えるため引き続き気軽/硬派コースのランキングからは除外されるが、`generate_report.py`の`main()`で`stage2_cloud_filter()`の出力(`survivors`、光害・地形の足切り前)から`site_type=="night_view"`のものだけを抜き出し、地点ごとに最も晴れる夜1件を選んで「🌃 星空観賞向きスポット(天の川撮影には不向き)」という別枠セクション(`render_night_view_group()`)に表示するようにした。これにより「天の川撮影には向かないが、晴れていれば星や夜景を楽しむには十分」という情報が失われずに残る。表示位置は「直近・行動用」セクション(気軽/硬派コースの下)。ランキングスコアは付けず、晴れ間の時間帯・視界遮蔽雲量・光害(現在はALRと順位)のみを表示する簡易カード形式。
 
 ## 今後の課題
 
@@ -134,7 +134,7 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
 - **`stargazing_spots.json`の要手動確認15件の座標埋め**: さくら宇宙公園・高戸小浜海岸・星野河川公園・ぐんま天文台・三宅島灯台・乙女高原・平沢峠・高峰高原・妙高サンシャインランド・光ヶ原高原・スターランドさかだに・道の駅池田はっぴぃ農園・大平御嶽展望台・面ノ木峠・里美牧場。Nominatimに該当データがなく自動ジオコーディングでは特定できなかったため、Googleマップ等での手動確認が必要(`pending_manual_geocoding`配列に地名・特徴つきで保持)。
 - **統合しなかった12組の再検討**: `step7_geocoding/cross_dup_candidates_raw.json`に記録した「同じ広域・別施設」と判断した12組(戦場ヶ原、湯ノ湖、羊山公園、田貫湖、爪木崎、栃本広場など)のうち、田貫湖(305m)・爪木崎(190m)・栃本広場(95m)はやや近く、判断が割れる可能性がある。必要に応じて再判断する。
 - **`stargazing_spots.json`の対象地域拡張が未着手**: 現状は関東甲信越・中部地方(16都道府県)のみ。他地域(東北・関西以西など)への拡張は今後の検討事項。
-- ステップ5の視界遮蔽雲量に残る制約(方角情報なし・層区分固定、「標高考慮の雲量判定」セクション末尾参照)、ステップ2・3で使用する外部データ(GSI DEMタイル・Light Pollution Atlas)の利用規約に関する公開前の確認事項(それぞれ下記の専用セクション参照)は、いずれも未対応のまま継続中。
+- ステップ5の視界遮蔽雲量に残る制約(方角情報なし・層区分固定、「標高考慮の雲量判定」セクション末尾参照)、ステップ2で使用する外部データ(GSI DEMタイル)の利用規約に関する公開前の確認事項(下記の専用セクション参照)は、いずれも未対応のまま継続中。
 - **ECMWFアンサンブルによる中期見込みの晴天確率: 見送り(2026-10-12、ユーザー判断)**。実装せず、call数の見積もりだけ行った。
   見送りの理由: (1) 9/13以降のyamabiyoriに天気予報ロジックの改善はなく(閾値の変更のみ)、移植する価値のある変更が無い、
   (2) メンバーごとに取れるのは全天の`cloud_cover`のみで、観測者標高を考慮した視界遮蔽雲量は作れない、
@@ -172,9 +172,7 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
   国土地理院「出典：国土地理院 地理院タイル(標高タイル)を加工して作成」、気象庁、
   OpenStreetMap contributors ODbL、JPL DE421)、`generate_report.py`のフッター(同内容+免責)、
   `cloud_forecast.py`にOpen-Meteo向けの識別可能なUser-Agentと`ATTRIBUTION`定数を追加。
-- **未対応で残る事項**: Light Pollution Atlas(David Lorenz氏)の著者への利用可否確認。ソースコードの
-  公開自体は「同等機能をサイトが一般公開している低頻度アクセス」の範囲だが、多人数が使う公開サービス
-  として運用する前には確認が必要(「光害データ取得に関する注意」セクション参照)。READMEにも未実施と明記。
+- 光害データの扱いは「光害データ(Black Marble 由来の指数)」セクション参照(以前の光害データの利用可否の課題は、データの置き換えで解消した)。
 
 ## yamabiyoriとの同期(2026-10-12): 基準点・移植範囲・移植しないもの
 
@@ -288,42 +286,9 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
   - 対象エリアを絞れるなら、事前に必要範囲のDEMをまとめて取得・自前ホスティング（オフラインDEM化）する方式へ切り替える。
   - 国土地理院の最新の利用規約・注意事項（大量アクセスに関する記載の有無）を公開前に必ず確認する。
 
-## 光害データ取得に関する注意 — 公開時の留意点(要対応)
+## 光害データ(Black Marble 由来の指数)
 
-ステップ3の光害レベル取得では、当初依頼されたFalchi et al. 2016 "World Atlas of
-Artificial Night Sky Brightness" の原本データと、代替候補のNOAA/EOG VIIRS年次
-コンポジットの両方を実際に調査した結果、**いずれも現在は認証なしで取得できない**
-ことを確認した(GFZ Potsdam Data Servicesは著者への利用申請フォーム必須、
-eogdata.mines.eduは全ディレクトリがEOGアカウントのOpenID Connectログイン必須)。
-
-このため、代替として **David Lorenz氏が個人運営する "Light Pollution Atlas"**
-(`https://djlorenz.github.io/astronomy/lp/`)を採用した(`step3_light_pollution/light_pollution.py`)。
-Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独自に再計算したもので、
-サイトの地図(overlay/dark.html)がクリック時に読み込む生バイナリタイル
-(`binary_tiles/{year}/binary_tile_{tilex}_{tiley}.dat.gz`、GitHub Pages配信・認証不要)
-を直接利用している。**このプロジェクトを一般公開する前に、必ず以下を確認・対応すること。**
-
-- **ライセンス表記が見当たらない**: サイト内を確認したが、CCライセンス等の明示的な
-  利用許諾表示や「Used with permission」等の記載は見つからなかった。著者
-  (David Lorenz, dlorenz@wisc.edu)による正式な利用規約は存在しない。
-  個人の検証目的の低頻度アクセス(本プロジェクトの現状)は、サイト自体が
-  同等の機能(地図クリックでの地点参照)を一般公開していることから問題ない
-  可能性が高いが、**一般公開するサービスに組み込む前に、著者に利用可否を
-  メールで確認すること。** 出典表示(`ATTRIBUTION`定数、サイトURL明記)は
-  最低限のマナーとして継続する。
-- **ボートルスケール変換は非公式の簡易近似**: 変換元データ提供者自身が
-  「天頂輝度とボートルスケールを単純に対応させるべきではない」と明言している
-  (`bortle.html`)。`step3_light_pollution/light_pollution.py` の
-  `bortle_from_ratio()` はあくまで目安であり、公式の変換ではないことを
-  UI等に表示する場合も明記すること。
-- **アクセス頻度への配慮**: GSIタイルの場合と同様、タイル単位のディスクキャッシュ
-  (`LightPollutionTileStore`)を無効化しないこと。GitHub Pages配信のため
-  GSIほど負荷に敏感ではないと考えられるが、同様の配慮を維持する。
-- **データの限界**: このデータは「新しい衛星データによる再計算」であり、著者自身が
-  「旧来のアトラス(2015年版)は地方部で明るさを過小評価しがちだった」と指摘している。
-  そのため本データでの数値は、旧アトラスを前提とした一般的な「ボートル3〜4程度」という
-  感覚的な期待値より高め(明るめ)に出ることがある。これはバグではなくデータ更新による
-  補正であることを、検証結果を解釈する際に留意すること。
+光害データは、当初 Falchi et al. 2016 の原本と NOAA/EOG VIIRS 年次コンポジットが認証必須で取得できなかったため、David Lorenz 氏の Light Pollution Atlas(個人運営、明示的なライセンス表記なし)を検討・使用していたが、ライセンスが不明瞭なため、段階LP1〜LP3b(2026-10-23〜24)で NASA Black Marble(VNP46A4)由来の自前計算(スカイグロー指数 ALR、日本で未較正の相対指数)に変更し、旧データの値と取得コードを現行ファイルから除去した。以前のコミットには旧データが含まれる(履歴は書き換えていない。README「光害データの変更(1.0.0)」)。手法・限界は`step3_light_pollution/METHOD.md`、年次の更新は`UPDATE.md`、各段階の記録は`step3_light_pollution/REPORT_LP1.md`〜`REPORT_LP3b.md`。
 
 ## 探索モードの「見頃」時間帯算出における天文薄明の考慮(2026-09-07修正)
 
@@ -378,10 +343,10 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 
 **スコア計算式の既知の癖**: 近日中(`FinalCandidate.score`、MSM圏内)は
 `(100-視界遮蔽雲量%)×1.0 + max(0,天体高度-地形地平線高度)×0.5 + clear_hours×3.0
-- 光害LPI×10.0`という式で、雲の良さを「区間の平均視界遮蔽雲量(雲量項)」と
+- 光害の内部値×10.0`(内部値はALRを仮閾値で規格化した値。`lp_source.py`)という式で、雲の良さを「区間の平均視界遮蔽雲量(雲量項)」と
 「晴れ間の長さ(clear_hours項)」の両方で二重に評価している(意図的な重み付けとして
 残しているが、雲の影響が強すぎると感じる場合は調整の余地がある)。また中期見込み
-(`OutlookCandidate.score`)は光害項の書き方が`100-LPI×10`という基準点込みの形になっており
+(`OutlookCandidate.score`)は光害項の書き方が`100-光害の内部値×10`という基準点込みの形になっており
 近日中の式と算出方法が異なるため、両者のスコアの絶対値は単純比較できない(2026-09-07、
 ユーザーからのスコア計算式に関する質問がきっかけで整理・記録)。
 
@@ -460,8 +425,7 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - 下層/中層/上層の高度区分(3km/8km)は固定で、観測者が層の内部にいる場合の切り分けは気圧面の
   近似雲量の分布に依存する(気圧面に雲が無ければ幾何的な割合で代用)。
 - 中期見込み(ECMWF圏内)は引き続き雲量を足切りに使わず晴天率の参考表示のみ(意図的な設計)。
-- ステップ2・3で使用する外部データ(GSI DEMタイル・Light Pollution Atlas)の利用規約に関する
-  公開前の確認事項は別セクション参照。
+- ステップ2で使用する外部データ(GSI DEMタイル)の利用規約に関する公開前の確認事項は別セクション参照。
 
 ## Codex対応(2026-10-15)
 
@@ -470,7 +434,7 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - コード・スコア・閾値・取得処理・出力は変えていない。
 - 理由: Codexがcloneしてセットアップからテストまで迷わず進められるようにするため。本ファイルは約64KBで、Codexの指示ファイル読み込み上限
   (`project_doc_max_bytes`、既定32KiB。公式ドキュメントの記述)を超えるため、共通ルールを短い`AGENTS.md`に分けた。
-- 発見: READMEの依存にnumpyが無かった(`gsi_dem.py`・`light_pollution.py`が使用)。`requirements.txt`で補った。
+- 発見: READMEの依存にnumpyが無かった(`gsi_dem.py`などが使用)。`requirements.txt`で補った。
 
 ## 星空ガイドと星空シミュレーター(2026-10-15、Claude Code固有の運用と開発記録)
 
@@ -485,7 +449,7 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 ### 開発記録
 - 10/9に作った見本(`docs/examples/`にコピー、読み取り専用)の生成手順がリポジトリに残っておらず再現できなかったため、「数値JSON → 解説JSON → 描画」の3層に分けて作り直した。
   コードは`skyguide/`(`astro.py`数値、`build.py`数値JSON、`render.py`描画・検査、`template.html`/`sky_guide.css`/`sky_guide.js`テンプレート)と
-  `scripts/make_sky_guide.py`・`scripts/render_sky_guide.py`・`scripts/extract_sky_guide_sample.py`(見本→ゴールデン抽出)。
+  `scripts/make_sky_guide.py`・`scripts/render_sky_guide.py`・`scripts/extract_sky_guide_sample.py`(見本→ゴールデン抽出。段階LP3bで見本HTMLとともに削除し、ゴールデンだけ残した)。
 - 既存ロジックは変更していない(`step1_astronomy`・`step2_terrain`・`step4_moonlight`・`explore_hoshibiyori.find_astro_dark_events`・`step5_cloud_forecast`を呼ぶだけ)。
   新規コード: 恒星カタログ`skyguide/objects.json`(J2000の手入力値。Hipparcosとの機械照合は未実施、見本との差で確認)、惑星・銀河面・月相・出来事・ピーク検出。
 - 見本の再現(戦場ヶ原 2026-10-09): 恒星・惑星・銀河中心・天の川の帯の方位・高度は見本と0.2°以内(恒星0.1°、惑星0.0°、天の川の帯0.0°、銀河中心 方位0.2°)、
@@ -511,8 +475,8 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 
 ## 光害データの置き換え準備: Black Marble 起点のスカイグロー指数(段階LP1、2026-10-23)
 
-作業ブランチ`stageLP1`(push・マージは未実施)。Lorenz氏のLight Pollution Atlas(ライセンス表記なし、「光害データ取得に関する注意」参照)を
-将来置き換えるための**準備のみ**。**既存のLPI/mpsas/bortle_approx・`stargazing_spots.json`・既定のレポート出力・スコア・閾値は変えていない**
+作業ブランチ`stageLP1`(push・マージは未実施)。以前の光害データを
+将来置き換えるための**準備のみ**(当時)。**既存の光害の値・`stargazing_spots.json`・既定のレポート出力・スコア・閾値は変えていない**
 (新しい値は別フィールド`skyglow_bm_index`/`skyglow_bm_rank_pct`として別ファイル`stargazing_spots.bm.json`にだけ出す)。切り替えの是非と時期は本人が決める。
 詳細な結果は`step3_light_pollution/REPORT_LP1.md`、手法・係数の出典は`step3_light_pollution/METHOD.md`、年次の更新手順は`UPDATE.md`。
 
@@ -531,36 +495,20 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 
 ## 光害の入力の切り替え(段階LP2、2026-10-23)
 
-ブランチ`stageLP2`(push・マージは未実施)。LP1の新指数(ALR)を既存のLPIと並べて試せるようにした。**既定は`legacy`で、既定の動作は変えていない**
-(旧版と新版の`render_html`出力が一致することを確認)。詳細は`step3_light_pollution/REPORT_LP2.md`。
+LP1の新指数(ALR)を以前の光害データと並べて試せるようにした(`--lp-source`。段階LP3bで削除)。詳細は`step3_light_pollution/REPORT_LP2.md`。
 
-- `--lp-source legacy|bm`を`explore_hoshibiyori.py`と`generate_report.py`に追加(bmのレポートは`report_bm.html`、`report.html`は上書きしない)。
-- 仮閾値`BM_ALR_THRESHOLD = 10.66`(`lp_source.py`): 現行`LPI<=5.0`で通る主軸146件中141件と同じ件数が通るALRの境界(141番目10.31と142番目11.00の間)。
+- 仮閾値`BM_ALR_THRESHOLD = 10.66`(`lp_source.py`): 以前の判定で通った主軸146件中141件と同じ件数が通るALRの境界(141番目10.31と142番目11.00の間)。
   論文Table 3(ALR>10)は日本未較正のため使わない。食い違いは2件(富士山吉原・堂平天文台)。
-- bmは`mpsas`・`bortle_approx`を持たず(日本向けの較正が無い)、画面にはALRと順位を出す。実効的な空の明るさ(月込み)はbmでは出ない。
-  `scripts/report_courses.py`・`weekend_page.py`はlegacyの`report.html`の表記を読むため、bmのレポートには未対応。
-- **未実施**: legacy/bmの並べ比較の実測(`compare_lp_sources.py`)は、実行中にシステムのメモリ不足でバックグラウンドコマンドが停止されたため再実行していない。
-  旧データ(Lorenz氏由来)の整理は計画のみ(REPORT_LP2.md第4節)。公開リポジトリに旧値が残る場所の一覧もそこにある。
+- 並べ比較(見込み/ECMWF、6夜): 上位10件のうち6件が共通、上位2件は同じ。近日中(MSM)は候補0件で未比較。
 
-## 光害の既定を新指数(bm)に切り替え(段階LP3、2026-10-24)
+## 光害の切り替えと旧データの除去(段階LP3・LP3b、2026-10-24)
 
-ブランチ`stageLP3`(`stageLP2`から分岐、push・マージは未実施)。**上の「段階LP2」の節の「既定は`legacy`」「bmは未対応」は、この節で上書きされた。**
-詳細・本人が決める点は`step3_light_pollution/REPORT_LP3.md`。
-
-- **既定の`--lp-source`を`bm`にした**(`lp_source.DEFAULT_LP_SOURCE`。`explore_hoshibiyori.py`・`generate_report.py`・`report_courses.py`・
-  `weekend_page.py`)。legacyは`--lp-source legacy`で残す。出力: 既定(bm)は`report.html`、legacyは`report_legacy.html`
-  (週末ページは`out/weekend_stargazing_<夜>.html` / `…_legacy.html`)。
-- bmは日本で未較正の相対指数。レポート冒頭・フッター・READMEに、相対指数であること(絶対値・等級ではない)と、
-  LPIとの比較で上位の順位差が小さいこと(見込みの上位10件のうち6件が共通、上位2件は同じ)を明記した(`BM_RELATIVE_NOTE`/`BM_RANK_NOTE`)。
-- **Lorenz氏由来の値を現行ファイルから外した**(git履歴は書き換えていない): `stargazing_spots.json`の`lpi`/`mpsas`/`bortle_approx`/
-  `light_pollution_computed`(spots 146件・viewpoint_reference 751件)、`stargazing_spots.bm.json`の`lpi`、`tests/fixtures/sky_guide/*_data.json`の
-  `spot.lpi`/`mpsas`。`site_type`はALR(仮閾値10.66)で引き直した(変わったのは堂平天文台=夜景系へ、富士山吉原=暗い空へ)。
-  星空ガイドの見出しの「光害 LPI…」欄と出典の Lorenz 氏の記載も外れた(値が無いと欄を省く既存の挙動)。
-- legacy は光害タイルを取得・キャッシュして都度LPIを計算する(`step3_light_pollution/tile_cache/`)。比較・検証用の解析スクリプトも
-  `legacy_ref.legacy_lpi()`で同様に計算する(事前計算値は無い)。閾値の件数N=141は`lp_source.BM_THRESHOLD_N_PASS`の固定値。
-- **残っているもの**: `docs/examples/senjogahara_sky_guide_20261009.html`(公開された見本。LPI値とLorenz氏の出典を含む。読み取り専用の運用のため変更せず)、
-  `light_pollution.py`とそれを使うスクリプト(legacyのため残す)、`merge_external_spots_20260907.py`・`static_ranking.py`・`run_5points.py`(単発の旧スクリプト)、
-  git履歴。著者への利用可否確認は未実施のまま(legacyを使う/公開サービスに組み込むなら要確認)。
+- 段階LP3: 既定をALRにし、地点ファイル等から以前の光害データ由来の値を外した。`site_type`はALR(仮閾値10.66)で引き直した
+  (堂平天文台=夜景系へ、富士山吉原=暗い空へ)。レポート冒頭・フッター・READMEに、相対指数であることと上位の順位差が小さいことを明記。
+- 段階LP3b: 以前の光害データの取得コード(`light_pollution.py`・タイルのキャッシュ処理)、`--lp-source`と`report_legacy.html`、
+  それに依存する比較・検証スクリプト、星空ガイドの見本HTML、ログ・検証記録の地点別の値を除去した。ALRが唯一の方式。
+  スコア式は変えていない(内部値`brightness_ratio`=ALR×5.0/10.66を`LP_INDEX_LIMIT`=5.0で足切りし、×10で減点)。
+  月込みの「実効的な空の明るさ」は出さない(ALRは等級ではないため)。詳細は`step3_light_pollution/REPORT_LP3.md`・`REPORT_LP3b.md`。
 
 ## v1.0.0 リリース準備(段階R1、2026-10-24)
 
@@ -569,6 +517,6 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 
 - `plugin.json`の`version`を1.0.0に、CHANGELOGに1.0.0の項。`tests/test_plugin_manifest.py`にCHANGELOGの最新版と`version`の一致テストを追加。
 - READMEの出典表を「提供元・条件(ライセンスとURL)・必要な表示・確認日」の形に改め、一次情報で確認した(2026-10-24)。
-  OSM由来のデータファイルはMITとは別にODbLに従う旨を明記。光害データの変更の経緯(Lorenz氏→Black Marble、以前のコミットに旧データ)を記載。
+  OSM由来のデータファイルはMITとは別にODbLに従う旨を明記。光害データの変更の経緯(以前のコミットに旧データ)を記載。
 - レポートのフッターの出典表示を規約の例に合わせた(Open-Meteo「Weather data by Open-Meteo.com」+CC BY 4.0+加工の旨、気象庁は「出典：気象庁ホームページ(URL)」、ODbLのリンク、Black Marbleの推奨引用)。
 - `external_spots_20260907.csv`(curated_external 62件の元)の出典は記録が無く「出典不明」。

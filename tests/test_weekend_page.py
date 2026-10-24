@@ -26,17 +26,17 @@ D17, D18 = date(2026, 10, 17), date(2026, 10, 18)
 
 
 def card(name, muni, score, lat, lon, night=D17, start=(21, 15), end=(4, 15), best=(23, 0),
-         obstruction=12.4, mpsas=21.806, origin="curated"):
+         obstruction=12.4, alr=2.34, rank=41.0, origin="curated"):
     ws = datetime(2026, 10, night.day, *start, tzinfo=JST)
     we = datetime(2026, 10, night.day + (1 if end < start else 0), *end, tzinfo=JST)
     return SimpleNamespace(
         site_name=name, municipality=muni, score=score, origin=origin, site_lat=lat, site_lon=lon,
         window_start=ws, window_end=we, best_time=datetime(2026, 10, night.day, *best, tzinfo=JST),
-        night_date=night, mean_obstruction=obstruction, effective_mpsas=mpsas)
+        night_date=night, mean_obstruction=obstruction, alr=alr, alr_rank_pct=rank)
 
 
 # 気軽: 17日3件+18日1件。硬派: 17日(気軽と重複1・遠征圏・離島・近場)+18日なし
-CASUAL = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("枝折峠", "魚沼市", 117.2, 37.1, 139.2, mpsas=21.65),
+CASUAL = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("枝折峠", "魚沼市", 117.2, 37.1, 139.2, alr=3.1, rank=55.0),
           card("白州", "北杜市", 100.0, 35.8, 138.3, obstruction=3.0),
           card("奥只見ダム", "魚沼市", 115.0, 37.2, 139.3, night=D18, start=(22, 29))]
 HARDCORE = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("白米千枚田", "輪島市", 118.6, 37.3, 136.8),
@@ -55,7 +55,7 @@ def build_html(casual=CASUAL, hardcore=HARDCORE, generated="2026-10-17 11:20", w
     icons = {n.night_date: "🌓" for n in nights}
     gen = datetime.strptime(generated, "%Y-%m-%d %H:%M")
     return gr.render_html(SimpleNamespace(name="天の川銀河中心"), gen, nights, icons, {}, 0, 3, casual, hardcore,
-                          weather_note, {}, [], {}, "概況", weather_map_html=weather_map_html, lp_source="legacy")
+                          weather_note, {}, [], {}, "概況", weather_map_html=weather_map_html)
 
 
 GOOD_COMMENTARY = {
@@ -127,7 +127,7 @@ class Base(unittest.TestCase):
             args += ["--out", str(self.out)]
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = wp.main(["--lp-source", "legacy"] + args + list(argv), now=now)
+            code = wp.main(args + list(argv), now=now)
         return code, out.getvalue(), err.getvalue()
 
     def page(self, *argv, **kw):
@@ -160,7 +160,7 @@ class DefaultDatesTest(unittest.TestCase):
         rep.write_text(build_html(), encoding="utf-8")
         o, e = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(o), contextlib.redirect_stderr(e):
-            code = wp.main(["--lp-source", "legacy", "--report", str(rep), "--access-notes", str(Path(tmp.name) / "x.json"), "--out", str(out),
+            code = wp.main(["--report", str(rep), "--access-notes", str(Path(tmp.name) / "x.json"), "--out", str(out),
                             "--dates", "2026-10-18"], now=SAT)
         self.assertEqual(code, 0, e.getvalue())
         return out.read_text(encoding="utf-8")
@@ -245,7 +245,7 @@ class AccessNotesTest(Base):
     def run_with_notes(self, notes_path):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = wp.main(["--lp-source", "legacy", "--report", str(self.report), "--access-notes", str(notes_path), "--out", str(self.out)], now=SAT)
+            code = wp.main(["--report", str(self.report), "--access-notes", str(notes_path), "--out", str(self.out)], now=SAT)
         return code, err.getvalue()
 
     def test_note_and_tag_present(self):
@@ -400,7 +400,7 @@ class VerdictCheckTest(Base):
 
     def test_correct_statements_pass(self):
         body = ("奥只見ダムは21:15から04:15まで、狙い目は23:00です。無月は6.8時間(土曜)と5.8時間(日曜)で、"
-                "雲量は12%と3%、東京から174km、空の明るさは21.81 mag/arcsec²です。気軽コースは4件、日曜の夜は1件です。"
+                "雲量は12%と3%、東京から174km、光害はALR 2.34です。気軽コースは4件、日曜の夜は1件です。"
                 "白米千枚田は東京から250km超の遠征圏です。")
         code, _, err = self.run_verdict(body)
         self.assertEqual(code, 0, err)
@@ -430,8 +430,11 @@ class VerdictCheckTest(Base):
     def test_distance_mismatch(self):
         self.assertRejected("東京から999kmです。", "999km")
 
-    def test_mpsas_mismatch(self):
-        self.assertRejected("空の明るさは22.50 mag/arcsec²です。", "22.50")
+    def test_alr_mismatch(self):
+        self.assertRejected("光害はALR 9.99です。", "ALR 9.99")
+
+    def test_magnitude_is_not_allowed(self):
+        self.assertRejected("空の明るさは21.81 mag/arcsec²です。", "等級は無い")
 
     def test_errors_are_collected_and_title_is_checked(self):
         self.assertRejected("雲量は77%、東京から999kmです。", "999km", title="ヘブンスそのはら")
@@ -536,10 +539,10 @@ class WeatherSectionTest(Base):
         self.assertNotUpdated("(最終更新 2026-10-17 10時)")
 
     def test_report_parse_of_weather_block(self):
-        wm = wp.load_report(self.report.read_text(encoding="utf-8"), "legacy")["wmap"]
+        wm = wp.load_report(self.report.read_text(encoding="utf-8"))["wmap"]
         self.assertEqual(wm["fetched"], "2026-10-17 10:57")
         self.assertEqual(wm["srcs"], [p.relative_to(self.dir).as_posix() for p in self.images])
-        self.assertIsNone(wp.load_report(build_html(), "legacy")["wmap"])
+        self.assertIsNone(wp.load_report(build_html())["wmap"])
 
     def test_validation_logic_is_reused_not_copied(self):
         src = (ROOT / "scripts" / "weekend_page.py").read_text(encoding="utf-8")
@@ -569,7 +572,7 @@ class OverwriteTest(Base):
         self.addCleanup(setattr, wp, "ROOT", orig)
         code, stdout, err = self.run_cli(with_out=False)
         self.assertEqual(code, 0, err)
-        self.assertTrue((self.dir / "out" / "weekend_stargazing_20261017_legacy.html").is_file())  # legacy形式のテスト用レポート(既定のbmは接尾辞なし)
+        self.assertTrue((self.dir / "out" / "weekend_stargazing_20261017.html").is_file())
         self.assertEqual(self.run_cli(with_out=False)[0], 4)  # 2回目は拒否
 
 

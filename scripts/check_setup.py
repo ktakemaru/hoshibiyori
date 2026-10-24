@@ -23,7 +23,7 @@ VERIFIED_PYTHON = (3, 15)  # 動作確認済みの版。READMEの「3.13以降�
 REQUIRED = ["skyfield", "requests", "numpy", "PIL"]
 OPTIONAL = ["playwright"]
 CACHE_DIRS = [
-    "step2_terrain/dem_cache", "step3_light_pollution/tile_cache", "step5_cloud_forecast/cloud_cache",
+    "step2_terrain/dem_cache", "step5_cloud_forecast/cloud_cache",
     "step5_cloud_forecast/weather_map_cache", "step5_cloud_forecast/himawari_cache",
 ]
 EPHEMERIS = DATA_ROOT / "step1_astronomy" / "de421.bsp"

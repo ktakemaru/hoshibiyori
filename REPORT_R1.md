@@ -78,7 +78,7 @@ README の出典表を「提供元・条件(ライセンスと URL)・必要な�
 4. **CHANGELOG の日付と「main にマージされた変更だけ」の方針**: 1.0.0 の日付を、マージ・タグの日に合わせるか。
 5. **OSM 由来のデータの扱い**: README に ODbL と明記した。さらに、データを別ファイル・別フォルダに分けるか(案は下の 5-1。実行していない)。
 6. **User-Agent の `/0.1`** を 1.0 に揃えるか。
-7. **現行ファイルに残る Lorenz 氏由来の個別の値**(段階LP3で外さなかったもの): 開発ログ・検証記録の中の値。`CLAUDE.md`(閾値の経緯の LPI 値など)、`explore_hoshibiyori.py` のコメント(LPI 4.93・6.49)、`step4_moonlight/run_verification.py`(石廊崎 21.73 mag/arcsec²)、`tests/test_lp_source.py`(菜の花台の 6.49 をテスト用の値に使用)、`logs/*.log`(`run_merge_external_spots.log` に62件、`explore_run_*761.log` に各20件)、`step3_light_pollution/REPORT_LP1.md`・`REPORT_LP2.md`(比較表の LPI 値)、`docs/examples/senjogahara_sky_guide_20261009.html`(公開された見本)。外すか、経緯の記録として残すか。
+7. **現行ファイルに残る Lorenz 氏由来の個別の値**(段階LP3で外さなかったもの): 開発ログ・検証記録の中の値。`CLAUDE.md`(閾値の経緯の LPI 値など)、`explore_hoshibiyori.py` のコメント(LPI [除去]・6.49)、`step4_moonlight/run_verification.py`(石廊崎 [除去] mag/arcsec²)、`tests/test_lp_source.py`(菜の花台の 6.49 をテスト用の値に使用)、`logs/*.log`(`run_merge_external_spots.log` に62件、`explore_run_*761.log` に各20件)、`step3_light_pollution/REPORT_LP1.md`・`REPORT_LP2.md`(比較表の LPI 値)、`docs/examples/senjogahara_sky_guide_20261009.html`(公開された見本)。外すか、経緯の記録として残すか。
 8. **テキスト形式の標高タイルの更新停止(令和6年10月)**: PNG 形式への移行を今後の課題にするか。
 9. **プラグインのアイコン**: `claude plugin validate` が ICON_MISSING の警告を出す(検証は通過)。アイコンを用意するか。
 10. **タグとリリース**: ローカルのタグ `v1.0.0` を、main へのマージ後のコミットに付け直すか(現在は `stageR1` のコミットに付いている)。

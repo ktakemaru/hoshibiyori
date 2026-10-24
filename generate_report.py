@@ -41,13 +41,12 @@ from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_datetime  # noqa: E402
-from light_pollution import LightPollutionTileStore  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, FetchSummary, GridCloudCache  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
 
 from explore_hoshibiyori import (  # noqa: E402
-    JST, TARGET_ID, NUM_NIGHTS_TO_SCAN, LPI_THRESHOLD,
+    JST, TARGET_ID, NUM_NIGHTS_TO_SCAN,
     NightCandidate, FinalCandidate, OutlookCandidate,
     ORIGIN_LABELS, is_primary_origin,
     load_candidate_sites, all_nights_timeline, forecast_regime_for_night,
@@ -55,7 +54,7 @@ from explore_hoshibiyori import (  # noqa: E402
     compute_site_night_window, make_lp_store, lp_limit_text,
 )
 from lp_source import (  # noqa: E402
-    BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, DEFAULT_LP_SOURCE, LP_SOURCES, describe_alr,
+    BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, describe_alr,
 )
 from jma_weather_map import fetch_jma_weather_map, read_fetched_at as read_weather_map_fetched_at  # noqa: E402
 from himawari_image import (  # noqa: E402
@@ -65,14 +64,8 @@ from himawari_image import (  # noqa: E402
 )
 from areas import load_areas  # noqa: E402
 
-# 既定の光害の入力(bm)のレポート。scripts/report_courses.py・weekend_page.py も既定でこれを読む。
+# scripts/report_courses.py・weekend_page.py もこれを読む。
 OUTPUT_PATH = DATA_ROOT / "report.html"
-# --lp-source legacy のときの出力先。report.html(既定のbm)を上書きしない。
-OUTPUT_PATH_LEGACY = DATA_ROOT / "report_legacy.html"
-
-
-def output_path_for(lp_source: str) -> Path:
-    return OUTPUT_PATH_LEGACY if lp_source == "legacy" else OUTPUT_PATH
 TOP_N_TIER2 = 10
 
 # --- JMA地上天気図(2段目「直近・行動用」、2026-09-06追加) ---
@@ -389,35 +382,25 @@ def build_period_summary(finals: list[FinalCandidate], outlooks: list[OutlookCan
 
 def parse_args(argv=None):
     import argparse
-    ap = argparse.ArgumentParser(description="探索レポート(report.html)を生成する")
-    ap.add_argument("--lp-source", choices=LP_SOURCES, default=DEFAULT_LP_SOURCE,
-                    help="光害の入力。bm=Black Marble由来のALR(日本で未較正の相対指数、既定、report.html)、"
-                         "legacy=Light Pollution Atlas由来のLPI(report_legacy.html)")
+    ap = argparse.ArgumentParser(description="探索レポート(report.html)を生成する。"
+                                             "光害は Black Marble 由来のALR(日本で未較正の相対指数)")
     return ap.parse_args(argv)
 
 
 def main(argv=None) -> int:
     """終了コード: 0=出力済み(取得失敗があれば警告バナー付き)、2=取得失敗が多すぎる/429のためreport.htmlを更新せず中止。"""
-    args = parse_args(argv)
-    out_path = output_path_for(args.lp_source)
+    parse_args(argv)
     cache = GridCloudCache()
     try:
-        return _generate(cache, args.lp_source)
+        return _generate(cache)
     except OpenMeteoDailyLimitError as e:
-        print(f"\n[中止] {e}。{out_path.name}は更新していません。")
+        print(f"\n[中止] {e}。{OUTPUT_PATH.name}は更新していません。")
         print("  " + cache.summary().console_line())
         return 2
 
 
-def _site_type(lp_store, lp_source: str, lat: float, lon: float) -> str | None:
-    """dark_sky / night_view。bmはALRの仮閾値、legacyはLPI_THRESHOLDで分ける(足切りと同じ基準)。"""
-    if lp_source == "bm":
-        return lp_store.site_type(lat, lon)
-    return "dark_sky" if lp_store.get(lat, lon).brightness_ratio <= LPI_THRESHOLD else "night_view"
-
-
-def _generate(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> int:
-    out_path = output_path_for(lp_source)
+def _generate(cache: GridCloudCache) -> int:
+    out_path = OUTPUT_PATH
     t_start = datetime.now(JST)
     ts = load.timescale()
     eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
@@ -431,13 +414,11 @@ def _generate(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> int:
     sites = [s for s in all_sites if is_primary_origin(s["origin"])]
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
 
-    lp_store = make_lp_store(lp_source)
-    # 「夜景系」の分類は、選んだ光害の入力で引き直す(stargazing_spots.json の site_type は
-    # 段階LP3でALR由来に置き換えたため、legacyでは使わない)
+    lp_store = make_lp_store()
+    # 「夜景系」の分類は、足切りと同じ基準(ALRの仮閾値)で引き直す
     for s in sites:
-        s["site_type"] = _site_type(lp_store, lp_source, s["lat"], s["lon"])
-    if lp_source == "bm":
-        print(f"[光害の入力] bm(Black Marble由来のALR、相対指数)。仮閾値 {lp_limit_text(lp_store)}。出力先: {out_path.name}")
+        s["site_type"] = lp_store.site_type(s["lat"], s["lon"])
+    print(f"[光害] Black Marble由来のALR(相対指数)。仮閾値 {lp_limit_text(lp_store)}。出力先: {out_path.name}")
 
     print(f"候補地点: {len(sites)}件を読み込み(curated由来のみ、viewpoint参考データ{len(all_sites)-len(sites)}件は対象外)")
 
@@ -465,7 +446,7 @@ def _generate(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> int:
     if msm_nights:
         survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache)
         finals = stage3_direction_filter(ts, eph, survivors, lp_store)
-        # 「星空観賞向き」枠(2026-09-07追加): stage3のLPI足切りで気軽/硬派コースから
+        # 「星空観賞向き」枠(2026-09-07追加): stage3の光害の足切りで気軽/硬派コースから
         # 除外される夜景系地点(site_type=="night_view")も、天気(晴れ間)条件さえ満たせば
         # 観賞向きスポットとして別枠で残す。地点ごとに最も晴れる(視界遮蔽雲量が低い)夜を1件だけ選ぶ。
         night_view_by_site: dict[str, dict] = {}
@@ -480,13 +461,9 @@ def _generate(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> int:
                     "night_date": s["night"].night_date,
                     "window_start": s["window_start"], "window_end": s["window_end"],
                     "mean_obstruction": s["mean_obstruction"],
-                    "lpi": 0.0,
                 }
                 reading = lp_store.get(s["site"]["lat"], s["site"]["lon"])
-                if lp_source == "bm":
-                    night_view_by_site[name].update(alr=reading.alr, alr_rank_pct=reading.rank_pct)
-                else:
-                    night_view_by_site[name]["lpi"] = reading.brightness_ratio
+                night_view_by_site[name].update(alr=reading.alr, alr_rank_pct=reading.rank_pct)
         night_view_items = sorted(night_view_by_site.values(), key=lambda c: c["mean_obstruction"])
 
     outlooks: list[OutlookCandidate] = []
@@ -545,7 +522,7 @@ def _generate(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> int:
         sky_guide=sky_guide,
         tier3_nights=tier3_nights, outlooks_by_date=outlooks_by_date, summary_text=summary_text,
         weather_map_html=weather_map_html, night_view_items=night_view_items,
-        fetch_warning_html=fetch_warning_html, lp_source=lp_source,
+        fetch_warning_html=fetch_warning_html,
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html_out, encoding="utf-8")
@@ -758,12 +735,9 @@ def render_map_svg(cards) -> str:
 
 
 def _light_pollution_stat(c) -> str:
-    """候補カードの光害の欄。legacyは実効的な空の明るさ(mag/arcsec²)、bm(effective_mpsasがNone)は
-    相対指数ALRと順位(日本向けの較正が無いため等級は出さない)。"""
-    if c.effective_mpsas is None:
-        return (f'<div><dt>光害(相対指数)</dt><dd>{html.escape(describe_alr(getattr(c, "alr", None), getattr(c, "alr_rank_pct", None)))}'
-                f'</dd></div>')
-    return f'<div><dt>実効的な空の明るさ</dt><dd>{c.effective_mpsas:.2f} mag/arcsec&sup2;</dd></div>'
+    """候補カードの光害の欄。相対指数ALRと順位(日本向けの較正が無いため空の明るさの等級は出さない)。"""
+    return (f'<div><dt>光害(相対指数)</dt><dd>{html.escape(describe_alr(getattr(c, "alr", None), getattr(c, "alr_rank_pct", None)))}'
+            f'</dd></div>')
 
 
 def render_candidate_group(cards, group_title: str, group_note: str, empty_note: str, weather_note: str = "") -> str:
@@ -818,14 +792,12 @@ def render_candidate_group(cards, group_title: str, group_note: str, empty_note:
 
 
 def _night_view_lp_stat(c: dict) -> str:
-    if "alr" in c:  # bm(新指数)
-        return (f'<div><dt>光害(相対指数)</dt><dd>{html.escape(describe_alr(c["alr"], c.get("alr_rank_pct")))}'
-                f'(天の川撮影の目安は仮閾値 ALR {BM_ALR_THRESHOLD}以下)</dd></div>')
-    return f"<div><dt>光害LPI</dt><dd>{c['lpi']:.2f}(天の川撮影の目安は{LPI_THRESHOLD:.1f}以下)</dd></div>"
+    return (f'<div><dt>光害(相対指数)</dt><dd>{html.escape(describe_alr(c["alr"], c.get("alr_rank_pct")))}'
+            f'(天の川撮影の目安は仮閾値 ALR {BM_ALR_THRESHOLD}以下)</dd></div>')
 
 
 def render_night_view_group(items: list[dict]) -> str:
-    """光害が強く天の川撮影の基準(LPI<=LPI_THRESHOLD)を満たさない「夜景系」地点向けの、
+    """光害が強く天の川撮影の基準(ALRの仮閾値)を満たさない「夜景系」地点向けの、
     「星空撮影に適する」ではなく「星空観賞が期待できる」ことだけを示す別枠セクション。
 
     2026-09-07追加。夜景で有名な高台(菜の花台・高尾山等)は、天の川銀河中心のような
@@ -836,7 +808,6 @@ def render_night_view_group(items: list[dict]) -> str:
     if not items:
         return ""
 
-    bm_mode = "alr" in items[0]
     cards_html = []
     for c in items:
         cards_html.append(f"""
@@ -860,7 +831,7 @@ def render_night_view_group(items: list[dict]) -> str:
     return f"""
         <div class="cand-group nv-group">
           <h3 class="group-title">🌃 星空観賞向きスポット(天の川撮影には不向き)</h3>
-          <p class="group-note">夜景で有名な高台など、光害が強く天の川の淡い構造は写りにくい({"光害の相対指数ALRが" if bm_mode else "光害LPIが"}
+          <p class="group-note">夜景で有名な高台など、光害が強く天の川の淡い構造は写りにくい(光害の相対指数ALRが
           撮影向きの基準を超える)ため気軽/硬派コースの候補からは除外した地点です。ただし晴れていれば
           肉眼で星や明るい天体・夜景と星空を組み合わせた撮影を楽しむには十分な条件です。</p>
           <div class="cand-grid">{"".join(cards_html)}</div>
@@ -1110,18 +1081,12 @@ def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index) -> str:
 def render_html(target, generated_at, all_nights, night_icons, regimes, msm_index, msm_nights_count,
                  tier2_casual, tier2_hardcore, casual_weather_note, sky_guide,
                  tier3_nights, outlooks_by_date, summary_text, weather_map_html: str = "",
-                 night_view_items: list[dict] | None = None, fetch_warning_html: str = "",
-                 lp_source: str = DEFAULT_LP_SOURCE) -> str:
-    if lp_source == "bm":
-        lp_notice_html = (f'<p class="wmap-caveat">光害の入力: Black Marble由来の相対指数。'
-                          f'{html.escape(BM_RELATIVE_NOTE)} 足切りの仮閾値は ALR {BM_ALR_THRESHOLD}'
-                          f'(従来の判定と同じ件数が通る値。論文の目安値ではありません)。'
-                          f'{html.escape(BM_RANK_NOTE)}</p>')
-        lp_attribution = html.escape(BM_CITATION)
-    else:
-        lp_notice_html = ""
-        lp_attribution = ('光害 David Lorenz, <a href="https://djlorenz.github.io/astronomy/lp/">Light Pollution Atlas</a>\n'
-                          '    (ボートルスケール値は非公式の簡易近似)')
+                 night_view_items: list[dict] | None = None, fetch_warning_html: str = "") -> str:
+    lp_notice_html = (f'<p class="wmap-caveat">光害の入力: Black Marble由来の相対指数。'
+                      f'{html.escape(BM_RELATIVE_NOTE)} 足切りの仮閾値は ALR {BM_ALR_THRESHOLD}'
+                      f'(以前の判定と同じ件数が通る値。論文の目安値ではありません)。'
+                      f'{html.escape(BM_RANK_NOTE)}</p>')
+    lp_attribution = html.escape(BM_CITATION)
     tier1 = render_tier1(all_nights, night_icons, summary_text, sky_guide)
     tier2 = render_tier2(tier2_casual, tier2_hardcore, msm_index, msm_nights_count, casual_weather_note,
                           weather_map_html, night_view_items)

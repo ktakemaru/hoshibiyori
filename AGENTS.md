@@ -14,7 +14,7 @@
 | 雲量判定(`elevation_cloud.py`) | 「標高考慮の雲量判定」「観測者に寄り添う」 |
 | スコア・閾値・探索の流れ | 「探索モードの『見頃』時間帯算出…」(スコア式の既知の癖を含む) |
 | 取得失敗・終了コード・ひまわり | 「yamabiyoriとの同期(2026-10-12)」 |
-| 地形(DEM)・光害データ | 「DEM(標高)データ取得に関する注意」「光害データ取得に関する注意」 |
+| 地形(DEM)・光害データ | 「DEM(標高)データ取得に関する注意」「光害データ(Black Marble 由来の指数)」、`step3_light_pollution/METHOD.md`・`UPDATE.md` |
 | 候補地点データ・重複削除 | 「候補地点データの現状」「今後の課題」 |
 
 ## 3. 独立性と観測者の視点
@@ -45,7 +45,7 @@ py -m venv .venv
 |---|---|---|
 | 視界遮蔽雲量の見上げ型ハイブリッド | `step5_cloud_forecast/elevation_cloud.py` | 全層雲量が主、気圧面は観測者より下の雲の差し引きのみ。API変数は `level_hourly_vars()` に一元化 |
 | スコア式 | `explore_hoshibiyori.py` の `FinalCandidate.score` / `OutlookCandidate.score` | 近日中と中期見込みで式が異なり絶対値は比較不可 |
-| 光害閾値 | `explore_hoshibiyori.py` `LPI_THRESHOLD`(legacy)、`lp_source.py` `BM_ALR_THRESHOLD`(既定のbm) | 5.0(実地の成功・失敗例に基づく暫定値)/ ALR 10.66(LPI≦5.0で通る件数141と同数になる仮の値。日本未較正) |
+| 光害閾値 | `step3_light_pollution/lp_source.py` `BM_ALR_THRESHOLD`(と内部値の基準 `LP_INDEX_LIMIT`) | ALR 10.66(以前の判定で通った主軸の141件と同数が通る仮の値。日本未較正)。`LP_INDEX_LIMIT` 5.0 はスコアの光害減点の大きさを保つための規格化の基準 |
 | 雲量閾値・最小晴れ間 | `CLOUD_OBSTRUCTION_THRESHOLD` / `MIN_CLEAR_WINDOW_HOURS` | 30.0% / 1.0時間 |
 | 失敗セル率と終了コード | `step5_cloud_forecast/grid_cache.py` `FAILED_CELL_RATE_ABORT` | 0.20。0/2 の意味は上記 |
 | 格子セルキャッシュとTTL | `grid_cache.py` `CACHE_TTL_SEC` | MSM 3時間 / ECMWF 6時間 |
@@ -53,7 +53,7 @@ py -m venv .venv
 | 重複削除30グループ | `step7_geocoding/pending_deletions_round2.json` | ユーザーの目視承認待ち。勝手に適用しない |
 
 ## 7. 外部サイトへのアクセスの節度
-- タイル(DEM・光害・ひまわり)・格子セルのディスクキャッシュを無効化しない。新規取得の小休止(`gsi_dem.py` `_POLITE_DELAY_SEC` など)を削らない。識別可能な User-Agent を維持する。
+- タイル(DEM・ひまわり)・Black Marble の生データ・格子セルのディスクキャッシュを無効化しない。新規取得の小休止(`gsi_dem.py` `_POLITE_DELAY_SEC` など)を削らない。識別可能な User-Agent を維持する。
 - Nominatim は1秒1リクエスト以下(`reverse_geocode.py` `MIN_REQUEST_INTERVAL_SEC`)。
 - HTTP 429 が出たら即中止してユーザーに報告する。別経路・リトライの連打・キャッシュの手作りで回避しない。
 - 単体テストは通信しない(`requests.get` 等をモック)。テストのために実通信しない。
@@ -66,7 +66,7 @@ py -m venv .venv
 
 ## 9. コミットと共有
 - main へ直接 push しない(PR 経由)。GitHub の設定変更は個別に承認を得る。
-- `git add -A` は使わず、ファイルを指定する。キャッシュ(`dem_cache/`・`tile_cache/`・`cloud_cache/`・`weather_map_cache/`・`himawari_cache/`)、`*.bsp`、`.bak` 系をコミットしない。`.gitignore` は行末コメント非対応(コメントは独立した行に書く)。
+- `git add -A` は使わず、ファイルを指定する。キャッシュ(`dem_cache/`・`blackmarble_cache/`・`cloud_cache/`・`weather_map_cache/`・`himawari_cache/`)、`*.bsp`、`.bak` 系をコミットしない。`.gitignore` は行末コメント非対応(コメントは独立した行に書く)。
 - HTML を共有するときは、まずファイルを直接送る方法を案内する。
 
 ## 10. 星空ガイド(星空シミュレーター付き)
@@ -95,7 +95,7 @@ py -m venv .venv
    - 答えたあと、選んだ(または筆頭を提案して承認された)地点と夜で、第10節の星空ガイドに進む案内を一言添える(下の3)。
    - 近日中(MSM)と中期見込み(ECMWF)はスコアの式が違い、絶対値は比べられない(第6節)。中期見込みの雲量は晴天率の参考表示で、足切りには使われていないと断る。
    - 雲量は全天の平均で、方角ごとの雲は分からない(第10節と同じ)。
-   - 光害の既定の入力は Black Marble 由来のALR(`generate_report.py` の既定 `--lp-source bm` → `report.html`。段階LP3で legacy から切り替えた)。`report_courses.py`・`weekend_page.py` の既定も bm で、空の明るさ(mag/arcsec²)は無く、ALR は日本で未較正の相対指数なので、順位・段階の目安としてだけ伝える。解説JSONの verdict に等級(N.NN mag)は書けず、ALR の値はレポートの候補と照合される。従来の入力(LPI)は `generate_report.py --lp-source legacy`(→ `report_legacy.html`)で作り、読むときは `report_courses.py`・`weekend_page.py` に `--lp-source legacy` を付ける。
+   - 光害は Black Marble 由来のALR(日本で未較正の相対指数)。空の明るさ(mag/arcsec²)は無いので、順位・段階の目安としてだけ伝える。解説JSONの verdict に等級(N.NN mag)は書けず、ALR の値はレポートの候補と照合される。
 3. 星空ガイドへ進む
    - ユーザーが選んだ(または筆頭候補を提案して承認された)地点と夜で、第10節の手順に進む。
    - `--spot` にはレポートに出た地点名をそのまま使う(`stargazing_spots.json` の name と同じ表記)。見つからないときは推測で置き換えず、そのままユーザーに報告する。

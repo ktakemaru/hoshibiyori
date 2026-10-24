@@ -4,9 +4,8 @@
 夜景で有名な高台(菜の花台・大観山展望台等、光害が高い)が「星空スポット」として混入している。これらは天の川銀河中心のような
 淡い対象には向かないので、光害の指標に基づいて機械的に見分けられるようにする(2026-09-07、ユーザー提案)。
 
-段階LP3(2026-10-24)で、分類の入力を Lorenz 氏の Light Pollution Atlas 由来の LPI から、Black Marble 由来の ALR
-(日本で未較正の相対指数。仮閾値 `lp_source.BM_ALR_THRESHOLD`)に切り替えた。**lpi・mpsas・bortle_approx・
-light_pollution_computed は書かない**(公開リポジトリに Lorenz 氏由来の値を置かないため)。書き込むのは site_type と counts だけ。
+分類の入力は Black Marble 由来の ALR(日本で未較正の相対指数。仮閾値 `lp_source.BM_ALR_THRESHOLD`)。
+書き込むのは site_type と counts だけ(以前の光害データの経緯は README「光害データの変更」)。
 実行前に stargazing_spots.json の .bak を取ること。numpy のみ・通信なし。
 
     py -X utf8 classify_site_darkness.py
