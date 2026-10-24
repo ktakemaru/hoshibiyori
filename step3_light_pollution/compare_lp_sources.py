@@ -63,16 +63,26 @@ def compare(label: str, legacy_items, bm_items) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json-out", type=Path)
+    ap.add_argument("--include-reference", action="store_true",
+                    help="参考候補(OSM展望データ751件)も対象にする。既定は generate_report.py と同じ主軸のみ")
+    ap.add_argument("--sites-limit", type=int, help="主軸の先頭N件だけにする(メモリ・時間の測定用)")
+    ap.add_argument("--nights-limit", type=int, help="MSM圏内・ECMWF圏内の夜をそれぞれ先頭N夜だけにする(同上)")
     args = ap.parse_args()
 
     cache = GridCloudCache()
     ts = load.timescale()
     eph = load(str(DATA_ROOT / "step1_astronomy" / "de421.bsp"))
-    sites = ex.load_candidate_sites()
-    ref_site = next(s for s in sites if s["name"] == "石廊崎")
+    all_sites = ex.load_candidate_sites()
+    ref_site = next(s for s in all_sites if s["name"] == "石廊崎")
+    sites = all_sites if args.include_reference else [s for s in all_sites if ex.is_primary_origin(s["origin"])]
+    if args.sites_limit:
+        sites = sites[:args.sites_limit]
+    print(f"対象地点 {len(sites)}件(参考候補を{'含む' if args.include_reference else '含まない'})", flush=True)
     nights = ex.stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"])
     msm_nights = [n for n in nights if ex.forecast_regime_for_night(cache, ref_site, n) == "MSM"]
     ecmwf_nights = [n for n in nights if n not in msm_nights]
+    if args.nights_limit:
+        msm_nights, ecmwf_nights = msm_nights[:args.nights_limit], ecmwf_nights[:args.nights_limit]
 
     legacy_store, bm_store = ex.make_lp_store("legacy"), ex.make_lp_store("bm")
     out = {"nights_msm": [str(n.night_date) for n in msm_nights], "nights_ecmwf": [str(n.night_date) for n in ecmwf_nights]}
