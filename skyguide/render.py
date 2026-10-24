@@ -134,13 +134,10 @@ def _eyebrow(data: dict) -> str:
 def _header(data, comm) -> str:
     s = data["spot"]
     place = " ".join(x for x in (s.get("prefecture"), s.get("municipality")) if x)
-    lpi = ""
-    if s.get("lpi") is not None:
-        lpi = f'<span>光害 <b>LPI {s["lpi"]:.2f}</b> / <b>{s["mpsas"]:.1f} mag/arcsec²</b></span>'
     return (f'  <header class="head" id="header">\n    <div class="eyebrow">{_e(_eyebrow(data))}</div>\n'
             f'    <h1>{_e(comm.get("heading") or s["name"] + "の星空")}</h1>\n    <p class="lead">{_inline(comm["lead"])}</p>\n'
             f'    <div class="meta">\n      <span>{_e(place)} <b>標高 {s["elevation_m"]:,.0f} m</b></span>\n'
-            f'      <span>北緯 <b>{s["lat"]:.3f}°</b> 東経 <b>{s["lon"]:.3f}°</b></span>\n      {lpi}\n    </div>\n  </header>')
+            f'      <span>北緯 <b>{s["lat"]:.3f}°</b> 東経 <b>{s["lon"]:.3f}°</b></span>\n    </div>\n  </header>')
 
 
 def _conditions(data, comm) -> str:

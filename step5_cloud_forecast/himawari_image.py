@@ -62,7 +62,7 @@ from hb_paths import DATA_ROOT  # noqa: E402
 
 DEFAULT_CACHE_DIR = DATA_ROOT / "step5_cloud_forecast" / "himawari_cache"
 
-_USER_AGENT = "hoshibiyori-himawari/0.1 (personal astrophotography tool; low-volume, tile-cached)"
+_USER_AGENT = "hoshibiyori-himawari/1.0.0 (personal astrophotography tool; low-volume, tile-cached)"
 _MAX_RETRIES = 3
 _RETRY_BACKOFF_SEC = 2.0
 _GRAY = (32, 32, 32)

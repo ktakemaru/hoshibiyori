@@ -1,0 +1,224 @@
+{
+  "schema": "hoshibiyori-blackmarble-provenance/1",
+  "inputs": [
+    {
+      "product": "VJ146A4",
+      "collection_concept_id": "C3816918646-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VJ146A4.A2025001.h31v04.002.2026072180244.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VJ146A4/VJ146A4.A2025001.h31v04.002.2026072180244.h5",
+      "sha256": "f5f54807be4a4f5775899cc50964acbf206ee236045086c1d735a7ce3819c036",
+      "size_bytes": 115735872,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VJ146A4",
+      "collection_concept_id": "C3816918646-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VJ146A4.A2025001.h31v05.002.2026072180318.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VJ146A4/VJ146A4.A2025001.h31v05.002.2026072180318.h5",
+      "sha256": "75850b9b4d83241bca2ae0f765347d3f5f48cbc8fd1b73ad78e8cc8d9784bcd4",
+      "size_bytes": 89667599,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VJ146A4",
+      "collection_concept_id": "C3816918646-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VJ146A4.A2025001.h31v06.002.2026072180247.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VJ146A4/VJ146A4.A2025001.h31v06.002.2026072180247.h5",
+      "sha256": "e81fc6d7b743ce4acc1821153b65c5092f4bedfaea9890ffd20aa68f58cbcdea",
+      "size_bytes": 71319027,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VJ146A4",
+      "collection_concept_id": "C3816918646-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VJ146A4.A2025001.h32v04.002.2026072180301.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VJ146A4/VJ146A4.A2025001.h32v04.002.2026072180301.h5",
+      "sha256": "a5074d85900b6567645b5387d68cd904da2b4a535934705e77f7d72047541c6c",
+      "size_bytes": 92561865,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VJ146A4",
+      "collection_concept_id": "C3816918646-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VJ146A4.A2025001.h32v05.002.2026072175731.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VJ146A4/VJ146A4.A2025001.h32v05.002.2026072175731.h5",
+      "sha256": "54ac35f744c7fd1ea150c86668a7e406a09e36bd3e4d3245ea0be04f3c3bd671",
+      "size_bytes": 76664580,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VJ146A4",
+      "collection_concept_id": "C3816918646-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VJ146A4.A2025001.h32v06.002.2026064124811.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VJ146A4/VJ146A4.A2025001.h32v06.002.2026064124811.h5",
+      "sha256": "b3f4de5c757c6ee54e6349a696aed9d1440400addef93981f9db5c0376129a9a",
+      "size_bytes": 71258716,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2024,
+      "tile_file": "VNP46A4.A2024001.h31v04.002.2025162172831.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2024001.h31v04.002.2025162172831.h5",
+      "sha256": "b793d3c5cc7d1f73a35c80750011bbc3648bef9ad0469d50cd3f42d8b241b105",
+      "size_bytes": 115347973,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2024,
+      "tile_file": "VNP46A4.A2024001.h31v05.002.2025162173924.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2024001.h31v05.002.2025162173924.h5",
+      "sha256": "df8a4ab0cb1b1c578c8f5bda7fd55f9a5b9514f15457e20c386d776d1f2fb5fb",
+      "size_bytes": 90722000,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2024,
+      "tile_file": "VNP46A4.A2024001.h31v06.002.2025162175432.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2024001.h31v06.002.2025162175432.h5",
+      "sha256": "5c9a6f3a72bbec966b8bb0ec052a5a0c5fd40f7278e38c689b485ecd36a4fcf7",
+      "size_bytes": 70413568,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2024,
+      "tile_file": "VNP46A4.A2024001.h32v04.002.2025162182245.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2024001.h32v04.002.2025162182245.h5",
+      "sha256": "fb278fa12aca07f691cdf7cd2fbc63fad172bf8f3ffd137a557bcdce467679bb",
+      "size_bytes": 101308911,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2024,
+      "tile_file": "VNP46A4.A2024001.h32v05.002.2025162182351.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2024001.h32v05.002.2025162182351.h5",
+      "sha256": "5ce4d027b954fe2eca7e0471d0ffbdd9882acb609e96bbde957428b7181fe37a",
+      "size_bytes": 76294456,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2024,
+      "tile_file": "VNP46A4.A2024001.h32v06.002.2025162182350.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2024001.h32v06.002.2025162182350.h5",
+      "sha256": "807fbec8e87046fa5f309e18de43997a548627d3ccf6180af83af727256e52e4",
+      "size_bytes": 70350845,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VNP46A4.A2025001.h31v04.002.2026077022152.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2025001.h31v04.002.2026077022152.h5",
+      "sha256": "3c694d4bf97aacc8a2297367da0ede61566f34dd3dd7dbe00c3ff304cf237438",
+      "size_bytes": 115554400,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VNP46A4.A2025001.h31v05.002.2026077022316.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2025001.h31v05.002.2026077022316.h5",
+      "sha256": "6a53be99083e904cd931be6564be224cc7e10b63f55193376fa8d7a2228751a9",
+      "size_bytes": 92113006,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VNP46A4.A2025001.h31v06.002.2026077022339.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2025001.h31v06.002.2026077022339.h5",
+      "sha256": "d168812435e8cc823ac6792ab541e9c85736e00b7518ed97d60f0f3ba9b65f90",
+      "size_bytes": 70194988,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VNP46A4.A2025001.h32v04.002.2026077031044.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2025001.h32v04.002.2026077031044.h5",
+      "sha256": "ee2f1840b72cf7bb2d4eb11dacd14fe9f97bd5e5110dc37aa716c95a19e7b5bf",
+      "size_bytes": 94293929,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VNP46A4.A2025001.h32v05.002.2026077031155.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2025001.h32v05.002.2026077031155.h5",
+      "sha256": "d7c839a25c00e59df6f94997d41bac2e4bdd77d402c8d2d1c22197f58c756699",
+      "size_bytes": 76994104,
+      "retrieved": "2026-10-23"
+    },
+    {
+      "product": "VNP46A4",
+      "collection_concept_id": "C3860065683-LAADS",
+      "version": "2",
+      "year": 2025,
+      "tile_file": "VNP46A4.A2025001.h32v06.002.2026077031213.h5",
+      "source_url": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/VNP46A4/VNP46A4.A2025001.h32v06.002.2026077031213.h5",
+      "sha256": "af0fb93586333835ef6f0c7ca75065f7e2f95cbde80f27a0a2ae1ca9f29107da",
+      "size_bytes": 70311749,
+      "retrieved": "2026-10-23"
+    }
+  ],
+  "derived": [
+    {
+      "file": "skyglow_bm_2025.npz",
+      "sha256": "56b7d708926b3d013263dc10140bc0f71f45327627d21563ad41a8b1b466a5e0",
+      "size_bytes": 1180819,
+      "built_from": {
+        "product": "VNP46A4",
+        "year": 2025,
+        "layer": "AllAngle_Composite_Snow_Free"
+      },
+      "script": "step3_light_pollution/build_skyglow_bm.py",
+      "method": "step3_light_pollution/METHOD.md",
+      "doi": "10.5067/VIIRS/VNP46A4.002",
+      "built": "2026-10-23"
+    }
+  ],
+  "notes": [
+    "VNP46A4/VJ146A4 のcollectionはCMRでversion 2(LAADSのArchiveSet 5200)。DOIは10.5067/VIIRS/VNP46A4.002(指示書の.001ではない)。",
+    "取得は認証不要のNASA CMRで粒度URLを引き、実ファイルはLAADSからEARTHDATA_TOKENで取得(トークンは記録しない)。",
+    "VJ146A4(2025)とVNP46A4(2024)は比較・安定性確認用の入力。採用は skyglow_bm_2025.npz(VNP46A4 2025)。"
+  ]
+}

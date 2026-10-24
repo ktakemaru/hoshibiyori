@@ -138,6 +138,12 @@ def _match(pattern: str, s: str, where: str) -> re.Match:
     return m
 
 
+# レポートの光害の欄(Black Marble由来の相対指数ALR)。generate_report._light_pollution_stat と
+# lp_source.describe_alr が作る文言「ALR 2.34(主軸の地点のうち暗い方から41%)」に合わせてある。
+BM_STAT_KEY = "光害(相対指数)"
+BM_NOTE = "光害はBlack Marble由来の相対指数です(日本で未較正で、空の明るさの絶対値ではありません)。"
+
+
 def parse_card(card: Node, where: str) -> dict:
     rank = int(_match(r"\d+", _norm(_one(card, "div", "cand-rank", where).text()), f"{where} 順位").group())
     body = _one(card, "div", "cand-body", where)
@@ -163,21 +169,24 @@ def parse_card(card: Node, where: str) -> dict:
         if len(dts) != 1 or len(dds) != 1:
             raise ParseError(f"{where}: cand-stats の項目が dt/dd 1組ずつでない")
         stats[_norm(dts[0].text())] = _norm(dds[0].text())
-    for key in ("見頃", "日付", "視界遮蔽雲量", "実効的な空の明るさ"):
+    for key in ("見頃", "日付", "視界遮蔽雲量", BM_STAT_KEY):
         if key not in stats:
-            raise ParseError(f"{where}: cand-stats に「{key}」が無い")
+            hint = ("(光害を等級で表示していた旧形式のレポートです。generate_report.py で再生成してください)"
+                    if key == BM_STAT_KEY and "実効的な空の明るさ" in stats else "")
+            raise ParseError(f"{where}: cand-stats に「{key}」が無い{hint}")
 
     mw = _match(r"(\d{2}:\d{2}〜\d{2}:\d{2}(?:\(翌\))?)\(狙い目 (\d{2}:\d{2})\)", stats["見頃"], f"{where} 見頃")
     date = _match(r"\d{4}-\d{2}-\d{2}", stats["日付"], f"{where} 日付").group()
     obstruction = int(_match(r"平均(\d+)%", stats["視界遮蔽雲量"], f"{where} 視界遮蔽雲量").group(1))
-    mpsas = float(_match(r"(\d+(?:\.\d+)?) mag/arcsec²", stats["実効的な空の明るさ"], f"{where} 空の明るさ").group(1))
     maps = _one(body, "a", "btn-maps", where).attrs.get("href")
     if not maps:
         raise ParseError(f"{where}: Googleマップのリンクが無い")
+    m = _match(r"ALR (\d+(?:\.\d+)?)(?:[（(]主軸の地点のうち暗い方から(\d+)%[）)])?", stats[BM_STAT_KEY], f"{where} 光害(相対指数)")
+    lp = {"alr": float(m.group(1)), "alr_rank_pct": int(m.group(2)) if m.group(2) is not None else None}
     return {
         "rank": rank, "name": name, "municipality": muni, "score": score, "distance_km": dist,
         "origin": _norm(badges["origin"].text()), "date": date, "window": mw.group(1), "best_time": mw.group(2),
-        "obstruction_pct": obstruction, "effective_mpsas": mpsas, "maps_url": maps,
+        "obstruction_pct": obstruction, **lp, "maps_url": maps,
     }
 
 
@@ -218,8 +227,9 @@ def build_result(html_text: str, report_path: Path, top: int, stale: bool) -> di
     for c in courses:
         c["total_candidates"] = len(c["candidates"])
         c["candidates"] = c["candidates"][:top]
-    return {"schema": SCHEMA, "generated_at": generated.isoformat(timespec="minutes"), "stale": stale,
-            "report_path": str(report_path), "top": top, "courses": courses}
+    result = {"schema": SCHEMA, "generated_at": generated.isoformat(timespec="minutes"), "stale": stale,
+              "report_path": str(report_path), "top": top, "lp_note": BM_NOTE, "courses": courses}
+    return result
 
 
 def format_text(result: dict, today_label: str) -> str:
@@ -229,6 +239,7 @@ def format_text(result: dict, today_label: str) -> str:
         lines.append(f"【古いレポートです】生成日時 {gen} JST は今日({today_label})ではありません。"
                      "近日分の予報は更新されている可能性があり、答えの根拠にしないでください。")
     lines.append(f"レポート生成日時: {gen} JST")
+    lines.append(f"注意: {result['lp_note']}")
     for c in result["courses"]:
         lines += ["", f"■ {c['title']}(上位{len(c['candidates'])}件 / レポート内{c['total_candidates']}件)",
                   f"条件: {c['condition_note']}"]
@@ -239,14 +250,16 @@ def format_text(result: dict, today_label: str) -> str:
             continue
         for k in c["candidates"]:
             lines.append(f"{k['rank']}. {k['name']}({k['municipality']}) スコア{k['score']} / 東京から直線{k['distance_km']}km")
+            rank = f"(主軸の地点のうち暗い方から{k['alr_rank_pct']}%)" if k["alr_rank_pct"] is not None else ""
+            lp_text = f"光害(相対指数) ALR {k['alr']:.2f}{rank}"
             lines.append(f"   日付 {k['date']} / 見頃 {k['window']}(狙い目 {k['best_time']}) / "
-                         f"視界遮蔽雲量 平均{k['obstruction_pct']}% / 実効的な空の明るさ {k['effective_mpsas']:.2f} mag/arcsec²")
+                         f"視界遮蔽雲量 平均{k['obstruction_pct']}% / {lp_text}")
     return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="report.html から気軽・硬派コースの上位候補を表示する(通信しない)")
-    ap.add_argument("--report", type=Path, default=resolve_data_root(ROOT) / "report.html")
+    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html")
     ap.add_argument("--top", type=int, default=3)
     ap.add_argument("--allow-stale", action="store_true", help="生成日時が今日でなくても、古い旨を明記して出力する")
     ap.add_argument("--json-out", type=Path)
@@ -261,6 +274,8 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
             pass
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
+    if args.report is None:
+        args.report = resolve_data_root(ROOT) / "report.html"
     if not args.report.is_file():
         print(f"[中止] {args.report} がありません。py -X utf8 generate_report.py で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)

@@ -25,7 +25,7 @@ SPOTS_PATH = ROOT / "stargazing_spots.json"
 STEP_MIN = 20
 
 ATTRIBUTION = ("天体位置はSkyfield(JPL DE421)で計算。雲量はOpen-Meteo経由の気象庁MSM・ECMWF IFS(CC BY 4.0)、"
-               "地形は国土地理院の標高タイルを加工して作成、光害は David Lorenz 氏の Light Pollution Atlas によります。")
+               "地形は国土地理院の標高タイルを加工して作成。")
 DISCLAIMER = ("雲量は予報値で、当日の空を保証するものではありません。山名と構図の位置関係は、現地での確認を前提にしてください。")
 
 
@@ -104,7 +104,7 @@ def cloud_by_hour(lat, lon, elev, name, dark_start: datetime, dark_end: datetime
 
 
 def build_data(*, spot: dict, night_date: date, allow_network: bool = False, cloud_mode: str = "cache") -> dict:
-    """spot: {name, prefecture?, municipality?, lat, lon, elevation_m, lpi?, mpsas?, horizon_profile?, coordinate_source?}"""
+    """spot: {name, prefecture?, municipality?, lat, lon, elevation_m, horizon_profile?, coordinate_source?}"""
     from hb_paths import ephemeris_load as load
     import explore_hoshibiyori as ex
 
@@ -146,7 +146,7 @@ def build_data(*, spot: dict, night_date: date, allow_network: bool = False, clo
     return {
         "schema": DATA_SCHEMA, "generated_at": datetime.now(JST).isoformat(timespec="seconds"),
         "spot": {"name": spot["name"], "prefecture": spot.get("prefecture"), "municipality": spot.get("municipality"),
-                 "lat": lat, "lon": lon, "elevation_m": elev, "lpi": spot.get("lpi"), "mpsas": spot.get("mpsas"),
+                 "lat": lat, "lon": lon, "elevation_m": elev,
                  "coordinate_source": spot.get("coordinate_source", "ユーザー指定"),
                  "elevation_source": spot.get("elevation_source", "stargazing_spots.json(国土地理院DEM)")},
         "night": {"date": night_date.isoformat(), "dark_start": ds.strftime("%H:%M"), "dark_end": de.strftime("%H:%M"),

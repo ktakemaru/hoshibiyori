@@ -26,17 +26,17 @@ D17, D18 = date(2026, 10, 17), date(2026, 10, 18)
 
 
 def card(name, muni, score, lat, lon, night=D17, start=(21, 15), end=(4, 15), best=(23, 0),
-         obstruction=12.4, mpsas=21.806, origin="curated"):
+         obstruction=12.4, alr=2.34, rank=41.0, origin="curated"):
     ws = datetime(2026, 10, night.day, *start, tzinfo=JST)
     we = datetime(2026, 10, night.day + (1 if end < start else 0), *end, tzinfo=JST)
     return SimpleNamespace(
         site_name=name, municipality=muni, score=score, origin=origin, site_lat=lat, site_lon=lon,
         window_start=ws, window_end=we, best_time=datetime(2026, 10, night.day, *best, tzinfo=JST),
-        night_date=night, mean_obstruction=obstruction, effective_mpsas=mpsas)
+        night_date=night, mean_obstruction=obstruction, alr=alr, alr_rank_pct=rank)
 
 
 # 気軽: 17日3件+18日1件。硬派: 17日(気軽と重複1・遠征圏・離島・近場)+18日なし
-CASUAL = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("枝折峠", "魚沼市", 117.2, 37.1, 139.2, mpsas=21.65),
+CASUAL = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("枝折峠", "魚沼市", 117.2, 37.1, 139.2, alr=3.1, rank=55.0),
           card("白州", "北杜市", 100.0, 35.8, 138.3, obstruction=3.0),
           card("奥只見ダム", "魚沼市", 115.0, 37.2, 139.3, night=D18, start=(22, 29))]
 HARDCORE = [card("奥只見ダム", "魚沼市", 119.4, 37.2, 139.3), card("白米千枚田", "輪島市", 118.6, 37.3, 136.8),
@@ -400,7 +400,7 @@ class VerdictCheckTest(Base):
 
     def test_correct_statements_pass(self):
         body = ("奥只見ダムは21:15から04:15まで、狙い目は23:00です。無月は6.8時間(土曜)と5.8時間(日曜)で、"
-                "雲量は12%と3%、東京から174km、空の明るさは21.81 mag/arcsec²です。気軽コースは4件、日曜の夜は1件です。"
+                "雲量は12%と3%、東京から174km、光害はALR 2.34です。気軽コースは4件、日曜の夜は1件です。"
                 "白米千枚田は東京から250km超の遠征圏です。")
         code, _, err = self.run_verdict(body)
         self.assertEqual(code, 0, err)
@@ -430,8 +430,11 @@ class VerdictCheckTest(Base):
     def test_distance_mismatch(self):
         self.assertRejected("東京から999kmです。", "999km")
 
-    def test_mpsas_mismatch(self):
-        self.assertRejected("空の明るさは22.50 mag/arcsec²です。", "22.50")
+    def test_alr_mismatch(self):
+        self.assertRejected("光害はALR 9.99です。", "ALR 9.99")
+
+    def test_magnitude_is_not_allowed(self):
+        self.assertRejected("空の明るさは21.81 mag/arcsec²です。", "等級は無い")
 
     def test_errors_are_collected_and_title_is_checked(self):
         self.assertRejected("雲量は77%、東京から999kmです。", "999km", title="ヘブンスそのはら")

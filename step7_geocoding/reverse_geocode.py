@@ -22,7 +22,7 @@ NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
 # 個人の非商用検証プロジェクトであることが分かる識別情報を含める(規約要件)。
 # 第三者サービスへの送信のため、個人の連絡先(メールアドレス等)は含めない。
-USER_AGENT = "hoshibiyori-research/0.1 (personal, non-commercial astrophotography site-recommendation project)"
+USER_AGENT = "hoshibiyori-research/1.0.0 (personal, non-commercial astrophotography site-recommendation project)"
 MIN_REQUEST_INTERVAL_SEC = 1.1
 
 # 日本の行政区分に対応する優先順位(市 > 町 > 村 > その他)

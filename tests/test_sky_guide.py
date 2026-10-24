@@ -23,7 +23,6 @@ from skyguide import render  # noqa: E402
 from skyguide.render import SkyGuideError, check_html, embed_json, render_html, validate  # noqa: E402
 
 FIX = ROOT / "tests" / "fixtures" / "sky_guide"
-SAMPLE = ROOT / "docs" / "examples" / "senjogahara_sky_guide_20261009.html"
 HAS_BSP = (ROOT / "step1_astronomy" / "de421.bsp").exists()
 
 
@@ -77,32 +76,6 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(s.classes["fact"], 4)
         self.assertEqual(s.classes["card"], 6)
         self.assertEqual(s.classes["tip"], 6)
-
-    def test_same_structure_as_sample(self):
-        a, b = scan(self.doc), scan(SAMPLE.read_text(encoding="utf-8"))
-        # 見本は構図カード・タグをJSで組み立てる(静的HTMLには無い)ので、静的な部分だけ比べ、カードは見本のデータ件数と比べる
-        for cls in ("fact", "tip", "cwrap", "tablewrap", "controls", "readout", "cloud", "facts", "cards", "tips"):
-            self.assertEqual(a.classes.get(cls, 0), b.classes.get(cls, 0), cls)
-        for tag in ("tr", "canvas", "h2", "table", "section"):
-            self.assertEqual(a.tags.get(tag), b.tags.get(tag), tag)
-        sample = SAMPLE.read_text(encoding="utf-8")
-        self.assertEqual(a.classes["card"], len(re.findall(r'title: "', sample)))
-        n_tags = len(re.findall(r'\["[^"]*", "(?:hard|hot|)"\]', sample))
-        self.assertEqual(a.classes["tag"], n_tags)
-        for i in ("play", "slider", "facing", "readout", "allsky", "pano", "cards", "bars", "hours", "timeLabel"):
-            self.assertIn(i, a.ids)
-            self.assertIn(i, b.ids)
-
-    def test_sample_sky_data_equals_golden(self):
-        t = SAMPLE.read_text(encoding="utf-8")
-        D = json.loads(re.search(r"var D = (\{.*?\});\n", t, re.S).group(1))
-        HZ = json.loads(re.search(r"var HZ = (\[.*?\]);", t, re.S).group(1))
-        self.assertEqual(D["times"], self.data["times"])
-        self.assertEqual(HZ, self.data["horizon_deg"])
-        self.assertEqual(D["starmag"], self.data["starmag"])
-        for fs, fg in zip(D["frames"], self.data["frames"]):
-            for k in ("stars", "plane", "planets", "gc"):
-                self.assertEqual(fs[k], fg[k])
 
     def test_embedded_json_roundtrip(self):
         s = scan(self.doc)

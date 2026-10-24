@@ -175,13 +175,14 @@ def validate_commentary(data) -> dict:
     return {"verdict": verdict, "extra_notes": extra, "warnings": warnings}
 
 
-# --- verdict の機械検査(施設名・時刻・件数・時間・%・距離・空の明るさが候補データと一致するか) ------------------
+# --- verdict の機械検査(施設名・時刻・件数・時間・%・距離・光害(ALR)が候補データと一致するか) ------------------
 
 _COUNT_RE = re.compile(r"(\d+)\s*(?:件|地点|か所|ヶ所|箇所)")
 _HOURS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*時間")
 _PCT_RE = re.compile(r"(\d+(?:\.\d+)?)(?:\s*[〜~～]\s*(\d+(?:\.\d+)?))?\s*%")
 _KM_RE = re.compile(r"(\d+)\s*km")
-_MPSAS_RE = re.compile(r"(\d+\.\d+)\s*mag")
+_MAG_RE = re.compile(r"(\d+\.\d+)\s*mag")
+_ALR_RE = re.compile(r"ALR\s*(\d+(?:\.\d+)?)")
 _TIME_RE = re.compile(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)")
 MIN_ALIAS_LEN = 3
 
@@ -223,7 +224,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
     - HH:MM: いずれかの候補の見頃の始端・終端・狙い目に一致する。文中の地点が1つに決まれば、その地点の時刻に限る。
     - N件/N地点: コースの件数・夜ごとの件数・全体の件数のどれか。
     - N時間: 月齢タイムラインの無月時間か、見頃の長さ。N%: 候補の雲量かレポートの気象メモ中の%。
-    - Nkm: 候補の東京からの距離。N.NN mag: 候補の空の明るさ。
+    - Nkm: 候補の東京からの距離。ALR N.NN: 候補の光害(相対指数)。N.NN mag(空の明るさの等級)はレポートに無いので書けない。
     検査しないもの: 日付、地点名を含まない文での「どの地点の」時刻かの対応、extra_notes。
     """
     cands = [c for course in report["courses"] for c in course["candidates"]]
@@ -252,7 +253,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
             pcts |= {float(g) for g in x.groups() if g}
     pcts |= {float(x) for course in report["courses"] for x in re.findall(r"(\d+)\s*%以下", course.get("condition_note") or "")}
     kms = {c["distance_km"] for c in cands} | {250}
-    mpsas = {round(c["effective_mpsas"], 2) for c in cands}
+    alrs = {round(c["alr"], 2) for c in cands}
 
     errors = []
     for i, v in enumerate(commentary["verdict"]):
@@ -288,9 +289,11 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
             for m in _KM_RE.finditer(text):
                 if int(m.group(1)) not in kms:
                     errors.append(f"{where}: 「{m.group(0)}」はどの候補の東京からの距離とも違います")
-            for m in _MPSAS_RE.finditer(text):
-                if round(float(m.group(1)), 2) not in mpsas:
-                    errors.append(f"{where}: 空の明るさ {m.group(1)} はどの候補の値とも違います")
+            for m in _MAG_RE.finditer(text):
+                errors.append(f"{where}: 「{m.group(0)}」は書けません(レポートに空の明るさの等級は無い。相対指数ALRで書く)")
+            for m in _ALR_RE.finditer(text):
+                if round(float(m.group(1)), 2) not in alrs:
+                    errors.append(f"{where}: ALR {m.group(1)} はどの候補の値とも違います")
     _need(not errors, "verdict が候補データと食い違います:\n  - " + "\n  - ".join(dict.fromkeys(errors)))
 
 
@@ -356,8 +359,15 @@ def card_tags(c: dict, course_id: str, casual_names: set[str], islands: set[str]
     return tags
 
 
+def _lp_row(c: dict) -> str:
+    """カードの光害の欄(相対指数ALRと順位)。"""
+    rank = f"暗い方から{c['alr_rank_pct']}%・" if c["alr_rank_pct"] is not None else ""
+    return (f"<div><dt>光害(相対指数)</dt><dd>ALR {c['alr']:.2f}"
+            f"<small>({rank}小さいほど暗い・絶対値ではない)</small></dd></div>")
+
+
 def render_card(c: dict, rank: int, course_id: str, casual_names, islands, notes) -> str:
-    tags = "".join(f'<span class="tag {cls}">{esc(t)}</span>' for cls, t in card_tags(c, course_id, casual_names, islands, notes))
+    tags ="".join(f'<span class="tag {cls}">{esc(t)}</span>' for cls, t in card_tags(c, course_id, casual_names, islands, notes))
     check = f'<p class="check">{esc(notes[c["name"]])}</p>' if c["name"] in notes else ""
     return f"""
     <article class="card">
@@ -368,7 +378,7 @@ def render_card(c: dict, rank: int, course_id: str, casual_names, islands, notes
         <dl>
           <div><dt>見頃</dt><dd>{esc(c['window'])}(狙い目 {esc(c['best_time'])})</dd></div>
           <div><dt>雲量(全天平均)</dt><dd>{c['obstruction_pct']}%</dd></div>
-          <div><dt>空の明るさ</dt><dd>{c['effective_mpsas']:.2f} mag/arcsec²<small>(大きいほど暗い)</small></dd></div>
+          {_lp_row(c)}
         </dl>
         {check}
         <a class="map" href="{esc(_safe_url(c['maps_url']))}" target="_blank" rel="noopener">📍 Googleマップ</a>
@@ -416,11 +426,11 @@ def render_table(report: dict) -> str:
             f"<td><a href=\"{esc(_safe_url(k['maps_url']))}\" target=\"_blank\" rel=\"noopener\">{esc(k['name'])}</a>"
             f"<small>{esc(k['municipality'])}</small></td>"
             f"<td>{esc(_short_date(k['date']))}</td><td>{esc(k['window'])}</td><td>{k['obstruction_pct']}%</td>"
-            f"<td>{k['effective_mpsas']:.2f}</td><td>{k['distance_km']}km</td><td>{k['score']}</td></tr>"
+            f"<td>{k['alr']:.2f}</td><td>{k['distance_km']}km</td><td>{k['score']}</td></tr>"
             for k in c["candidates"])
         parts.append(f"""<h3>{esc(label)}(レポート内{len(c['candidates'])}件)</h3>
 <div class="tablewrap"><table>
-<thead><tr><th>順位</th><th>地点</th><th>日付</th><th>見頃</th><th>雲量</th><th>空の明るさ<br>mag/arcsec²</th><th>東京から</th><th>スコア</th></tr></thead>
+<thead><tr><th>順位</th><th>地点</th><th>日付</th><th>見頃</th><th>雲量</th><th>光害(相対指数)<br>ALR</th><th>東京から</th><th>スコア</th></tr></thead>
 <tbody>{rows}</tbody></table></div>""")
     return ('<h2>全候補の一覧</h2><details open><summary>レポートに載った全件(夜を問わず・レポートの順位順)</summary>'
             + "".join(parts) + "</details>")
@@ -567,6 +577,7 @@ def render_page(report: dict, nights: list[date], top: int, commentary: dict | N
     sections = "".join(render_night(n, report, top, casual_names, islands, notes) for n in nights)
     has_notes = any(c["name"] in notes for crs in report["courses"] for c in crs["candidates"])
     footer = "".join(f"<p>{p}</p>" for p in report["footer"])
+    lp_note = f'<p class="note">{esc(rc.BM_NOTE)}空の明るさ(mag/arcsec²)は表示していません。</p>'
     return f"""<!doctype html>
 <html lang="ja">
 <head>
@@ -579,7 +590,7 @@ def render_page(report: dict, nights: list[date], top: int, commentary: dict | N
 <main>
 <h1>今週末の星空撮影 — {esc(nights_label)}の夜</h1>
 <p class="lead">hoshibiyoriの探索レポート(生成 {esc(gen)} JST)から作成。<strong>雲量は全天の平均で、方角ごとの雲は分かりません。</strong></p>
-{stale_banner}
+{stale_banner}{lp_note}
 {render_verdict(commentary)}
 {render_weather(weather) if weather is not None else ""}
 {sections}
@@ -604,7 +615,7 @@ def _iso_date(s: str) -> date:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="今週末の星空撮影ページ(HTML)を report.html から生成する(通信しない)")
-    ap.add_argument("--report", type=Path, default=resolve_data_root(ROOT) / "report.html")
+    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html")
     ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)。無ければ結論は出さない")
     ap.add_argument("--weather-commentary", type=Path, help="天気図の解説(既定: リポジトリ直下の weather_map_commentary.json、schema /2)")
     ap.add_argument("--spots", type=Path, default=ROOT / "stargazing_spots.json", help="verdict の地点名の照合に使う地点マスター")
@@ -624,6 +635,8 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
             pass
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
+    if args.report is None:
+        args.report = resolve_data_root(ROOT) / "report.html"
     if not args.report.is_file():
         print(f"[中止] {args.report} がありません。py -X utf8 generate_report.py で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)

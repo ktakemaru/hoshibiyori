@@ -20,7 +20,7 @@
   - viewpoint_reference配列(751件、origin="viewpoint"/"test_site"): OSM tourism=viewpoint由来の
     機械的収集データ(星空適性は未フィルタ)。参考候補として補助的に扱い、レポートも区別して出力する。
   地形地平線プロファイル・光害計算済みフラグは、いずれの配列でもエントリごとの
-  horizon_profile/light_pollution_computedフィールドに既に反映済み(stargazing_spots.json生成時に
+  horizon_profileフィールドに既に反映済み(stargazing_spots.json生成時に
   candidate_sites.dbとの照合・統合済みのため、本ファイル側で名前引きし直す必要はない)。
   候補地点DB自体(step7_geocoding/candidate_sites.db)はこのファイルからは直接参照しない。
 エリア代表点による事前スクリーニングは今回は見送り、格子セルキャッシュのみのシンプルな構成。
@@ -44,9 +44,8 @@ from skyfield.api import wgs84  # noqa: E402
 
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_time  # noqa: E402
-from light_pollution import LightPollutionTileStore  # noqa: E402
+from lp_source import LP_INDEX_LIMIT, BmLightPollutionStore, describe_alr  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
-from moon_brightness import combine_sky_brightness  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
@@ -59,12 +58,6 @@ NUM_NIGHTS_TO_SCAN = 14
 NUM_CANDIDATE_NIGHTS = 6
 CLOUD_OBSTRUCTION_THRESHOLD = 30.0
 MIN_CLEAR_WINDOW_HOURS = 1.0  # これ未満の晴れ間は「見頃」として採用しない(2026-09-07追加)
-# 2026-09-07、ユーザーの実地経験により3.0から5.0に引き上げ。神磯の鳥居(LPI 4.93)・
-# 安房埼灯台(LPI 3.27)は単発長時間露光(ISO3200・20秒程度、追尾・比較明合成等の
-# 特別な機材なし)で天の川撮影に成功した実績がある一方、菜の花台(LPI 6.49)・
-# 高尾山(LPI 10.18)は同ユーザーの経験上、天の川等の撮影は難しく明るい天体中心の
-# 星空観賞向けとのこと。成功実績(4.93)と失敗経験(6.49)の間に閾値を置く。
-LPI_THRESHOLD = 5.0
 MOON_PHASE_NEGLIGIBLE_DEG = 150.0
 TARGET_ID = "galactic_center"
 
@@ -128,7 +121,6 @@ def _build_site(entry: dict) -> dict:
         # classify_site_darkness.py(2026-09-07)がspots配列(curated由来)に事前計算した分類。
         # viewpoint_reference側には無いため未計算の地点はNone(まだ「night_view」と決めつけない)。
         "site_type": entry.get("site_type"),
-        "lpi_precomputed": entry.get("lpi"),
     }
 
 
@@ -269,11 +261,12 @@ class FinalCandidate:
     horizon_alt: float | None
     terrain_available: bool
     mean_obstruction: float
-    lpi: float
-    effective_mpsas: float
+    lp_index: float                     # 光害の内部値(足切り・減点用。画面には出さない。lp_source.py)
     moon_free_hours: float
     clear_hours: float
     score: float = 0.0
+    alr: float | None = None            # 光害(相対指数ALR)
+    alr_rank_pct: float | None = None
 
 
 @dataclass
@@ -292,11 +285,23 @@ class OutlookCandidate:
     target_alt: float | None
     horizon_alt: float | None
     terrain_available: bool
-    lpi: float
-    effective_mpsas: float
+    lp_index: float
     clear_sky_pct: float | None
     moon_free_hours: float
     score: float = 0.0
+    alr: float | None = None
+    alr_rank_pct: float | None = None
+
+
+def make_lp_store() -> BmLightPollutionStore:
+    """光害の入力(Black Marble由来のALR。日本で未較正の相対指数)。get(lat, lon) の brightness_ratio が
+    `<= LP_INDEX_LIMIT` で足切りに使われる(ALRの仮閾値と同じ位置になるように規格化した内部値)。"""
+    return BmLightPollutionStore()
+
+
+def lp_limit_text(lp_store) -> str:
+    """足切りの条件の表記(コンソール用)。"""
+    return f"ALR<={lp_store.alr_threshold}(仮閾値・相対指数)"
 
 
 def forecast_regime_for_night(cache: GridCloudCache, ref_site: dict, night: "NightCandidate") -> str:
@@ -491,7 +496,7 @@ def stage2_cloud_filter(ts, eph, nights: list[NightCandidate], sites: list[dict]
     return survivors
 
 
-def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: LightPollutionTileStore) -> list[FinalCandidate]:
+def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPollutionStore) -> list[FinalCandidate]:
     target = get_target(TARGET_ID)
     finals = []
     horizon_profile_cache: dict[str, dict[int, float]] = {}
@@ -522,7 +527,7 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: LightPollu
         if best_time is None:
             continue
 
-        clears_light_pollution = lp_result.brightness_ratio <= LPI_THRESHOLD
+        clears_light_pollution = lp_result.brightness_ratio <= LP_INDEX_LIMIT
 
         if profile is not None:
             h_alt = horizon_alt_at(profile, best_az)
@@ -535,9 +540,6 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: LightPollu
             no_terrain_count += 1
 
         if clears_horizon and clears_light_pollution:
-            moon = compute_moon_position(ts, eph, site["lat"], site["lon"], site["elevation_m"], best_time)
-            effective = combine_sky_brightness(lp_result.mpsas, moon.alt_deg, moon.phase_angle_deg)
-
             score = (
                 (100.0 - s["mean_obstruction"]) * 1.0
                 + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
@@ -551,20 +553,20 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: LightPollu
                 window_start=window_start, window_end=window_end,
                 best_time=best_time, target_az=best_az, target_alt=best_alt,
                 horizon_alt=h_alt, terrain_available=terrain_available,
-                mean_obstruction=s["mean_obstruction"], lpi=lp_result.brightness_ratio,
-                effective_mpsas=effective["effective_mpsas"],
+                mean_obstruction=s["mean_obstruction"], lp_index=lp_result.brightness_ratio,
                 moon_free_hours=moon_free_hours, clear_hours=s["clear_hours"], score=score,
+                alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
             ))
 
     print(f"\n[第3段階: 方角フィルタ] {len(survivors)}組のうち、"
-          f"「{target.name}が地形地平線を上回り(地形データ有りの場合)、かつLPI<={LPI_THRESHOLD}」を満たすのは"
+          f"「{target.name}が地形地平線を上回り(地形データ有りの場合)、かつ{lp_limit_text(lp_store)}」を満たすのは"
           f" {len(finals)}件")
     print(f"    うち地形データなし(viewpoint由来、地形チェック未実施・暫定通過): {no_terrain_count}件")
     return finals
 
 
 def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
-                   lp_store: LightPollutionTileStore, cache: GridCloudCache) -> list[OutlookCandidate]:
+                   lp_store: BmLightPollutionStore, cache: GridCloudCache) -> list[OutlookCandidate]:
     """ECMWF圏内(長期見込み)の夜を処理する。雲量は数値スコア・足切りに使わず、
     月・地形・光害という決定論的要素だけでランキングし、雲は「晴天率」の参考値として添える。
     """
@@ -589,11 +591,8 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 continue
 
             lp_result = lp_store.get(site["lat"], site["lon"])
-            if lp_result.brightness_ratio > LPI_THRESHOLD:
+            if lp_result.brightness_ratio > LP_INDEX_LIMIT:
                 continue
-
-            moon = compute_moon_position(ts, eph, site["lat"], site["lon"], site["elevation_m"], peak_time)
-            effective = combine_sky_brightness(lp_result.mpsas, moon.alt_deg, moon.phase_angle_deg)
 
             # 雲量は参考値(晴天率)としてのみ計算し、足切りには使わない
             levels = get_level_cloud_forecast(site["lat"], site["lon"], v_start, v_end, cache=cache)
@@ -618,8 +617,9 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 target_az=peak_az, target_alt=peak_alt,
                 horizon_alt=(horizon_alt_at(profile, peak_az) if profile is not None else None),
                 terrain_available=profile is not None,
-                lpi=lp_result.brightness_ratio, effective_mpsas=effective["effective_mpsas"],
+                lp_index=lp_result.brightness_ratio,
                 clear_sky_pct=clear_sky_pct, moon_free_hours=moon_free_hours, score=score,
+                alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
             ))
 
     print(f"\n[見込み(ECMWF圏内)] 候補日{len(nights)}日 × 候補地点{len(sites)}件のうち、"
@@ -639,7 +639,7 @@ def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int) -
         print(f"  由来      : {ORIGIN_LABELS.get(o.origin, o.origin)}")
         print(f"  {target.name}の見頃: {o.visible_start.strftime('%H:%M')} 〜 {o.visible_end.strftime('%H:%M')}"
               f"（{terrain_note}）")
-        print(f"  実効的な空の明るさ: {o.effective_mpsas:.2f} mag/arcsec^2 (光害LPI {o.lpi:.2f}、月の影響込み)")
+        print(f"  光害(相対指数): {describe_alr(o.alr, o.alr_rank_pct)}")
         print(f"  → 晴れれば {o.visible_start.strftime('%H:%M')}〜{o.visible_end.strftime('%H:%M')} にチャンスがあります。"
               f"({clear_note})")
 
@@ -678,8 +678,7 @@ def _print_final_items(finals: list[FinalCandidate], target, top_n: int) -> None
         print(f"  推奨時間帯 : {f.window_start.strftime('%H:%M')} 〜 {f.window_end.strftime('%H:%M')}"
               f"（狙い目 {f.best_time.strftime('%H:%M')} 頃、月の影響小 {f.moon_free_hours:.1f}時間）")
         print(f"  {target.name}: 方位角{f.target_az:.0f}° / 高度{f.target_alt:.1f}°({terrain_note})")
-        print(f"  条件要約  : 視界遮蔽雲量 平均{f.mean_obstruction:.0f}% / 光害LPI {f.lpi:.2f} / "
-              f"実効的な空の明るさ {f.effective_mpsas:.2f} mag/arcsec^2")
+        print(f"  条件要約  : 視界遮蔽雲量 平均{f.mean_obstruction:.0f}% / 光害(相対指数) {describe_alr(f.alr, f.alr_rank_pct)}")
 
 
 def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_reference: int = 10) -> None:
@@ -704,8 +703,16 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
         print("\n  該当なし")
 
 
-def main() -> int:
+def parse_args(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description="探索モード(月・雲量・地形・光害で夜と地点を絞る)。"
+                                             "光害は Black Marble 由来のALR(日本で未較正の相対指数)")
+    return ap.parse_args(argv)
+
+
+def main(argv=None) -> int:
     """終了コード: 0=完了(取得失敗があれば警告を表示)、2=取得失敗が多すぎる/429。"""
+    parse_args(argv)
     cache = GridCloudCache()
     try:
         _explore(cache)
@@ -739,7 +746,8 @@ def _explore(cache: GridCloudCache) -> None:
           f" + 参考候補(OSM展望データ) {len(reference_sites)}件 = 計{len(sites)}件を読み込み"
           f"(うち地形地平線データあり: {sum(1 for s in sites if s['horizon_csv'])}件)\n")
 
-    lp_store = LightPollutionTileStore(cache_dir=str(DATA_ROOT / "step3_light_pollution" / "tile_cache"), year=2025)
+    lp_store = make_lp_store()
+    print(f"[光害] Black Marble由来のALR(相対指数。空の明るさの等級・ボートル値は表示しない)。仮閾値 {lp_limit_text(lp_store)}\n")
 
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
     nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"])

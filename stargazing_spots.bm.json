@@ -1,0 +1,1473 @@
+{
+ "schema": "hoshibiyori-spots-skyglow-bm/1",
+ "note": "ALRは日本では未較正の相対指数。小さいほど暗い。rank_pctは0=最も暗い・100=最も明るい(この146地点の中での位置)。",
+ "grid": {
+  "file": "skyglow_bm_2025.npz",
+  "sha256": "56b7d708926b3d013263dc10140bc0f71f45327627d21563ad41a8b1b466a5e0",
+  "product": "VNP46A4",
+  "year": 2025,
+  "built": "2026-10-23"
+ },
+ "spots": [
+  {
+   "id": "curated:001",
+   "name": "神磯の鳥居・大洗海岸",
+   "prefecture": "茨城県",
+   "lat": 36.314963,
+   "lon": 140.589524,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 6.8809,
+   "skyglow_bm_rank_pct": 81.38
+  },
+  {
+   "id": "curated:005",
+   "name": "鵜の岬海岸",
+   "prefecture": "茨城県",
+   "lat": 36.662972,
+   "lon": 140.713083,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.6505,
+   "skyglow_bm_rank_pct": 64.14
+  },
+  {
+   "id": "curated:006",
+   "name": "戦場ヶ原",
+   "prefecture": "栃木県",
+   "lat": 36.778887,
+   "lon": 139.442674,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.7991,
+   "skyglow_bm_rank_pct": 35.17
+  },
+  {
+   "id": "curated:007",
+   "name": "那須高原",
+   "prefecture": "栃木県",
+   "lat": 37.074705,
+   "lon": 140.005252,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2588,
+   "skyglow_bm_rank_pct": 45.52
+  },
+  {
+   "id": "curated:008",
+   "name": "湯ノ湖",
+   "prefecture": "栃木県",
+   "lat": 36.800583,
+   "lon": 139.423694,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.6368,
+   "skyglow_bm_rank_pct": 31.03
+  },
+  {
+   "id": "curated:009",
+   "name": "中禅寺湖・千手ケ浜",
+   "prefecture": "栃木県",
+   "lat": 36.736861,
+   "lon": 139.476861,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2167,
+   "skyglow_bm_rank_pct": 44.14
+  },
+  {
+   "id": "curated:011",
+   "name": "野反湖",
+   "prefecture": "群馬県",
+   "lat": 36.706853,
+   "lon": 138.645761,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.3978,
+   "skyglow_bm_rank_pct": 26.21
+  },
+  {
+   "id": "curated:012",
+   "name": "倉渕水沼公園・くらぶちこども天文台",
+   "prefecture": "群馬県",
+   "lat": 36.416452,
+   "lon": 138.778379,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.2814,
+   "skyglow_bm_rank_pct": 58.62
+  },
+  {
+   "id": "curated:013",
+   "name": "赤城大沼",
+   "prefecture": "群馬県",
+   "lat": 36.552714,
+   "lon": 139.178721,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.1981,
+   "skyglow_bm_rank_pct": 68.28
+  },
+  {
+   "id": "curated:014",
+   "name": "新坂平駐車場",
+   "prefecture": "群馬県",
+   "lat": 36.54164,
+   "lon": 139.167629,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.4778,
+   "skyglow_bm_rank_pct": 70.34
+  },
+  {
+   "id": "curated:016",
+   "name": "秩父ミューズパーク",
+   "prefecture": "埼玉県",
+   "lat": 36.001249,
+   "lon": 139.064806,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.8944,
+   "skyglow_bm_rank_pct": 88.28
+  },
+  {
+   "id": "curated:017",
+   "name": "堂平天文台",
+   "prefecture": "埼玉県",
+   "lat": 36.006079,
+   "lon": 139.190388,
+   "site_type": "night_view",
+   "skyglow_bm_index": 11.0027,
+   "skyglow_bm_rank_pct": 97.24
+  },
+  {
+   "id": "curated:018",
+   "name": "羊山公園",
+   "prefecture": "埼玉県",
+   "lat": 35.986886,
+   "lon": 139.089827,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.7222,
+   "skyglow_bm_rank_pct": 93.79
+  },
+  {
+   "id": "curated:019",
+   "name": "中間平緑地公園",
+   "prefecture": "埼玉県",
+   "lat": 36.101522,
+   "lon": 139.16172,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 10.3087,
+   "skyglow_bm_rank_pct": 96.55
+  },
+  {
+   "id": "curated:020",
+   "name": "栃本広場",
+   "prefecture": "埼玉県",
+   "lat": 35.94873,
+   "lon": 138.864324,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.7336,
+   "skyglow_bm_rank_pct": 64.83
+  },
+  {
+   "id": "curated:021",
+   "name": "犬吠埼灯台",
+   "prefecture": "千葉県",
+   "lat": 35.707913,
+   "lon": 140.868526,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.3364,
+   "skyglow_bm_rank_pct": 60.69
+  },
+  {
+   "id": "curated:022",
+   "name": "九十九里ビーチタワー",
+   "prefecture": "千葉県",
+   "lat": 35.507509,
+   "lon": 140.435851,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.1414,
+   "skyglow_bm_rank_pct": 90.34
+  },
+  {
+   "id": "curated:023",
+   "name": "大山千枚田",
+   "prefecture": "千葉県",
+   "lat": 35.130583,
+   "lon": 139.975109,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 5.654,
+   "skyglow_bm_rank_pct": 76.55
+  },
+  {
+   "id": "curated:024",
+   "name": "野島埼灯台",
+   "prefecture": "千葉県",
+   "lat": 34.90173,
+   "lon": 139.888385,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.4019,
+   "skyglow_bm_rank_pct": 50.34
+  },
+  {
+   "id": "curated:025",
+   "name": "東浪見釣ヶ崎海岸",
+   "prefecture": "千葉県",
+   "lat": 35.336137,
+   "lon": 140.395038,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 5.528,
+   "skyglow_bm_rank_pct": 75.17
+  },
+  {
+   "id": "curated:026",
+   "name": "八幡岬公園",
+   "prefecture": "千葉県",
+   "lat": 35.135909,
+   "lon": 140.311339,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.3083,
+   "skyglow_bm_rank_pct": 59.31
+  },
+  {
+   "id": "curated:027",
+   "name": "月の沙漠記念公園",
+   "prefecture": "千葉県",
+   "lat": 35.18396,
+   "lon": 140.356793,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.6308,
+   "skyglow_bm_rank_pct": 63.45
+  },
+  {
+   "id": "curated:028",
+   "name": "奥多摩湖ダムサイトパーキング",
+   "prefecture": "東京都",
+   "lat": 35.792384,
+   "lon": 139.047383,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.816,
+   "skyglow_bm_rank_pct": 86.9
+  },
+  {
+   "id": "curated:029",
+   "name": "月夜見第二駐車場",
+   "prefecture": "東京都",
+   "lat": 35.758248,
+   "lon": 139.047156,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.0603,
+   "skyglow_bm_rank_pct": 89.66
+  },
+  {
+   "id": "curated:030",
+   "name": "日原鍾乳洞",
+   "prefecture": "東京都",
+   "lat": 35.852521,
+   "lon": 139.041,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.0955,
+   "skyglow_bm_rank_pct": 82.76
+  },
+  {
+   "id": "curated:031",
+   "name": "高尾山",
+   "prefecture": "東京都",
+   "lat": 35.631094,
+   "lon": 139.256094,
+   "site_type": "night_view",
+   "skyglow_bm_index": 25.4249,
+   "skyglow_bm_rank_pct": 100.0
+  },
+  {
+   "id": "curated:032",
+   "name": "三浦湾展望台",
+   "prefecture": "東京都",
+   "lat": 34.192385,
+   "lon": 139.144698,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.3186,
+   "skyglow_bm_rank_pct": 2.07
+  },
+  {
+   "id": "curated:034",
+   "name": "八丈富士",
+   "prefecture": "東京都",
+   "lat": 33.137349,
+   "lon": 139.767181,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.1688,
+   "skyglow_bm_rank_pct": 0.0
+  },
+  {
+   "id": "curated:035",
+   "name": "安房埼灯台",
+   "prefecture": "神奈川県",
+   "lat": 35.129126,
+   "lon": 139.630059,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.5251,
+   "skyglow_bm_rank_pct": 91.72
+  },
+  {
+   "id": "curated:036",
+   "name": "丹沢湖",
+   "prefecture": "神奈川県",
+   "lat": 35.417618,
+   "lon": 139.048172,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 9.0674,
+   "skyglow_bm_rank_pct": 95.86
+  },
+  {
+   "id": "curated:037",
+   "name": "菜の花台",
+   "prefecture": "神奈川県",
+   "lat": 35.410402,
+   "lon": 139.210634,
+   "site_type": "night_view",
+   "skyglow_bm_index": 17.296,
+   "skyglow_bm_rank_pct": 99.31
+  },
+  {
+   "id": "curated:038",
+   "name": "真鶴半島",
+   "prefecture": "神奈川県",
+   "lat": 35.14136,
+   "lon": 139.16047,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 6.7441,
+   "skyglow_bm_rank_pct": 80.0
+  },
+  {
+   "id": "curated:039",
+   "name": "大観山展望台",
+   "prefecture": "神奈川県",
+   "lat": 35.184892,
+   "lon": 139.048905,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.8561,
+   "skyglow_bm_rank_pct": 87.59
+  },
+  {
+   "id": "curated:040",
+   "name": "本栖湖",
+   "prefecture": "山梨県",
+   "lat": 35.464306,
+   "lon": 138.585505,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.7339,
+   "skyglow_bm_rank_pct": 65.52
+  },
+  {
+   "id": "curated:041",
+   "name": "精進湖 他手合浜",
+   "prefecture": "山梨県",
+   "lat": 35.490824,
+   "lon": 138.605076,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.1015,
+   "skyglow_bm_rank_pct": 66.9
+  },
+  {
+   "id": "curated:042",
+   "name": "山中湖パノラマ台",
+   "prefecture": "山梨県",
+   "lat": 35.412607,
+   "lon": 138.909461,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 6.8665,
+   "skyglow_bm_rank_pct": 80.69
+  },
+  {
+   "id": "curated:043",
+   "name": "河口湖",
+   "prefecture": "山梨県",
+   "lat": 35.51306,
+   "lon": 138.744824,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 5.6175,
+   "skyglow_bm_rank_pct": 75.86
+  },
+  {
+   "id": "curated:044",
+   "name": "美し森展望台",
+   "prefecture": "山梨県",
+   "lat": 35.939651,
+   "lon": 138.420884,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2524,
+   "skyglow_bm_rank_pct": 44.83
+  },
+  {
+   "id": "curated:046",
+   "name": "みずがき山自然公園",
+   "prefecture": "山梨県",
+   "lat": 35.896362,
+   "lon": 138.573704,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.424,
+   "skyglow_bm_rank_pct": 51.72
+  },
+  {
+   "id": "curated:047",
+   "name": "甘利山",
+   "prefecture": "山梨県",
+   "lat": 35.683379,
+   "lon": 138.382106,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.3856,
+   "skyglow_bm_rank_pct": 61.38
+  },
+  {
+   "id": "curated:048",
+   "name": "ヘブンスそのはら",
+   "prefecture": "長野県",
+   "lat": 35.45609,
+   "lon": 137.633603,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.0484,
+   "skyglow_bm_rank_pct": 40.69
+  },
+  {
+   "id": "curated:049",
+   "name": "美ヶ原高原",
+   "prefecture": "長野県",
+   "lat": 36.230724,
+   "lon": 138.140291,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2865,
+   "skyglow_bm_rank_pct": 47.59
+  },
+  {
+   "id": "curated:051",
+   "name": "横手山ドライブイン",
+   "prefecture": "長野県",
+   "lat": 36.669102,
+   "lon": 138.518649,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.7055,
+   "skyglow_bm_rank_pct": 33.79
+  },
+  {
+   "id": "curated:052",
+   "name": "車山山頂",
+   "prefecture": "長野県",
+   "lat": 36.103068,
+   "lon": 138.198514,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.4527,
+   "skyglow_bm_rank_pct": 53.1
+  },
+  {
+   "id": "curated:053",
+   "name": "白樺湖",
+   "prefecture": "長野県",
+   "lat": 36.105776,
+   "lon": 138.237963,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.3667,
+   "skyglow_bm_rank_pct": 49.66
+  },
+  {
+   "id": "curated:054",
+   "name": "乗鞍高原",
+   "prefecture": "長野県",
+   "lat": 36.122174,
+   "lon": 137.627015,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.0355,
+   "skyglow_bm_rank_pct": 10.34
+  },
+  {
+   "id": "curated:055",
+   "name": "美ヶ原自然保護センター",
+   "prefecture": "長野県",
+   "lat": 36.234112,
+   "lon": 138.106634,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.4654,
+   "skyglow_bm_rank_pct": 53.79
+  },
+  {
+   "id": "curated:056",
+   "name": "白駒の池",
+   "prefecture": "長野県",
+   "lat": 36.05147,
+   "lon": 138.36229,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.0089,
+   "skyglow_bm_rank_pct": 40.0
+  },
+  {
+   "id": "curated:058",
+   "name": "妙高高原",
+   "prefecture": "新潟県",
+   "lat": 36.872201,
+   "lon": 138.212196,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.9117,
+   "skyglow_bm_rank_pct": 37.24
+  },
+  {
+   "id": "curated:061",
+   "name": "星峠の棚田",
+   "prefecture": "新潟県",
+   "lat": 37.124235,
+   "lon": 138.529651,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2526,
+   "skyglow_bm_rank_pct": 21.38
+  },
+  {
+   "id": "curated:062",
+   "name": "苗場スキー場",
+   "prefecture": "新潟県",
+   "lat": 36.795024,
+   "lon": 138.778756,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.3775,
+   "skyglow_bm_rank_pct": 24.83
+  },
+  {
+   "id": "curated:063",
+   "name": "弥彦山",
+   "prefecture": "新潟県",
+   "lat": 37.708678,
+   "lon": 138.821349,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.4206,
+   "skyglow_bm_rank_pct": 51.03
+  },
+  {
+   "id": "curated:064",
+   "name": "ドンデン高原",
+   "prefecture": "新潟県",
+   "lat": 38.138318,
+   "lon": 138.390423,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.2662,
+   "skyglow_bm_rank_pct": 0.69
+  },
+  {
+   "id": "curated:065",
+   "name": "白雲台",
+   "prefecture": "新潟県",
+   "lat": 38.066262,
+   "lon": 138.292768,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.2959,
+   "skyglow_bm_rank_pct": 1.38
+  },
+  {
+   "id": "curated:066",
+   "name": "立山室堂平",
+   "prefecture": "富山県",
+   "lat": 36.577192,
+   "lon": 137.595794,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.1264,
+   "skyglow_bm_rank_pct": 15.86
+  },
+  {
+   "id": "curated:067",
+   "name": "立山弥陀ヶ原",
+   "prefecture": "富山県",
+   "lat": 36.567248,
+   "lon": 137.557484,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2046,
+   "skyglow_bm_rank_pct": 18.62
+  },
+  {
+   "id": "curated:068",
+   "name": "ホテル立山",
+   "prefecture": "富山県",
+   "lat": 36.577567,
+   "lon": 137.595254,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.128,
+   "skyglow_bm_rank_pct": 16.55
+  },
+  {
+   "id": "curated:069",
+   "name": "立山山麓スキー場",
+   "prefecture": "富山県",
+   "lat": 36.568143,
+   "lon": 137.430321,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.8838,
+   "skyglow_bm_rank_pct": 35.86
+  },
+  {
+   "id": "curated:070",
+   "name": "相倉合掌造り集落",
+   "prefecture": "富山県",
+   "lat": 36.430688,
+   "lon": 136.914051,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.1418,
+   "skyglow_bm_rank_pct": 42.07
+  },
+  {
+   "id": "curated:071",
+   "name": "剱沢キャンプ場",
+   "prefecture": "富山県",
+   "lat": 36.603517,
+   "lon": 137.616585,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.1167,
+   "skyglow_bm_rank_pct": 14.48
+  },
+  {
+   "id": "curated:072",
+   "name": "柳田星の観察館満天星",
+   "prefecture": "石川県",
+   "lat": 37.335398,
+   "lon": 137.136789,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.5298,
+   "skyglow_bm_rank_pct": 5.52
+  },
+  {
+   "id": "curated:073",
+   "name": "恋路海岸",
+   "prefecture": "石川県",
+   "lat": 37.371792,
+   "lon": 137.238098,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.4524,
+   "skyglow_bm_rank_pct": 4.83
+  },
+  {
+   "id": "curated:074",
+   "name": "見附島",
+   "prefecture": "石川県",
+   "lat": 37.396137,
+   "lon": 137.247322,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.4405,
+   "skyglow_bm_rank_pct": 4.14
+  },
+  {
+   "id": "curated:075",
+   "name": "白山",
+   "prefecture": "石川県",
+   "lat": 36.155046,
+   "lon": 136.771467,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.1179,
+   "skyglow_bm_rank_pct": 15.17
+  },
+  {
+   "id": "curated:076",
+   "name": "銀河の里キゴ山",
+   "prefecture": "石川県",
+   "lat": 36.524037,
+   "lon": 136.753986,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 5.1588,
+   "skyglow_bm_rank_pct": 74.48
+  },
+  {
+   "id": "curated:077",
+   "name": "南六呂師",
+   "prefecture": "福井県",
+   "lat": 36.022434,
+   "lon": 136.598015,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.5507,
+   "skyglow_bm_rank_pct": 28.28
+  },
+  {
+   "id": "curated:078",
+   "name": "九頭竜湖",
+   "prefecture": "福井県",
+   "lat": 35.904482,
+   "lon": 136.661545,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.439,
+   "skyglow_bm_rank_pct": 26.9
+  },
+  {
+   "id": "curated:080",
+   "name": "三方五湖レインボーライン山頂公園",
+   "prefecture": "福井県",
+   "lat": 35.602442,
+   "lon": 135.870411,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.8991,
+   "skyglow_bm_rank_pct": 36.55
+  },
+  {
+   "id": "curated:082",
+   "name": "ひるがの高原",
+   "prefecture": "岐阜県",
+   "lat": 36.005823,
+   "lon": 136.91336,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.3463,
+   "skyglow_bm_rank_pct": 24.14
+  },
+  {
+   "id": "curated:083",
+   "name": "乗鞍畳平",
+   "prefecture": "岐阜県",
+   "lat": 36.124539,
+   "lon": 137.553627,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.9738,
+   "skyglow_bm_rank_pct": 8.28
+  },
+  {
+   "id": "curated:084",
+   "name": "白川郷",
+   "prefecture": "岐阜県",
+   "lat": 36.257345,
+   "lon": 136.906832,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2649,
+   "skyglow_bm_rank_pct": 22.76
+  },
+  {
+   "id": "curated:086",
+   "name": "新穂高ロープウェイ",
+   "prefecture": "岐阜県",
+   "lat": 36.275245,
+   "lon": 137.591285,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.0405,
+   "skyglow_bm_rank_pct": 11.72
+  },
+  {
+   "id": "curated:087",
+   "name": "郡上八幡城",
+   "prefecture": "岐阜県",
+   "lat": 35.753083,
+   "lon": 136.961445,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.5476,
+   "skyglow_bm_rank_pct": 55.17
+  },
+  {
+   "id": "curated:088",
+   "name": "朝霧高原",
+   "prefecture": "静岡県",
+   "lat": 35.385236,
+   "lon": 138.57218,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.455,
+   "skyglow_bm_rank_pct": 62.07
+  },
+  {
+   "id": "curated:089",
+   "name": "田貫湖",
+   "prefecture": "静岡県",
+   "lat": 35.344103,
+   "lon": 138.561279,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.5423,
+   "skyglow_bm_rank_pct": 62.76
+  },
+  {
+   "id": "curated:090",
+   "name": "爪木崎",
+   "prefecture": "静岡県",
+   "lat": 34.659512,
+   "lon": 138.986153,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2109,
+   "skyglow_bm_rank_pct": 20.0
+  },
+  {
+   "id": "curated:091",
+   "name": "天城高原",
+   "prefecture": "静岡県",
+   "lat": 34.871659,
+   "lon": 139.023935,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.4446,
+   "skyglow_bm_rank_pct": 52.41
+  },
+  {
+   "id": "curated:092",
+   "name": "弓ヶ浜",
+   "prefecture": "静岡県",
+   "lat": 34.632796,
+   "lon": 138.888757,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.0597,
+   "skyglow_bm_rank_pct": 12.41
+  },
+  {
+   "id": "curated:093",
+   "name": "石廊崎",
+   "prefecture": "静岡県",
+   "lat": 34.602778,
+   "lon": 138.845278,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.8499,
+   "skyglow_bm_rank_pct": 7.59
+  },
+  {
+   "id": "curated:094",
+   "name": "寸又峡",
+   "prefecture": "静岡県",
+   "lat": 35.174699,
+   "lon": 138.118059,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.6731,
+   "skyglow_bm_rank_pct": 32.41
+  },
+  {
+   "id": "curated:095",
+   "name": "伊良湖岬",
+   "prefecture": "愛知県",
+   "lat": 34.583598,
+   "lon": 137.02043,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.8307,
+   "skyglow_bm_rank_pct": 73.79
+  },
+  {
+   "id": "curated:096",
+   "name": "茶臼山高原",
+   "prefecture": "愛知県",
+   "lat": 35.227569,
+   "lon": 137.655597,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2013,
+   "skyglow_bm_rank_pct": 42.76
+  },
+  {
+   "id": "curated:097",
+   "name": "つぐ高原グリーンパーク",
+   "prefecture": "愛知県",
+   "lat": 35.20035,
+   "lon": 137.604806,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.6218,
+   "skyglow_bm_rank_pct": 55.86
+  },
+  {
+   "id": "curated:098",
+   "name": "スターフォーレスト御園",
+   "prefecture": "愛知県",
+   "lat": 35.118029,
+   "lon": 137.718911,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.285,
+   "skyglow_bm_rank_pct": 46.9
+  },
+  {
+   "id": "curated_ext:001",
+   "name": "銀河もみじキャンプ場",
+   "prefecture": "長野県",
+   "lat": 35.3958,
+   "lon": 137.6744,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.9155,
+   "skyglow_bm_rank_pct": 37.93
+  },
+  {
+   "id": "curated_ext:002",
+   "name": "浪合パーク",
+   "prefecture": "長野県",
+   "lat": 35.4011,
+   "lon": 137.6683,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.9325,
+   "skyglow_bm_rank_pct": 38.62
+  },
+  {
+   "id": "curated_ext:003",
+   "name": "王ヶ頭",
+   "prefecture": "長野県",
+   "lat": 36.2269,
+   "lon": 138.0772,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.7718,
+   "skyglow_bm_rank_pct": 57.24
+  },
+  {
+   "id": "curated_ext:004",
+   "name": "霧ヶ峰高原（富士見台）",
+   "prefecture": "長野県",
+   "lat": 36.1039,
+   "lon": 138.1694,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.5467,
+   "skyglow_bm_rank_pct": 54.48
+  },
+  {
+   "id": "curated_ext:005",
+   "name": "野辺山宇宙電波観測所",
+   "prefecture": "長野県",
+   "lat": 35.9419,
+   "lon": 138.4728,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2963,
+   "skyglow_bm_rank_pct": 48.28
+  },
+  {
+   "id": "curated_ext:006",
+   "name": "八ヶ岳ふれあい公園",
+   "prefecture": "長野県",
+   "lat": 35.9525,
+   "lon": 138.4778,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2749,
+   "skyglow_bm_rank_pct": 46.21
+  },
+  {
+   "id": "curated_ext:007",
+   "name": "千畳敷カール",
+   "prefecture": "長野県",
+   "lat": 35.7761,
+   "lon": 137.8131,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.3788,
+   "skyglow_bm_rank_pct": 25.52
+  },
+  {
+   "id": "curated_ext:008",
+   "name": "栂池自然園",
+   "prefecture": "長野県",
+   "lat": 36.7583,
+   "lon": 137.8486,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.1346,
+   "skyglow_bm_rank_pct": 17.24
+  },
+  {
+   "id": "curated_ext:009",
+   "name": "八方池",
+   "prefecture": "長野県",
+   "lat": 36.7028,
+   "lon": 137.8089,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2061,
+   "skyglow_bm_rank_pct": 19.31
+  },
+  {
+   "id": "curated_ext:010",
+   "name": "上高地（河童橋）",
+   "prefecture": "長野県",
+   "lat": 36.2489,
+   "lon": 137.6375,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.0721,
+   "skyglow_bm_rank_pct": 13.1
+  },
+  {
+   "id": "curated_ext:011",
+   "name": "開田高原",
+   "prefecture": "長野県",
+   "lat": 35.9272,
+   "lon": 137.5889,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.012,
+   "skyglow_bm_rank_pct": 9.66
+  },
+  {
+   "id": "curated_ext:012",
+   "name": "高ボッチ高原",
+   "prefecture": "長野県",
+   "lat": 36.1308,
+   "lon": 138.0417,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.328,
+   "skyglow_bm_rank_pct": 60.0
+  },
+  {
+   "id": "curated_ext:013",
+   "name": "陣馬形山キャンプ場",
+   "prefecture": "長野県",
+   "lat": 35.6517,
+   "lon": 137.8925,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.7372,
+   "skyglow_bm_rank_pct": 34.48
+  },
+  {
+   "id": "curated_ext:014",
+   "name": "志賀高原（渋峠）",
+   "prefecture": "群馬県",
+   "lat": 36.6608,
+   "lon": 138.5283,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.6937,
+   "skyglow_bm_rank_pct": 33.1
+  },
+  {
+   "id": "curated_ext:015",
+   "name": "日光白根山ロープウェイ山頂駅",
+   "prefecture": "栃木県",
+   "lat": 36.8083,
+   "lon": 139.3789,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.5109,
+   "skyglow_bm_rank_pct": 27.59
+  },
+  {
+   "id": "curated_ext:016",
+   "name": "八方ヶ原（大間々駐車場）",
+   "prefecture": "栃木県",
+   "lat": 36.9367,
+   "lon": 139.8083,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.9903,
+   "skyglow_bm_rank_pct": 39.31
+  },
+  {
+   "id": "curated_ext:017",
+   "name": "那須高原（駒止の滝展望台）",
+   "prefecture": "栃木県",
+   "lat": 37.1264,
+   "lon": 139.9678,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.6072,
+   "skyglow_bm_rank_pct": 30.34
+  },
+  {
+   "id": "curated_ext:018",
+   "name": "県立ぐんま天文台",
+   "prefecture": "群馬県",
+   "lat": 36.5986,
+   "lon": 138.9839,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.2726,
+   "skyglow_bm_rank_pct": 57.93
+  },
+  {
+   "id": "curated_ext:019",
+   "name": "吹割の滝駐車場",
+   "prefecture": "群馬県",
+   "lat": 36.7019,
+   "lon": 139.2069,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.2157,
+   "skyglow_bm_rank_pct": 43.45
+  },
+  {
+   "id": "curated_ext:020",
+   "name": "榛名山（榛名湖畔）",
+   "prefecture": "群馬県",
+   "lat": 36.4744,
+   "lon": 138.8708,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 3.8553,
+   "skyglow_bm_rank_pct": 66.21
+  },
+  {
+   "id": "curated_ext:021",
+   "name": "みかわ（道の駅おおた周辺）",
+   "prefecture": "群馬県",
+   "lat": 36.2817,
+   "lon": 139.3139,
+   "site_type": "night_view",
+   "skyglow_bm_index": 15.5671,
+   "skyglow_bm_rank_pct": 98.62
+  },
+  {
+   "id": "curated_ext:022",
+   "name": "秩父・美の山公園",
+   "prefecture": "埼玉県",
+   "lat": 36.035,
+   "lon": 139.1028,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.6825,
+   "skyglow_bm_rank_pct": 92.41
+  },
+  {
+   "id": "curated_ext:023",
+   "name": "三峰神社周辺",
+   "prefecture": "埼玉県",
+   "lat": 35.9317,
+   "lon": 138.9306,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.6256,
+   "skyglow_bm_rank_pct": 73.1
+  },
+  {
+   "id": "curated_ext:024",
+   "name": "城峰公園",
+   "prefecture": "埼玉県",
+   "lat": 36.1231,
+   "lon": 139.0569,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.4242,
+   "skyglow_bm_rank_pct": 86.21
+  },
+  {
+   "id": "curated_ext:025",
+   "name": "奥多摩周遊道路（月夜見第一駐車場）",
+   "prefecture": "東京都",
+   "lat": 35.7483,
+   "lon": 139.02,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.2906,
+   "skyglow_bm_rank_pct": 85.52
+  },
+  {
+   "id": "curated_ext:026",
+   "name": "檜原都民の森",
+   "prefecture": "東京都",
+   "lat": 35.7333,
+   "lon": 139.0117,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.1569,
+   "skyglow_bm_rank_pct": 83.45
+  },
+  {
+   "id": "curated_ext:027",
+   "name": "城ヶ島（馬の背洞門）",
+   "prefecture": "神奈川県",
+   "lat": 35.1325,
+   "lon": 139.6178,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.7098,
+   "skyglow_bm_rank_pct": 93.1
+  },
+  {
+   "id": "curated_ext:028",
+   "name": "長井海手公園 ソレイユの丘",
+   "prefecture": "神奈川県",
+   "lat": 35.195,
+   "lon": 139.6381,
+   "site_type": "night_view",
+   "skyglow_bm_index": 14.0592,
+   "skyglow_bm_rank_pct": 97.93
+  },
+  {
+   "id": "curated_ext:029",
+   "name": "東浪見海岸（鳥居周辺）",
+   "prefecture": "千葉県",
+   "lat": 35.3678,
+   "lon": 140.3861,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 6.5578,
+   "skyglow_bm_rank_pct": 79.31
+  },
+  {
+   "id": "curated_ext:030",
+   "name": "鋸南ほしふるキャンプ場",
+   "prefecture": "千葉県",
+   "lat": 35.1275,
+   "lon": 139.8456,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.0514,
+   "skyglow_bm_rank_pct": 82.07
+  },
+  {
+   "id": "curated_ext:031",
+   "name": "九十九里浜（片貝海岸）",
+   "prefecture": "千葉県",
+   "lat": 35.5369,
+   "lon": 140.4589,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.931,
+   "skyglow_bm_rank_pct": 88.97
+  },
+  {
+   "id": "curated_ext:032",
+   "name": "富士山五合目（富士スバルライン）",
+   "prefecture": "静岡県",
+   "lat": 35.3606,
+   "lon": 138.7306,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.6117,
+   "skyglow_bm_rank_pct": 72.41
+  },
+  {
+   "id": "curated_ext:033",
+   "name": "新屋山神社 奥宮周辺",
+   "prefecture": "山梨県",
+   "lat": 35.4331,
+   "lon": 138.8183,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 6.0829,
+   "skyglow_bm_rank_pct": 77.93
+  },
+  {
+   "id": "curated_ext:034",
+   "name": "西湖（根場浜）",
+   "prefecture": "山梨県",
+   "lat": 35.505,
+   "lon": 138.6653,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.5726,
+   "skyglow_bm_rank_pct": 71.72
+  },
+  {
+   "id": "curated_ext:035",
+   "name": "乙女峠",
+   "prefecture": "静岡県",
+   "lat": 35.2811,
+   "lon": 138.9861,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 9.0125,
+   "skyglow_bm_rank_pct": 94.48
+  },
+  {
+   "id": "curated_ext:036",
+   "name": "大菩薩峠",
+   "prefecture": "山梨県",
+   "lat": 35.7458,
+   "lon": 138.8475,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.4526,
+   "skyglow_bm_rank_pct": 69.66
+  },
+  {
+   "id": "curated_ext:037",
+   "name": "笹ヶ峰高原",
+   "prefecture": "新潟県",
+   "lat": 36.8669,
+   "lon": 138.0833,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.26,
+   "skyglow_bm_rank_pct": 22.07
+  },
+  {
+   "id": "curated_ext:038",
+   "name": "妙高高原（イモリ池）",
+   "prefecture": "新潟県",
+   "lat": 36.8719,
+   "lon": 138.1633,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.6609,
+   "skyglow_bm_rank_pct": 31.72
+  },
+  {
+   "id": "curated_ext:039",
+   "name": "枝折峠",
+   "prefecture": "新潟県",
+   "lat": 37.1986,
+   "lon": 139.0839,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.0382,
+   "skyglow_bm_rank_pct": 11.03
+  },
+  {
+   "id": "curated_ext:040",
+   "name": "美人林",
+   "prefecture": "新潟県",
+   "lat": 37.0942,
+   "lon": 138.6408,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2945,
+   "skyglow_bm_rank_pct": 23.45
+  },
+  {
+   "id": "curated_ext:041",
+   "name": "福島潟",
+   "prefecture": "新潟県",
+   "lat": 37.915,
+   "lon": 139.2458,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.3968,
+   "skyglow_bm_rank_pct": 68.97
+  },
+  {
+   "id": "curated_ext:042",
+   "name": "津南町・マウンテンパーク津南",
+   "prefecture": "新潟県",
+   "lat": 36.9539,
+   "lon": 138.6475,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.1857,
+   "skyglow_bm_rank_pct": 17.93
+  },
+  {
+   "id": "curated_ext:043",
+   "name": "佐渡島・白木峰展望台",
+   "prefecture": "新潟県",
+   "lat": 37.8286,
+   "lon": 138.2861,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.3287,
+   "skyglow_bm_rank_pct": 2.76
+  },
+  {
+   "id": "curated_ext:044",
+   "name": "奥只見ダム",
+   "prefecture": "新潟県",
+   "lat": 37.1514,
+   "lon": 139.1867,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.7805,
+   "skyglow_bm_rank_pct": 6.9
+  },
+  {
+   "id": "curated_ext:045",
+   "name": "水窪ダム",
+   "prefecture": "静岡県",
+   "lat": 35.1764,
+   "lon": 137.925,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.558,
+   "skyglow_bm_rank_pct": 28.97
+  },
+  {
+   "id": "curated_ext:046",
+   "name": "細江奥山高原",
+   "prefecture": "静岡県",
+   "lat": 34.8361,
+   "lon": 137.6669,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.1691,
+   "skyglow_bm_rank_pct": 84.14
+  },
+  {
+   "id": "curated_ext:047",
+   "name": "西伊豆スカイライン（仁科峠）",
+   "prefecture": "静岡県",
+   "lat": 34.8589,
+   "lon": 138.8389,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.1118,
+   "skyglow_bm_rank_pct": 41.38
+  },
+  {
+   "id": "curated_ext:048",
+   "name": "富士山吉原（雲海スポット）",
+   "prefecture": "静岡県",
+   "lat": 35.2289,
+   "lon": 138.6183,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 7.1876,
+   "skyglow_bm_rank_pct": 84.83
+  },
+  {
+   "id": "curated_ext:049",
+   "name": "段戸裏谷原生林 きららの森",
+   "prefecture": "愛知県",
+   "lat": 35.2208,
+   "lon": 137.4589,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.1947,
+   "skyglow_bm_rank_pct": 67.59
+  },
+  {
+   "id": "curated_ext:050",
+   "name": "つくで高原",
+   "prefecture": "愛知県",
+   "lat": 34.9961,
+   "lon": 137.4206,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 6.5495,
+   "skyglow_bm_rank_pct": 78.62
+  },
+  {
+   "id": "curated_ext:051",
+   "name": "佐久島",
+   "prefecture": "愛知県",
+   "lat": 34.7236,
+   "lon": 137.0422,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 8.2458,
+   "skyglow_bm_rank_pct": 91.03
+  },
+  {
+   "id": "curated_ext:052",
+   "name": "面ノ木園地",
+   "prefecture": "長野県",
+   "lat": 35.2047,
+   "lon": 137.5858,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.7599,
+   "skyglow_bm_rank_pct": 56.55
+  },
+  {
+   "id": "curated_ext:053",
+   "name": "恵那山ウェルネスキャンプ場",
+   "prefecture": "岐阜県",
+   "lat": 35.4372,
+   "lon": 137.5817,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 2.3572,
+   "skyglow_bm_rank_pct": 48.97
+  },
+  {
+   "id": "curated_ext:054",
+   "name": "伊吹山ドライブウェイ（山頂駐車場）",
+   "prefecture": "滋賀県",
+   "lat": 35.4178,
+   "lon": 136.4061,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 5.7893,
+   "skyglow_bm_rank_pct": 77.24
+  },
+  {
+   "id": "curated_ext:055",
+   "name": "池田山（展望台）",
+   "prefecture": "岐阜県",
+   "lat": 35.4389,
+   "lon": 136.5683,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 9.0132,
+   "skyglow_bm_rank_pct": 95.17
+  },
+  {
+   "id": "curated_ext:056",
+   "name": "乗鞍岳スカイライン（平湯峠）",
+   "prefecture": "岐阜県",
+   "lat": 36.1472,
+   "lon": 137.5186,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.0049,
+   "skyglow_bm_rank_pct": 8.97
+  },
+  {
+   "id": "curated_ext:057",
+   "name": "数河高原",
+   "prefecture": "岐阜県",
+   "lat": 36.3117,
+   "lon": 137.2197,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.6047,
+   "skyglow_bm_rank_pct": 29.66
+  },
+  {
+   "id": "curated_ext:058",
+   "name": "能登半島・白米千枚田",
+   "prefecture": "石川県",
+   "lat": 37.4258,
+   "lon": 136.9997,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.3736,
+   "skyglow_bm_rank_pct": 3.45
+  },
+  {
+   "id": "curated_ext:059",
+   "name": "能登・ヤセの断崖",
+   "prefecture": "石川県",
+   "lat": 37.135,
+   "lon": 136.6806,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 0.7474,
+   "skyglow_bm_rank_pct": 6.21
+  },
+  {
+   "id": "curated_ext:060",
+   "name": "獅子吼高原",
+   "prefecture": "石川県",
+   "lat": 36.4419,
+   "lon": 136.6578,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 4.536,
+   "skyglow_bm_rank_pct": 71.03
+  },
+  {
+   "id": "curated_ext:061",
+   "name": "有峰湖",
+   "prefecture": "富山県",
+   "lat": 36.48,
+   "lon": 137.4608,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.2385,
+   "skyglow_bm_rank_pct": 20.69
+  },
+  {
+   "id": "curated_ext:062",
+   "name": "黒部峡谷（欅平）",
+   "prefecture": "富山県",
+   "lat": 36.6922,
+   "lon": 137.6581,
+   "site_type": "dark_sky",
+   "skyglow_bm_index": 1.106,
+   "skyglow_bm_rank_pct": 13.79
+  }
+ ]
+}
