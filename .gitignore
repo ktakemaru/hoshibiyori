@@ -38,6 +38,8 @@ out/
 
 # 生成物(generate_report.py が毎回上書きする。古い版が残ると誤読されるため追跡しない)
 /report.html
+# 光害の入力をbm(新指数)にして生成した試験用レポート(段階LP2)
+/report_bm.html
 /artifact_report.html
 
 # 天気図の解説文(generate_report.py が読む。手で更新する運用、AGENTS.md参照)

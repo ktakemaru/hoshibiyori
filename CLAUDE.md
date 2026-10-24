@@ -529,3 +529,15 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - 実行時は派生データ`step3_light_pollution/data/skyglow_bm_2025.npz`(約1.2MB)だけを読み、トークン・通信は不要。生データの再生成だけh5py(Python 3.13等)が要る。
 - テスト: `tests/test_skyglow_bm.py`(合成格子で距離減衰・加算・半径外の無視・格子端・面積換算・範囲の追従。通信しない)。
 
+## 光害の入力の切り替え(段階LP2、2026-10-23)
+
+ブランチ`stageLP2`(push・マージは未実施)。LP1の新指数(ALR)を既存のLPIと並べて試せるようにした。**既定は`legacy`で、既定の動作は変えていない**
+(旧版と新版の`render_html`出力が一致することを確認)。詳細は`step3_light_pollution/REPORT_LP2.md`。
+
+- `--lp-source legacy|bm`を`explore_hoshibiyori.py`と`generate_report.py`に追加(bmのレポートは`report_bm.html`、`report.html`は上書きしない)。
+- 仮閾値`BM_ALR_THRESHOLD = 10.66`(`lp_source.py`): 現行`LPI<=5.0`で通る主軸146件中141件と同じ件数が通るALRの境界(141番目10.31と142番目11.00の間)。
+  論文Table 3(ALR>10)は日本未較正のため使わない。食い違いは2件(富士山吉原・堂平天文台)。
+- bmは`mpsas`・`bortle_approx`を持たず(日本向けの較正が無い)、画面にはALRと順位を出す。実効的な空の明るさ(月込み)はbmでは出ない。
+  `scripts/report_courses.py`・`weekend_page.py`はlegacyの`report.html`の表記を読むため、bmのレポートには未対応。
+- **未実施**: legacy/bmの並べ比較の実測(`compare_lp_sources.py`)は、実行中にシステムのメモリ不足でバックグラウンドコマンドが停止されたため再実行していない。
+  旧データ(Lorenz氏由来)の整理は計画のみ(REPORT_LP2.md第4節)。公開リポジトリに旧値が残る場所の一覧もそこにある。
