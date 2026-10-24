@@ -508,3 +508,24 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
   **古い本文を出さず**画像と「解説文は未更新のため表示していません(最終更新 …)」の一行だけを表示する。
 - `fetch_jma_weather_map()`は戻り値(パスのリスト)を変えず、画像と同じ場所に`fetched_at.txt`(JST)を書く。レポートの図の下に取得時刻を表示。
 - 更新手順はAGENTS.md第12節。テスト: `tests/test_weather_map_commentary.py`。
+
+## 光害データの置き換え準備: Black Marble 起点のスカイグロー指数(段階LP1、2026-10-23)
+
+作業ブランチ`stageLP1`(push・マージは未実施)。Lorenz氏のLight Pollution Atlas(ライセンス表記なし、「光害データ取得に関する注意」参照)を
+将来置き換えるための**準備のみ**。**既存のLPI/mpsas/bortle_approx・`stargazing_spots.json`・既定のレポート出力・スコア・閾値は変えていない**
+(新しい値は別フィールド`skyglow_bm_index`/`skyglow_bm_rank_pct`として別ファイル`stargazing_spots.bm.json`にだけ出す)。切り替えの是非と時期は本人が決める。
+詳細な結果は`step3_light_pollution/REPORT_LP1.md`、手法・係数の出典は`step3_light_pollution/METHOD.md`、年次の更新手順は`UPDATE.md`。
+
+- **入力**: NASA Black Marble VNP46A4(年次、15秒角、collection version 2、DOI 10.5067/VIIRS/VNP46A4.002)の`AllAngle_Composite_Snow_Free`。
+  2025年を採用(取得時点で最新の完全な年)。2024年とVJ146A4(NOAA-20、2025年)は比較用。指示書の「DOI .001」は実際は`.002`だった。
+  取得は認証不要のNASA CMRで粒度URLを引き、実ファイルは`EARTHDATA_TOKEN`でLAADSから取る(LAADS `api/v2`はトークンで通らずログイン画面へ飛ばされたため)。
+- **範囲**: `skyglow_bm.input_extent()`が`stargazing_spots.json`の`spots`の外接矩形+0.5°+300kmを自動算出(地点を足しても再生成だけで追従)。
+  余白は指示書の「約200km」でなく、論文の影響半径300kmに合わせた。タイルはh31-32 × v04-06の6枚(約500MB、`blackmarble_cache/`でgit管理外)。
+- **手法**: Duriscoe et al. 2018の式(9)(11): `ALR=(1/C)Σ r_i d_i^(-α)`、`α=2.3(d/350)^0.28`、半径300km、0.5nW/cm²/sr未満は0、C=562.72。
+  方位等距離図法の1km平面へ集約(面積を450m画素に換算)してFFT畳み込み(数秒)。
+- **UNCALIBRATED(論文に無く本実装で決めた値)**: 平面画素1km、同一画素内の距離0.4km。さらにC・雑音の切り捨ては**米国西部・VIIRS月次コンポジットでの値で、日本・Black Marble年次には未較正**。
+  このため**絶対値でなく相対的な暗さの指数として扱う**(Table 3のクラスを日本の空の明るさとして読まない)。
+- **限界**: 全天平均のALRは天頂の暗さ(ZLR)ではない(ALR/ZLR=1.6〜3.3)。標高・地形遮蔽は扱わない。
+- 実行時は派生データ`step3_light_pollution/data/skyglow_bm_2025.npz`(約1.2MB)だけを読み、トークン・通信は不要。生データの再生成だけh5py(Python 3.13等)が要る。
+- テスト: `tests/test_skyglow_bm.py`(合成格子で距離減衰・加算・半径外の無視・格子端・面積換算・範囲の追従。通信しない)。
+

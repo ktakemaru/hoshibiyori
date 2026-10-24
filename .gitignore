@@ -13,6 +13,8 @@ venv/
 step2_terrain/dem_cache/
 # Light Pollution Atlas バイナリタイル
 step3_light_pollution/tile_cache/
+# NASA Black Marble の生HDF5と比較用の中間生成物(約1GB。段階LP1、年1回の再生成で作り直せる)
+step3_light_pollution/blackmarble_cache/
 # Open-Meteo 格子セルキャッシュ(TTL付き)
 step5_cloud_forecast/cloud_cache/
 # 気象庁天気図スクリーンショット
