@@ -1150,12 +1150,12 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
   {tier3}
   <footer class="page-footer">
     <p class="attribution">出典・データ提供:
-    気象予報 <a href="https://open-meteo.com/">Open-Meteo.com</a>(CC BY 4.0、気象庁MSM・ECMWF IFSの数値予報を配信) ・
+    気象予報 <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>(<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>、気象庁MSM・ECMWF IFSの数値予報を配信。雲量を加工して視界遮蔽雲量を算出) ・
     地形 <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院 地理院タイル(標高タイル)</a>を加工して作成 ・
     {lp_attribution} ・
-    天気図 <a href="https://www.jma.go.jp/">気象庁ホームページ</a> ・
+    天気図 出典：気象庁ホームページ (<a href="https://www.jma.go.jp/bosai/weather_map/">https://www.jma.go.jp/bosai/weather_map/</a>) ・
     気象衛星ひまわり画像 出典：気象庁ホームページ (<a href="https://www.jma.go.jp/bosai/map.html">https://www.jma.go.jp/bosai/map.html</a>) ・
-    候補地点・地名 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>(ODbL) ・
+    候補地点・地名 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>(<a href="https://opendatacommons.org/licenses/odbl/">ODbL</a>) ・
     天体位置 JPL DE421 暦(Skyfield経由)。</p>
     <p class="attribution">本レポートは数値予報データを個人の星景撮影計画のために整理・表示したものであり、
     気象庁その他の機関による予報・警報ではありません。気圧面別の雲量は相対湿度からの近似値です。</p>

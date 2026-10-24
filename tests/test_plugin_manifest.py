@@ -153,5 +153,14 @@ class SkillTest(unittest.TestCase):
         self.assertTrue(setup[0].endswith('check_setup.py")'))
 
 
+class VersionTest(unittest.TestCase):
+    def test_changelog_top_entry_matches_plugin_version(self):
+        """CHANGELOG.md の最新の項(## [x.y.z])と plugin.json の version が一致する(上げ忘れ防止)。"""
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        top = re.search(r"^## \[(\d+\.\d+\.\d+)\]", text, re.M)
+        self.assertIsNotNone(top)
+        self.assertEqual(top.group(1), load_json(PLUGIN_JSON)["version"])
+
+
 if __name__ == "__main__":
     unittest.main()

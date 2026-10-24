@@ -561,3 +561,14 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
 - **残っているもの**: `docs/examples/senjogahara_sky_guide_20261009.html`(公開された見本。LPI値とLorenz氏の出典を含む。読み取り専用の運用のため変更せず)、
   `light_pollution.py`とそれを使うスクリプト(legacyのため残す)、`merge_external_spots_20260907.py`・`static_ranking.py`・`run_5points.py`(単発の旧スクリプト)、
   git履歴。著者への利用可否確認は未実施のまま(legacyを使う/公開サービスに組み込むなら要確認)。
+
+## v1.0.0 リリース準備(段階R1、2026-10-24)
+
+ブランチ`stageR1`(`stageLP3`から分岐。指示の`stageLP3b`はローカル・リモートとも存在しなかったため)。push・タグのpush・リリースの公開はしていない。
+詳細(確認した事実・未確認の点・本人が決める点)は`REPORT_R1.md`。
+
+- `plugin.json`の`version`を1.0.0に、CHANGELOGに1.0.0の項。`tests/test_plugin_manifest.py`にCHANGELOGの最新版と`version`の一致テストを追加。
+- READMEの出典表を「提供元・条件(ライセンスとURL)・必要な表示・確認日」の形に改め、一次情報で確認した(2026-10-24)。
+  OSM由来のデータファイルはMITとは別にODbLに従う旨を明記。光害データの変更の経緯(Lorenz氏→Black Marble、以前のコミットに旧データ)を記載。
+- レポートのフッターの出典表示を規約の例に合わせた(Open-Meteo「Weather data by Open-Meteo.com」+CC BY 4.0+加工の旨、気象庁は「出典：気象庁ホームページ(URL)」、ODbLのリンク、Black Marbleの推奨引用)。
+- `external_spots_20260907.csv`(curated_external 62件の元)の出典は記録が無く「出典不明」。

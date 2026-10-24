@@ -45,8 +45,9 @@ BM_RANK_NOTE = ("従来の入力(LPI)との比較では、見込みの上位10�
 BM_CITATION = ("光害 NASA Black Marble VNP46A4(DOI: 10.5067/VIIRS/VNP46A4.002、NASA主導ミッションのデータはCC0)を、"
                "Duriscoe et al. 2018(CC BY)の手法でスカイグロー指数に変換(相対指数)。"
                "引用: NASA VIIRS Land Science Investigator-led Processing System (2025), VIIRS/NPP Lunar BRDF-Adjusted "
-               "Nighttime Lights Yearly L3 Global 15 arc second Linear Lat Lon Grid [Dataset], NASA LAADS DAAC, "
-               "https://doi.org/10.5067/VIIRS/VNP46A4.002")
+               "Nighttime Lights Yearly L3 Global 15 arc second Linear Lat Lon Grid [Dataset]. NASA Level 1 and Atmosphere "
+               "Archive and Distribution System Distributed Active Archive Center. https://doi.org/10.5067/VIIRS/VNP46A4.002"
+               "(表記は LAADS DAAC の製品ページの推奨引用、2026-10-24確認)")
 
 DEFAULT_GRID_PATH = sg.DATA_DIR / "skyglow_bm_2025.npz"
 
