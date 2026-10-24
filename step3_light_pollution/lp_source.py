@@ -27,7 +27,7 @@ import skyglow_bm as sg  # noqa: E402
 # (ALRの141番目 10.3087 と142番目 11.0027 の中点 10.6557 を、区間内の丸めた値にした)。日本では未較正。
 # 論文Table 3(ALR>10)は日本に較正されていないので使っていない。
 BM_ALR_THRESHOLD = 10.66
-# 閾値を決めたときの通過件数N(主軸146件中)。根拠は step3_light_pollution/REPORT_LP2.md 第1節。
+# 閾値を決めたときの通過件数N(主軸146件中)。経緯は CLAUDE.md「段階LP2」節。
 BM_THRESHOLD_N_PASS = 141
 # 内部値の足切り。スコアの光害減点(値×10)の大きさを以前の方式と同じにするための規格化の基準(データではない)。
 LP_INDEX_LIMIT = 5.0

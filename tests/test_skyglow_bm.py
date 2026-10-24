@@ -218,13 +218,13 @@ class DerivedGridTests(unittest.TestCase):
 
     def test_annotate_spots_adds_separate_fields_and_does_not_mutate(self):
         g = self._grid()
-        spots = [{"name": "a", "lat": 35.5, "lon": 138.2, "lpi": 1.0},
-                 {"name": "b", "lat": 35.5, "lon": 138.8, "lpi": 2.0},
-                 {"name": "far", "lat": 50.0, "lon": 138.8, "lpi": 3.0}]
+        spots = [{"name": "a", "lat": 35.5, "lon": 138.2, "extra": 1.0},
+                 {"name": "b", "lat": 35.5, "lon": 138.8, "extra": 2.0},
+                 {"name": "far", "lat": 50.0, "lon": 138.8, "extra": 3.0}]
         before = json.dumps(spots, sort_keys=True)
         out = sg.annotate_spots(spots, g)
         self.assertEqual(json.dumps(spots, sort_keys=True), before)  # 入力は不変
-        self.assertEqual([s["lpi"] for s in out], [1.0, 2.0, 3.0])    # 既存フィールドはそのまま
+        self.assertEqual([s["extra"] for s in out], [1.0, 2.0, 3.0])    # 既存フィールドはそのまま
         self.assertLess(out[0]["skyglow_bm_index"], out[1]["skyglow_bm_index"])
         self.assertEqual(out[0]["skyglow_bm_rank_pct"], 0.0)
         self.assertEqual(out[1]["skyglow_bm_rank_pct"], 100.0)

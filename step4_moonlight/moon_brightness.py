@@ -25,9 +25,9 @@ _B_CONST_B = 20.7233
 _B_CONST_C = 0.92104  # = ln(10)/2.5
 
 
-def mag_to_nl(mpsas: float) -> float:
+def mag_to_nl(mag_arcsec2: float) -> float:
     """mag/arcsec^2 を nanoLambert(線形輝度)に変換する。"""
-    return _B_CONST_A * math.exp(_B_CONST_B - _B_CONST_C * mpsas)
+    return _B_CONST_A * math.exp(_B_CONST_B - _B_CONST_C * mag_arcsec2)
 
 
 def nl_to_mag(nl: float) -> float:
@@ -104,7 +104,7 @@ def moon_zenith_brightness_nl(
 
 
 def combine_sky_brightness(
-    background_mpsas: float,
+    background_mag: float,
     moon_alt_deg: float,
     moon_phase_angle_deg: float,
     extinction_k: float = 0.172,
@@ -114,18 +114,18 @@ def combine_sky_brightness(
 
     戻り値には内訳(背景輝度、月輝度、合計)もnanoLambert単位で含める。
     """
-    background_nl = mag_to_nl(background_mpsas)
+    background_nl = mag_to_nl(background_mag)
     moon_nl = moon_zenith_brightness_nl(moon_alt_deg, moon_phase_angle_deg, extinction_k)
     total_nl = background_nl + moon_nl
-    effective_mpsas = nl_to_mag(total_nl)
+    effective_mag = nl_to_mag(total_nl)
 
     return {
-        "background_mpsas": background_mpsas,
+        "background_mag": background_mag,
         "background_nl": background_nl,
         "moon_alt_deg": moon_alt_deg,
         "moon_phase_angle_deg": moon_phase_angle_deg,
         "moon_nl": moon_nl,
         "total_nl": total_nl,
-        "effective_mpsas": effective_mpsas,
-        "delta_mag": background_mpsas - effective_mpsas,  # 正の値 = 月明かりで空が明るくなった量
+        "effective_mag": effective_mag,
+        "delta_mag": background_mag - effective_mag,  # 正の値 = 月明かりで空が明るくなった量
     }

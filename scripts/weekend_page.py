@@ -181,7 +181,7 @@ _COUNT_RE = re.compile(r"(\d+)\s*(?:件|地点|か所|ヶ所|箇所)")
 _HOURS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*時間")
 _PCT_RE = re.compile(r"(\d+(?:\.\d+)?)(?:\s*[〜~～]\s*(\d+(?:\.\d+)?))?\s*%")
 _KM_RE = re.compile(r"(\d+)\s*km")
-_MPSAS_RE = re.compile(r"(\d+\.\d+)\s*mag")
+_MAG_RE = re.compile(r"(\d+\.\d+)\s*mag")
 _ALR_RE = re.compile(r"ALR\s*(\d+(?:\.\d+)?)")
 _TIME_RE = re.compile(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)")
 MIN_ALIAS_LEN = 3
@@ -289,7 +289,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
             for m in _KM_RE.finditer(text):
                 if int(m.group(1)) not in kms:
                     errors.append(f"{where}: 「{m.group(0)}」はどの候補の東京からの距離とも違います")
-            for m in _MPSAS_RE.finditer(text):
+            for m in _MAG_RE.finditer(text):
                 errors.append(f"{where}: 「{m.group(0)}」は書けません(レポートに空の明るさの等級は無い。相対指数ALRで書く)")
             for m in _ALR_RE.finditer(text):
                 if round(float(m.group(1)), 2) not in alrs:

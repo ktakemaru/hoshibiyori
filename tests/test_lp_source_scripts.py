@@ -74,7 +74,6 @@ class ReportCoursesTests(unittest.TestCase):
         res = rc.build_result(build(), Path("report.html"), 3, False)
         k = res["courses"][0]["candidates"][0]
         self.assertEqual((k["alr"], k["alr_rank_pct"]), (2.34, 41))
-        self.assertNotIn("effective_mpsas", k)
         self.assertNotIn("lp_source", res)
         self.assertIn("相対指数", res["lp_note"])
         self.assertEqual(list(k), ["rank", "name", "municipality", "score", "distance_km", "origin", "date", "window",
@@ -124,7 +123,6 @@ class WeekendPageTests(unittest.TestCase):
         self.assertNotIn("(大きいほど暗い)", page)
         self.assertIn("相対指数です", page)
         self.assertIn("10.5067/VIIRS/VNP46A4.002", page)  # フッターはレポートの出典(Black Marble)を引く
-        self.assertNotIn("Lorenz", page)
 
     def test_verdict_check_alr_and_mag(self):
         report = wp.load_report(build())

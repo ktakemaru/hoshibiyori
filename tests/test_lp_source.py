@@ -77,10 +77,10 @@ class BmStoreTests(unittest.TestCase):
         store = lp.BmLightPollutionStore(grid=synthetic_grid(), reference=np.array([1.0]))
         self.assertAlmostEqual(store.scale * lp.BM_ALR_THRESHOLD, lp.LP_INDEX_LIMIT)
 
-    def test_reading_has_no_magnitude_fields(self):
-        r = self.store.get(35.5, lon_for_alr(3.0))
-        self.assertFalse(hasattr(r, "mpsas"))
-        self.assertFalse(hasattr(r, "bortle_approx"))
+    def test_reading_has_only_alr_fields(self):
+        import dataclasses
+        self.assertEqual([f.name for f in dataclasses.fields(lp.BmReading)],
+                         ["lat", "lon", "alr", "rank_pct", "brightness_ratio"])  # 等級・ボートル値は持たない
 
     def test_rank_pct_is_share_of_reference_at_or_below(self):
         self.assertEqual(self.store.get(35.5, lon_for_alr(0.5)).rank_pct, 0.0)
@@ -124,14 +124,19 @@ class SingleSourceTests(unittest.TestCase):
     def test_limit_text(self):
         self.assertIn("ALR", ex.lp_limit_text(lp.BmLightPollutionStore(grid=synthetic_grid(), reference=np.array([1.0]))))
 
-    def test_committed_spots_have_no_old_light_pollution_values(self):
-        """現行の地点ファイルに、以前の光害データの値(lpi/mpsas/bortle_approx/light_pollution_computed)が無い。"""
-        for path in (sg.SPOTS_PATH, sg.REPO_ROOT / "stargazing_spots.bm.json"):
-            data = json.loads(path.read_text(encoding="utf-8"))
-            for arr in ("spots", "viewpoint_reference"):
-                for s in data.get(arr, []):
-                    for k in ("lpi", "mpsas", "bortle_approx", "light_pollution_computed"):
-                        self.assertNotIn(k, s, f"{path.name} {s.get('name')}")
+    def test_committed_spots_have_only_known_fields(self):
+        """現行の地点ファイルの各地点が、既知の項目だけを持つ(以前の光害データの値が戻っていない)。"""
+        allowed = {
+            "spots": {"id", "name", "prefecture", "municipality", "description", "nominatim_display_name", "lat", "lon",
+                      "coordinate_source", "origin", "matched_candidate", "horizon_profile", "elevation_m", "site_type",
+                      "requires_lift_access", "requires_lift_access_note"},
+        }
+        data = json.loads(sg.SPOTS_PATH.read_text(encoding="utf-8"))
+        extra = {k for s in data["spots"] for k in s} - allowed["spots"]
+        self.assertEqual(extra, set())
+        bm = json.loads((sg.REPO_ROOT / "stargazing_spots.bm.json").read_text(encoding="utf-8"))
+        self.assertEqual({k for s in bm["spots"] for k in s},
+                         {"id", "name", "prefecture", "lat", "lon", "site_type", "skyglow_bm_index", "skyglow_bm_rank_pct"})
 
     def test_site_type_of_committed_spots_follows_alr_threshold(self):
         store = lp.BmLightPollutionStore()
@@ -170,8 +175,6 @@ class ReportRenderTests(unittest.TestCase):
         self.assertIn("相対指数", h)
         self.assertIn("絶対値", h)
         self.assertIn(str(lp.BM_ALR_THRESHOLD), h)
-        self.assertNotIn("Light Pollution Atlas", h)
-        self.assertNotIn("Lorenz", h)
 
     def test_night_view_group(self):
         item = {"site_name": "菜の花台", "municipality": "横須賀市", "lat": 35.2, "lon": 139.6, "night_date": D,
@@ -180,7 +183,6 @@ class ReportRenderTests(unittest.TestCase):
         h = gr.render_night_view_group([item])
         self.assertIn("光害(相対指数)", h)
         self.assertIn("ALR 17.30", h)
-        self.assertNotIn("LPI", h)
 
     def test_cards_without_alr_fields_do_not_crash(self):
         c = _card()

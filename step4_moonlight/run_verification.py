@@ -14,7 +14,7 @@ SITE_NAME = "石廊崎"
 SITE_LAT = 34.602778
 SITE_LON = 138.845278
 SITE_ELEV = 60.0
-BACKGROUND_MPSAS = 21.5  # 仮定の背景輝度(月を含まない)。地点の光害を表す値ではない
+BACKGROUND_MAG = 21.5  # 仮定の背景輝度(月を含まない)。地点の光害を表す値ではない
 
 TEST_CASES = [
     ("新月(2026-06-15)夜", datetime(2026, 6, 15, 23, 0, 0)),
@@ -26,17 +26,17 @@ if __name__ == "__main__":
     eph = load("de421.bsp")
 
     print(f"=== {SITE_NAME} (緯度{SITE_LAT}, 経度{SITE_LON}) ===")
-    print(f"背景輝度(仮定値): {BACKGROUND_MPSAS} mag/arcsec^2\n")
+    print(f"背景輝度(仮定値): {BACKGROUND_MAG} mag/arcsec^2\n")
 
     for label, dt_naive in TEST_CASES:
         dt_local = dt_naive.replace(tzinfo=JST)
         moon = compute_moon_position(ts, eph, SITE_LAT, SITE_LON, SITE_ELEV, dt_local)
-        result = combine_sky_brightness(BACKGROUND_MPSAS, moon.alt_deg, moon.phase_angle_deg)
+        result = combine_sky_brightness(BACKGROUND_MAG, moon.alt_deg, moon.phase_angle_deg)
 
         print(f"--- {label} {dt_local.strftime('%Y-%m-%d %H:%M')} JST ---")
         print(f"  月の高度: {moon.alt_deg:.1f}°  月の位相角: {moon.phase_angle_deg:.1f}° (0=満月,180=新月)")
         print(f"  月明かり由来の輝度増加: {result['moon_nl']:.4f} nL")
         print(f"  背景輝度: {result['background_nl']:.4f} nL")
-        print(f"  実効的な空の明るさ: {result['effective_mpsas']:.3f} mag/arcsec^2"
-              f"  (背景のみ: {BACKGROUND_MPSAS} mag/arcsec^2, 悪化量: {result['delta_mag']:.3f} 等級)")
+        print(f"  実効的な空の明るさ: {result['effective_mag']:.3f} mag/arcsec^2"
+              f"  (背景のみ: {BACKGROUND_MAG} mag/arcsec^2, 悪化量: {result['delta_mag']:.3f} 等級)")
         print()

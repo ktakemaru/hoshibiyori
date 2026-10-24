@@ -54,7 +54,7 @@ def main() -> int:
     spots = json.loads(sg.SPOTS_PATH.read_text(encoding="utf-8"))["spots"]
     ann = sg.annotate_spots(spots, grid)
     res = {"grid": str(args.grid.name), "n_spots": len(spots)}
-    # (段階LP1〜LP3の「旧データとの順位相関」は、旧データの取得処理とともに段階LP3bで削除した。結果は REPORT_LP1.md)
+    # (段階LP1〜LP3の「旧データとの順位相関」は、旧データの取得処理とともに段階LP3bで削除した。結論は CLAUDE.md「段階LP1」節)
     ok = [i for i, s in enumerate(ann) if s["skyglow_bm_index"] is not None]
     bm = np.array([ann[i]["skyglow_bm_index"] for i in ok])
     pb = sg.rank_pct(bm)

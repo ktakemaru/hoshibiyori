@@ -22,9 +22,10 @@
 - README: 出典表を「提供元・条件(ライセンスとURL)・必要な表示・確認日」の形に改め、OSM 由来のデータファイルのライセンス(ODbL)、光害データの変更の経緯を追記
 
 ### Removed
-- 以前の光害データ由来の値: `stargazing_spots.json` の `lpi`・`mpsas`・`bortle_approx`・`light_pollution_computed`、テスト用データ・ログ・検証記録の地点別の値、星空ガイドの見出しの光害欄
+- 以前の光害データ由来の値: `stargazing_spots.json` の光害の4項目、テスト用データ・ログ・検証記録の地点別の値、星空ガイドの見出しの光害欄
 - 以前の光害データの取得処理(`step3_light_pollution/light_pollution.py` とタイルのキャッシュ処理)と、それに依存するスクリプト(`static_ranking.py`、`merge_external_spots_20260907.py`、`step3_light_pollution/run_5points.py` ほか、比較・検証用のスクリプト)
 - 星空ガイドの見本 `docs/examples/senjogahara_sky_guide_20261009.html` と、見本からゴールデンを抽出する `scripts/extract_sky_guide_sample.py`(回帰テストは抽出済みの `tests/fixtures/sky_guide/` で続ける)
+- 開発時の報告書(`step3_light_pollution/REPORT_LP1.md`〜`REPORT_LP3b.md`、`REPORT_R1.md`)。結論は `CLAUDE.md` に要約した
 
 ### Fixed
 - README の星空ガイドの手順で、`scripts\render_sky_guide.py` の `\r` が改行文字になって壊れていた行
