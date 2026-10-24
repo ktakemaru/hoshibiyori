@@ -28,7 +28,7 @@ DATASETS: dict[str, tuple[str, int]] = {
     "dem": ("https://cyberjapandata.gsi.go.jp/xyz/dem/{z}/{x}/{y}.txt", 14),      # 10mメッシュ(全国、既定)
 }
 
-_USER_AGENT = "hoshibiyori-terrain-horizon/0.1 (personal astrophotography tool; script-based, low-volume, cached)"
+_USER_AGENT = "hoshibiyori-terrain-horizon/1.0.0 (personal astrophotography tool; script-based, low-volume, cached)"
 _REQUEST_TIMEOUT_SEC = 15
 _POLITE_DELAY_SEC = 0.05  # 新規タイル取得ごとの小休止
 

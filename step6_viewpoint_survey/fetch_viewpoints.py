@@ -45,7 +45,7 @@ def fetch_viewpoints(bbox: tuple[float, float, float, float] = BBOX) -> list[Vie
         OVERPASS_URL,
         data={"data": query},
         timeout=90,
-        headers={"User-Agent": "hoshibiyori-research/0.1 (personal astrophotography tool; low-volume)"},
+        headers={"User-Agent": "hoshibiyori-research/1.0.0 (personal astrophotography tool; low-volume)"},
     )
     resp.raise_for_status()
     data = resp.json()

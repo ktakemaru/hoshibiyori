@@ -30,7 +30,7 @@ PROVENANCE_PATH = HERE / "data" / "PROVENANCE.json"
 
 CMR_COLLECTIONS = "https://cmr.earthdata.nasa.gov/search/collections.json"
 CMR_GRANULES = "https://cmr.earthdata.nasa.gov/search/granules.json"
-USER_AGENT = "hoshibiyori-lp1/0.1 (personal astrophotography tool; low-volume, cached)"
+USER_AGENT = "hoshibiyori-lp1/1.0.0 (personal astrophotography tool; low-volume, cached)"
 POLITE_DELAY_SEC = 2.0
 TIMEOUT_SEC = 120
 

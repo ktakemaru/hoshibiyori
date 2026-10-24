@@ -60,7 +60,7 @@ def check_writable(path: Path) -> bool:
 
 def check_network() -> tuple[str, str]:
     import requests
-    ua = "hoshibiyori-check-setup/0.1 (personal astrophotography tool; single request)"
+    ua = "hoshibiyori-check-setup/1.0.0 (personal astrophotography tool; single request)"
     try:
         r = requests.get("https://api.open-meteo.com/v1/forecast",
                          params={"latitude": 35.0, "longitude": 139.0, "hourly": "cloud_cover", "forecast_days": 1},

@@ -43,7 +43,7 @@ ATTRIBUTION = "出典: David Lorenz, Light Pollution Atlas (https://djlorenz.git
 
 _TILE_URL_TEMPLATE = "https://djlorenz.github.io/astronomy/binary_tiles/{year}/binary_tile_{tilex}_{tiley}.dat.gz"
 _TILE_GRID_SIZE = 600  # 1タイル=5度四方、1/120度(600x600点)格子
-_USER_AGENT = "hoshibiyori-terrain-horizon/0.1 (personal astrophotography tool; low-volume, cached)"
+_USER_AGENT = "hoshibiyori-terrain-horizon/1.0.0 (personal astrophotography tool; low-volume, cached)"
 _REQUEST_TIMEOUT_SEC = 20
 
 # 簡易 Bortleスケール対応表(上限値, 明るさ比LPIのこの値未満ならそのクラス)
