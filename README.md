@@ -187,7 +187,7 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 | 候補地点(OSM展望データ)・地名・座標(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | データは [ODbL 1.0](https://opendatacommons.org/licenses/odbl/)(改変・組み込んだデータを配布する場合は同じライセンス)。Nominatim は[利用方針](https://operations.osmfoundation.org/policies/nominatim/)(最大1リクエスト/秒、識別可能なUser-Agent、結果のキャッシュ必須、大量のジオコーディングは推奨されない、格子状の逆ジオコーディングなどの系統的な問い合わせは禁止) | 「© OpenStreetMap contributors」と ODbL へのリンク。データとして配布する場合は、データ内か利用者が見る場所(README等)に表示([帰属表示ガイドライン](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines))。下の「データファイルのライセンス」 | 2026-10-24 |
 | 天体位置 | JPL DE421 暦([Skyfield](https://rhodesmill.org/skyfield/)経由で自動取得) | Skyfield は MIT License。DE421 の利用条件は、JPL の一次情報を確認できていない(**未確認**。パブリックドメインとして扱われているという二次情報のみ) | 出典として「JPL DE421 暦(Skyfield経由)」を表示 | 2026-10-24 |
 | 星空撮影名所(curated) | 星空撮影の専門家・愛好家サイト、自治体観光サイト等のWeb調査 | 地名・座標(Nominatim)のみを収録し、説明文は独自に要約。調査先の各サイトの利用条件は個別には確認していない(**未確認**) | — | — |
-| 星空撮影名所(外部リスト、`curated_external` 62件) | `external_spots_20260907.csv`(場所名と座標の100件) | **出典不明**(別のシステムで収集したリストとして取り込んだ記録のみ。取り込み元の名称・URL・条件の記録がない) | — | — |
+| 星空撮影名所(外部リスト、`curated_external` 62件) | `external_spots_20260907.csv`(場所名と座標の100件) | ChatGPT に星空の有名スポットを列挙させた場所名と座標のみのリスト(2026-09-07、本人が取得)。座標は個別に検証しておらず参考値 | — | — |
 
 **アクセスの節度**: いずれの提供元に対しても、タイル/格子セル単位のディスクキャッシュ、新規取得時のポライトネス・ディレイ、識別可能なUser-Agentを維持している。これらを無効化しないこと。
 
