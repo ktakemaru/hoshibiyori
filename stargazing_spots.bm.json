@@ -1,6 +1,6 @@
 {
  "schema": "hoshibiyori-spots-skyglow-bm/1",
- "note": "ALRは日本では未較正の相対指数。小さいほど暗い。rank_pctは0=最も暗い・100=最も明るい(この146地点の中での位置)。既存のlpi/mpsas/bortle_approxは置き換えていない。",
+ "note": "ALRは日本では未較正の相対指数。小さいほど暗い。rank_pctは0=最も暗い・100=最も明るい(この146地点の中での位置)。",
  "grid": {
   "file": "skyglow_bm_2025.npz",
   "sha256": "56b7d708926b3d013263dc10140bc0f71f45327627d21563ad41a8b1b466a5e0",
@@ -15,7 +15,6 @@
    "prefecture": "茨城県",
    "lat": 36.314963,
    "lon": 140.589524,
-   "lpi": 4.93,
    "site_type": "dark_sky",
    "skyglow_bm_index": 6.8809,
    "skyglow_bm_rank_pct": 81.38
@@ -26,7 +25,6 @@
    "prefecture": "茨城県",
    "lat": 36.662972,
    "lon": 140.713083,
-   "lpi": 2.68,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.6505,
    "skyglow_bm_rank_pct": 64.14
@@ -37,7 +35,6 @@
    "prefecture": "栃木県",
    "lat": 36.778887,
    "lon": 139.442674,
-   "lpi": 0.57,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.7991,
    "skyglow_bm_rank_pct": 35.17
@@ -48,7 +45,6 @@
    "prefecture": "栃木県",
    "lat": 37.074705,
    "lon": 140.005252,
-   "lpi": 1.19,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2588,
    "skyglow_bm_rank_pct": 45.52
@@ -59,7 +55,6 @@
    "prefecture": "栃木県",
    "lat": 36.800583,
    "lon": 139.423694,
-   "lpi": 0.57,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.6368,
    "skyglow_bm_rank_pct": 31.03
@@ -70,7 +65,6 @@
    "prefecture": "栃木県",
    "lat": 36.736861,
    "lon": 139.476861,
-   "lpi": 0.78,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2167,
    "skyglow_bm_rank_pct": 44.14
@@ -81,7 +75,6 @@
    "prefecture": "群馬県",
    "lat": 36.706853,
    "lon": 138.645761,
-   "lpi": 0.41,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.3978,
    "skyglow_bm_rank_pct": 26.21
@@ -92,7 +85,6 @@
    "prefecture": "群馬県",
    "lat": 36.416452,
    "lon": 138.778379,
-   "lpi": 1.1,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.2814,
    "skyglow_bm_rank_pct": 58.62
@@ -103,7 +95,6 @@
    "prefecture": "群馬県",
    "lat": 36.552714,
    "lon": 139.178721,
-   "lpi": 1.27,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.1981,
    "skyglow_bm_rank_pct": 68.28
@@ -114,7 +105,6 @@
    "prefecture": "群馬県",
    "lat": 36.54164,
    "lon": 139.167629,
-   "lpi": 1.43,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.4778,
    "skyglow_bm_rank_pct": 70.34
@@ -125,7 +115,6 @@
    "prefecture": "埼玉県",
    "lat": 36.001249,
    "lon": 139.064806,
-   "lpi": 3.14,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.8944,
    "skyglow_bm_rank_pct": 88.28
@@ -136,8 +125,7 @@
    "prefecture": "埼玉県",
    "lat": 36.006079,
    "lon": 139.190388,
-   "lpi": 3.2,
-   "site_type": "dark_sky",
+   "site_type": "night_view",
    "skyglow_bm_index": 11.0027,
    "skyglow_bm_rank_pct": 97.24
   },
@@ -147,7 +135,6 @@
    "prefecture": "埼玉県",
    "lat": 35.986886,
    "lon": 139.089827,
-   "lpi": 4.56,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.7222,
    "skyglow_bm_rank_pct": 93.79
@@ -158,7 +145,6 @@
    "prefecture": "埼玉県",
    "lat": 36.101522,
    "lon": 139.16172,
-   "lpi": 4.06,
    "site_type": "dark_sky",
    "skyglow_bm_index": 10.3087,
    "skyglow_bm_rank_pct": 96.55
@@ -169,7 +155,6 @@
    "prefecture": "埼玉県",
    "lat": 35.94873,
    "lon": 138.864324,
-   "lpi": 0.92,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.7336,
    "skyglow_bm_rank_pct": 64.83
@@ -180,7 +165,6 @@
    "prefecture": "千葉県",
    "lat": 35.707913,
    "lon": 140.868526,
-   "lpi": 1.92,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.3364,
    "skyglow_bm_rank_pct": 60.69
@@ -191,7 +175,6 @@
    "prefecture": "千葉県",
    "lat": 35.507509,
    "lon": 140.435851,
-   "lpi": 3.4,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.1414,
    "skyglow_bm_rank_pct": 90.34
@@ -202,7 +185,6 @@
    "prefecture": "千葉県",
    "lat": 35.130583,
    "lon": 139.975109,
-   "lpi": 1.67,
    "site_type": "dark_sky",
    "skyglow_bm_index": 5.654,
    "skyglow_bm_rank_pct": 76.55
@@ -213,7 +195,6 @@
    "prefecture": "千葉県",
    "lat": 34.90173,
    "lon": 139.888385,
-   "lpi": 1.12,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.4019,
    "skyglow_bm_rank_pct": 50.34
@@ -224,7 +205,6 @@
    "prefecture": "千葉県",
    "lat": 35.336137,
    "lon": 140.395038,
-   "lpi": 2.2,
    "site_type": "dark_sky",
    "skyglow_bm_index": 5.528,
    "skyglow_bm_rank_pct": 75.17
@@ -235,7 +215,6 @@
    "prefecture": "千葉県",
    "lat": 35.135909,
    "lon": 140.311339,
-   "lpi": 1.74,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.3083,
    "skyglow_bm_rank_pct": 59.31
@@ -246,7 +225,6 @@
    "prefecture": "千葉県",
    "lat": 35.18396,
    "lon": 140.356793,
-   "lpi": 1.92,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.6308,
    "skyglow_bm_rank_pct": 63.45
@@ -257,7 +235,6 @@
    "prefecture": "東京都",
    "lat": 35.792384,
    "lon": 139.047383,
-   "lpi": 2.04,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.816,
    "skyglow_bm_rank_pct": 86.9
@@ -268,7 +245,6 @@
    "prefecture": "東京都",
    "lat": 35.758248,
    "lon": 139.047156,
-   "lpi": 2.04,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.0603,
    "skyglow_bm_rank_pct": 89.66
@@ -279,7 +255,6 @@
    "prefecture": "東京都",
    "lat": 35.852521,
    "lon": 139.041,
-   "lpi": 1.7,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.0955,
    "skyglow_bm_rank_pct": 82.76
@@ -290,7 +265,6 @@
    "prefecture": "東京都",
    "lat": 35.631094,
    "lon": 139.256094,
-   "lpi": 10.18,
    "site_type": "night_view",
    "skyglow_bm_index": 25.4249,
    "skyglow_bm_rank_pct": 100.0
@@ -301,7 +275,6 @@
    "prefecture": "東京都",
    "lat": 34.192385,
    "lon": 139.144698,
-   "lpi": 0.49,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.3186,
    "skyglow_bm_rank_pct": 2.07
@@ -312,7 +285,6 @@
    "prefecture": "東京都",
    "lat": 33.137349,
    "lon": 139.767181,
-   "lpi": 0.21,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.1688,
    "skyglow_bm_rank_pct": 0.0
@@ -323,7 +295,6 @@
    "prefecture": "神奈川県",
    "lat": 35.129126,
    "lon": 139.630059,
-   "lpi": 3.27,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.5251,
    "skyglow_bm_rank_pct": 91.72
@@ -334,7 +305,6 @@
    "prefecture": "神奈川県",
    "lat": 35.417618,
    "lon": 139.048172,
-   "lpi": 2.68,
    "site_type": "dark_sky",
    "skyglow_bm_index": 9.0674,
    "skyglow_bm_rank_pct": 95.86
@@ -345,7 +315,6 @@
    "prefecture": "神奈川県",
    "lat": 35.410402,
    "lon": 139.210634,
-   "lpi": 6.49,
    "site_type": "night_view",
    "skyglow_bm_index": 17.296,
    "skyglow_bm_rank_pct": 99.31
@@ -356,7 +325,6 @@
    "prefecture": "神奈川県",
    "lat": 35.14136,
    "lon": 139.16047,
-   "lpi": 2.39,
    "site_type": "dark_sky",
    "skyglow_bm_index": 6.7441,
    "skyglow_bm_rank_pct": 80.0
@@ -367,7 +335,6 @@
    "prefecture": "神奈川県",
    "lat": 35.184892,
    "lon": 139.048905,
-   "lpi": 3.14,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.8561,
    "skyglow_bm_rank_pct": 87.59
@@ -378,7 +345,6 @@
    "prefecture": "山梨県",
    "lat": 35.464306,
    "lon": 138.585505,
-   "lpi": 1.17,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.7339,
    "skyglow_bm_rank_pct": 65.52
@@ -389,7 +355,6 @@
    "prefecture": "山梨県",
    "lat": 35.490824,
    "lon": 138.605076,
-   "lpi": 1.37,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.1015,
    "skyglow_bm_rank_pct": 66.9
@@ -400,7 +365,6 @@
    "prefecture": "山梨県",
    "lat": 35.412607,
    "lon": 138.909461,
-   "lpi": 2.58,
    "site_type": "dark_sky",
    "skyglow_bm_index": 6.8665,
    "skyglow_bm_rank_pct": 80.69
@@ -411,7 +375,6 @@
    "prefecture": "山梨県",
    "lat": 35.51306,
    "lon": 138.744824,
-   "lpi": 2.68,
    "site_type": "dark_sky",
    "skyglow_bm_index": 5.6175,
    "skyglow_bm_rank_pct": 75.86
@@ -422,7 +385,6 @@
    "prefecture": "山梨県",
    "lat": 35.939651,
    "lon": 138.420884,
-   "lpi": 0.78,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2524,
    "skyglow_bm_rank_pct": 44.83
@@ -433,7 +395,6 @@
    "prefecture": "山梨県",
    "lat": 35.896362,
    "lon": 138.573704,
-   "lpi": 0.65,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.424,
    "skyglow_bm_rank_pct": 51.72
@@ -444,7 +405,6 @@
    "prefecture": "山梨県",
    "lat": 35.683379,
    "lon": 138.382106,
-   "lpi": 1.22,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.3856,
    "skyglow_bm_rank_pct": 61.38
@@ -455,7 +415,6 @@
    "prefecture": "長野県",
    "lat": 35.45609,
    "lon": 137.633603,
-   "lpi": 0.63,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.0484,
    "skyglow_bm_rank_pct": 40.69
@@ -466,7 +425,6 @@
    "prefecture": "長野県",
    "lat": 36.230724,
    "lon": 138.140291,
-   "lpi": 0.74,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2865,
    "skyglow_bm_rank_pct": 47.59
@@ -477,7 +435,6 @@
    "prefecture": "長野県",
    "lat": 36.669102,
    "lon": 138.518649,
-   "lpi": 0.61,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.7055,
    "skyglow_bm_rank_pct": 33.79
@@ -488,7 +445,6 @@
    "prefecture": "長野県",
    "lat": 36.103068,
    "lon": 138.198514,
-   "lpi": 1.0,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.4527,
    "skyglow_bm_rank_pct": 53.1
@@ -499,7 +455,6 @@
    "prefecture": "長野県",
    "lat": 36.105776,
    "lon": 138.237963,
-   "lpi": 1.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.3667,
    "skyglow_bm_rank_pct": 49.66
@@ -510,7 +465,6 @@
    "prefecture": "長野県",
    "lat": 36.122174,
    "lon": 137.627015,
-   "lpi": 0.34,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.0355,
    "skyglow_bm_rank_pct": 10.34
@@ -521,7 +475,6 @@
    "prefecture": "長野県",
    "lat": 36.234112,
    "lon": 138.106634,
-   "lpi": 0.87,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.4654,
    "skyglow_bm_rank_pct": 53.79
@@ -532,7 +485,6 @@
    "prefecture": "長野県",
    "lat": 36.05147,
    "lon": 138.36229,
-   "lpi": 0.61,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.0089,
    "skyglow_bm_rank_pct": 40.0
@@ -543,7 +495,6 @@
    "prefecture": "新潟県",
    "lat": 36.872201,
    "lon": 138.212196,
-   "lpi": 1.45,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.9117,
    "skyglow_bm_rank_pct": 37.24
@@ -554,7 +505,6 @@
    "prefecture": "新潟県",
    "lat": 37.124235,
    "lon": 138.529651,
-   "lpi": 0.35,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2526,
    "skyglow_bm_rank_pct": 21.38
@@ -565,7 +515,6 @@
    "prefecture": "新潟県",
    "lat": 36.795024,
    "lon": 138.778756,
-   "lpi": 1.04,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.3775,
    "skyglow_bm_rank_pct": 24.83
@@ -576,7 +525,6 @@
    "prefecture": "新潟県",
    "lat": 37.708678,
    "lon": 138.821349,
-   "lpi": 1.08,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.4206,
    "skyglow_bm_rank_pct": 51.03
@@ -587,7 +535,6 @@
    "prefecture": "新潟県",
    "lat": 38.138318,
    "lon": 138.390423,
-   "lpi": 0.09,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.2662,
    "skyglow_bm_rank_pct": 0.69
@@ -598,7 +545,6 @@
    "prefecture": "新潟県",
    "lat": 38.066262,
    "lon": 138.292768,
-   "lpi": 0.14,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.2959,
    "skyglow_bm_rank_pct": 1.38
@@ -609,7 +555,6 @@
    "prefecture": "富山県",
    "lat": 36.577192,
    "lon": 137.595794,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.1264,
    "skyglow_bm_rank_pct": 15.86
@@ -620,7 +565,6 @@
    "prefecture": "富山県",
    "lat": 36.567248,
    "lon": 137.557484,
-   "lpi": 0.32,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2046,
    "skyglow_bm_rank_pct": 18.62
@@ -631,7 +575,6 @@
    "prefecture": "富山県",
    "lat": 36.577567,
    "lon": 137.595254,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.128,
    "skyglow_bm_rank_pct": 16.55
@@ -642,7 +585,6 @@
    "prefecture": "富山県",
    "lat": 36.568143,
    "lon": 137.430321,
-   "lpi": 0.85,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.8838,
    "skyglow_bm_rank_pct": 35.86
@@ -653,7 +595,6 @@
    "prefecture": "富山県",
    "lat": 36.430688,
    "lon": 136.914051,
-   "lpi": 0.71,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.1418,
    "skyglow_bm_rank_pct": 42.07
@@ -664,7 +605,6 @@
    "prefecture": "富山県",
    "lat": 36.603517,
    "lon": 137.616585,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.1167,
    "skyglow_bm_rank_pct": 14.48
@@ -675,7 +615,6 @@
    "prefecture": "石川県",
    "lat": 37.335398,
    "lon": 137.136789,
-   "lpi": 0.36,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.5298,
    "skyglow_bm_rank_pct": 5.52
@@ -686,7 +625,6 @@
    "prefecture": "石川県",
    "lat": 37.371792,
    "lon": 137.238098,
-   "lpi": 0.31,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.4524,
    "skyglow_bm_rank_pct": 4.83
@@ -697,7 +635,6 @@
    "prefecture": "石川県",
    "lat": 37.396137,
    "lon": 137.247322,
-   "lpi": 0.42,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.4405,
    "skyglow_bm_rank_pct": 4.14
@@ -708,7 +645,6 @@
    "prefecture": "石川県",
    "lat": 36.155046,
    "lon": 136.771467,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.1179,
    "skyglow_bm_rank_pct": 15.17
@@ -719,7 +655,6 @@
    "prefecture": "石川県",
    "lat": 36.524037,
    "lon": 136.753986,
-   "lpi": 2.79,
    "site_type": "dark_sky",
    "skyglow_bm_index": 5.1588,
    "skyglow_bm_rank_pct": 74.48
@@ -730,7 +665,6 @@
    "prefecture": "福井県",
    "lat": 36.022434,
    "lon": 136.598015,
-   "lpi": 0.52,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.5507,
    "skyglow_bm_rank_pct": 28.28
@@ -741,7 +675,6 @@
    "prefecture": "福井県",
    "lat": 35.904482,
    "lon": 136.661545,
-   "lpi": 0.46,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.439,
    "skyglow_bm_rank_pct": 26.9
@@ -752,7 +685,6 @@
    "prefecture": "福井県",
    "lat": 35.602442,
    "lon": 135.870411,
-   "lpi": 0.65,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.8991,
    "skyglow_bm_rank_pct": 36.55
@@ -763,7 +695,6 @@
    "prefecture": "岐阜県",
    "lat": 36.005823,
    "lon": 136.91336,
-   "lpi": 0.82,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.3463,
    "skyglow_bm_rank_pct": 24.14
@@ -774,7 +705,6 @@
    "prefecture": "岐阜県",
    "lat": 36.124539,
    "lon": 137.553627,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.9738,
    "skyglow_bm_rank_pct": 8.28
@@ -785,7 +715,6 @@
    "prefecture": "岐阜県",
    "lat": 36.257345,
    "lon": 136.906832,
-   "lpi": 0.53,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2649,
    "skyglow_bm_rank_pct": 22.76
@@ -796,7 +725,6 @@
    "prefecture": "岐阜県",
    "lat": 36.275245,
    "lon": 137.591285,
-   "lpi": 0.36,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.0405,
    "skyglow_bm_rank_pct": 11.72
@@ -807,7 +735,6 @@
    "prefecture": "岐阜県",
    "lat": 35.753083,
    "lon": 136.961445,
-   "lpi": 1.45,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.5476,
    "skyglow_bm_rank_pct": 55.17
@@ -818,7 +745,6 @@
    "prefecture": "静岡県",
    "lat": 35.385236,
    "lon": 138.57218,
-   "lpi": 1.15,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.455,
    "skyglow_bm_rank_pct": 62.07
@@ -829,7 +755,6 @@
    "prefecture": "静岡県",
    "lat": 35.344103,
    "lon": 138.561279,
-   "lpi": 1.12,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.5423,
    "skyglow_bm_rank_pct": 62.76
@@ -840,7 +765,6 @@
    "prefecture": "静岡県",
    "lat": 34.659512,
    "lon": 138.986153,
-   "lpi": 0.72,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2109,
    "skyglow_bm_rank_pct": 20.0
@@ -851,7 +775,6 @@
    "prefecture": "静岡県",
    "lat": 34.871659,
    "lon": 139.023935,
-   "lpi": 0.8,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.4446,
    "skyglow_bm_rank_pct": 52.41
@@ -862,7 +785,6 @@
    "prefecture": "静岡県",
    "lat": 34.632796,
    "lon": 138.888757,
-   "lpi": 0.54,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.0597,
    "skyglow_bm_rank_pct": 12.41
@@ -873,7 +795,6 @@
    "prefecture": "静岡県",
    "lat": 34.602778,
    "lon": 138.845278,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.8499,
    "skyglow_bm_rank_pct": 7.59
@@ -884,7 +805,6 @@
    "prefecture": "静岡県",
    "lat": 35.174699,
    "lon": 138.118059,
-   "lpi": 0.44,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.6731,
    "skyglow_bm_rank_pct": 32.41
@@ -895,7 +815,6 @@
    "prefecture": "愛知県",
    "lat": 34.583598,
    "lon": 137.02043,
-   "lpi": 2.34,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.8307,
    "skyglow_bm_rank_pct": 73.79
@@ -906,7 +825,6 @@
    "prefecture": "愛知県",
    "lat": 35.227569,
    "lon": 137.655597,
-   "lpi": 0.57,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2013,
    "skyglow_bm_rank_pct": 42.76
@@ -917,7 +835,6 @@
    "prefecture": "愛知県",
    "lat": 35.20035,
    "lon": 137.604806,
-   "lpi": 0.72,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.6218,
    "skyglow_bm_rank_pct": 55.86
@@ -928,7 +845,6 @@
    "prefecture": "愛知県",
    "lat": 35.118029,
    "lon": 137.718911,
-   "lpi": 0.61,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.285,
    "skyglow_bm_rank_pct": 46.9
@@ -939,7 +855,6 @@
    "prefecture": "長野県",
    "lat": 35.3958,
    "lon": 137.6744,
-   "lpi": 0.54,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.9155,
    "skyglow_bm_rank_pct": 37.93
@@ -950,7 +865,6 @@
    "prefecture": "長野県",
    "lat": 35.4011,
    "lon": 137.6683,
-   "lpi": 0.56,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.9325,
    "skyglow_bm_rank_pct": 38.62
@@ -961,7 +875,6 @@
    "prefecture": "長野県",
    "lat": 36.2269,
    "lon": 138.0772,
-   "lpi": 1.06,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.7718,
    "skyglow_bm_rank_pct": 57.24
@@ -972,7 +885,6 @@
    "prefecture": "長野県",
    "lat": 36.1039,
    "lon": 138.1694,
-   "lpi": 1.0,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.5467,
    "skyglow_bm_rank_pct": 54.48
@@ -983,7 +895,6 @@
    "prefecture": "長野県",
    "lat": 35.9419,
    "lon": 138.4728,
-   "lpi": 0.85,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2963,
    "skyglow_bm_rank_pct": 48.28
@@ -994,7 +905,6 @@
    "prefecture": "長野県",
    "lat": 35.9525,
    "lon": 138.4778,
-   "lpi": 0.9,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2749,
    "skyglow_bm_rank_pct": 46.21
@@ -1005,7 +915,6 @@
    "prefecture": "長野県",
    "lat": 35.7761,
    "lon": 137.8131,
-   "lpi": 0.44,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.3788,
    "skyglow_bm_rank_pct": 25.52
@@ -1016,7 +925,6 @@
    "prefecture": "長野県",
    "lat": 36.7583,
    "lon": 137.8486,
-   "lpi": 0.48,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.1346,
    "skyglow_bm_rank_pct": 17.24
@@ -1027,7 +935,6 @@
    "prefecture": "長野県",
    "lat": 36.7028,
    "lon": 137.8089,
-   "lpi": 0.6,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2061,
    "skyglow_bm_rank_pct": 19.31
@@ -1038,7 +945,6 @@
    "prefecture": "長野県",
    "lat": 36.2489,
    "lon": 137.6375,
-   "lpi": 0.32,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.0721,
    "skyglow_bm_rank_pct": 13.1
@@ -1049,7 +955,6 @@
    "prefecture": "長野県",
    "lat": 35.9272,
    "lon": 137.5889,
-   "lpi": 0.39,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.012,
    "skyglow_bm_rank_pct": 9.66
@@ -1060,7 +965,6 @@
    "prefecture": "長野県",
    "lat": 36.1308,
    "lon": 138.0417,
-   "lpi": 1.54,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.328,
    "skyglow_bm_rank_pct": 60.0
@@ -1071,7 +975,6 @@
    "prefecture": "長野県",
    "lat": 35.6517,
    "lon": 137.8925,
-   "lpi": 0.85,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.7372,
    "skyglow_bm_rank_pct": 34.48
@@ -1082,7 +985,6 @@
    "prefecture": "群馬県",
    "lat": 36.6608,
    "lon": 138.5283,
-   "lpi": 0.59,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.6937,
    "skyglow_bm_rank_pct": 33.1
@@ -1093,7 +995,6 @@
    "prefecture": "栃木県",
    "lat": 36.8083,
    "lon": 139.3789,
-   "lpi": 0.42,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.5109,
    "skyglow_bm_rank_pct": 27.59
@@ -1104,7 +1005,6 @@
    "prefecture": "栃木県",
    "lat": 36.9367,
    "lon": 139.8083,
-   "lpi": 0.69,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.9903,
    "skyglow_bm_rank_pct": 39.31
@@ -1115,7 +1015,6 @@
    "prefecture": "栃木県",
    "lat": 37.1264,
    "lon": 139.9678,
-   "lpi": 0.52,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.6072,
    "skyglow_bm_rank_pct": 30.34
@@ -1126,7 +1025,6 @@
    "prefecture": "群馬県",
    "lat": 36.5986,
    "lon": 138.9839,
-   "lpi": 1.19,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.2726,
    "skyglow_bm_rank_pct": 57.93
@@ -1137,7 +1035,6 @@
    "prefecture": "群馬県",
    "lat": 36.7019,
    "lon": 139.2069,
-   "lpi": 0.72,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.2157,
    "skyglow_bm_rank_pct": 43.45
@@ -1148,7 +1045,6 @@
    "prefecture": "群馬県",
    "lat": 36.4744,
    "lon": 138.8708,
-   "lpi": 1.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 3.8553,
    "skyglow_bm_rank_pct": 66.21
@@ -1159,7 +1055,6 @@
    "prefecture": "群馬県",
    "lat": 36.2817,
    "lon": 139.3139,
-   "lpi": 9.98,
    "site_type": "night_view",
    "skyglow_bm_index": 15.5671,
    "skyglow_bm_rank_pct": 98.62
@@ -1170,7 +1065,6 @@
    "prefecture": "埼玉県",
    "lat": 36.035,
    "lon": 139.1028,
-   "lpi": 3.4,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.6825,
    "skyglow_bm_rank_pct": 92.41
@@ -1181,7 +1075,6 @@
    "prefecture": "埼玉県",
    "lat": 35.9317,
    "lon": 138.9306,
-   "lpi": 1.22,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.6256,
    "skyglow_bm_rank_pct": 73.1
@@ -1192,7 +1085,6 @@
    "prefecture": "埼玉県",
    "lat": 36.1231,
    "lon": 139.0569,
-   "lpi": 2.39,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.4242,
    "skyglow_bm_rank_pct": 86.21
@@ -1203,7 +1095,6 @@
    "prefecture": "東京都",
    "lat": 35.7483,
    "lon": 139.02,
-   "lpi": 1.85,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.2906,
    "skyglow_bm_rank_pct": 85.52
@@ -1214,7 +1105,6 @@
    "prefecture": "東京都",
    "lat": 35.7333,
    "lon": 139.0117,
-   "lpi": 1.77,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.1569,
    "skyglow_bm_rank_pct": 83.45
@@ -1225,7 +1115,6 @@
    "prefecture": "神奈川県",
    "lat": 35.1325,
    "lon": 139.6178,
-   "lpi": 3.2,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.7098,
    "skyglow_bm_rank_pct": 93.1
@@ -1236,7 +1125,6 @@
    "prefecture": "神奈川県",
    "lat": 35.195,
    "lon": 139.6381,
-   "lpi": 6.62,
    "site_type": "night_view",
    "skyglow_bm_index": 14.0592,
    "skyglow_bm_rank_pct": 97.93
@@ -1247,7 +1135,6 @@
    "prefecture": "千葉県",
    "lat": 35.3678,
    "lon": 140.3861,
-   "lpi": 3.08,
    "site_type": "dark_sky",
    "skyglow_bm_index": 6.5578,
    "skyglow_bm_rank_pct": 79.31
@@ -1258,7 +1145,6 @@
    "prefecture": "千葉県",
    "lat": 35.1275,
    "lon": 139.8456,
-   "lpi": 2.63,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.0514,
    "skyglow_bm_rank_pct": 82.07
@@ -1269,7 +1155,6 @@
    "prefecture": "千葉県",
    "lat": 35.5369,
    "lon": 140.4589,
-   "lpi": 3.14,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.931,
    "skyglow_bm_rank_pct": 88.97
@@ -1280,7 +1165,6 @@
    "prefecture": "静岡県",
    "lat": 35.3606,
    "lon": 138.7306,
-   "lpi": 1.27,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.6117,
    "skyglow_bm_rank_pct": 72.41
@@ -1291,7 +1175,6 @@
    "prefecture": "山梨県",
    "lat": 35.4331,
    "lon": 138.8183,
-   "lpi": 2.63,
    "site_type": "dark_sky",
    "skyglow_bm_index": 6.0829,
    "skyglow_bm_rank_pct": 77.93
@@ -1302,7 +1185,6 @@
    "prefecture": "山梨県",
    "lat": 35.505,
    "lon": 138.6653,
-   "lpi": 1.58,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.5726,
    "skyglow_bm_rank_pct": 71.72
@@ -1313,7 +1195,6 @@
    "prefecture": "静岡県",
    "lat": 35.2811,
    "lon": 138.9861,
-   "lpi": 4.06,
    "site_type": "dark_sky",
    "skyglow_bm_index": 9.0125,
    "skyglow_bm_rank_pct": 94.48
@@ -1324,7 +1205,6 @@
    "prefecture": "山梨県",
    "lat": 35.7458,
    "lon": 138.8475,
-   "lpi": 1.12,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.4526,
    "skyglow_bm_rank_pct": 69.66
@@ -1335,7 +1215,6 @@
    "prefecture": "新潟県",
    "lat": 36.8669,
    "lon": 138.0833,
-   "lpi": 0.38,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.26,
    "skyglow_bm_rank_pct": 22.07
@@ -1346,7 +1225,6 @@
    "prefecture": "新潟県",
    "lat": 36.8719,
    "lon": 138.1633,
-   "lpi": 0.85,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.6609,
    "skyglow_bm_rank_pct": 31.72
@@ -1357,7 +1235,6 @@
    "prefecture": "新潟県",
    "lat": 37.1986,
    "lon": 139.0839,
-   "lpi": 0.38,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.0382,
    "skyglow_bm_rank_pct": 11.03
@@ -1368,7 +1245,6 @@
    "prefecture": "新潟県",
    "lat": 37.0942,
    "lon": 138.6408,
-   "lpi": 0.43,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2945,
    "skyglow_bm_rank_pct": 23.45
@@ -1379,7 +1255,6 @@
    "prefecture": "新潟県",
    "lat": 37.915,
    "lon": 139.2458,
-   "lpi": 2.9,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.3968,
    "skyglow_bm_rank_pct": 68.97
@@ -1390,7 +1265,6 @@
    "prefecture": "新潟県",
    "lat": 36.9539,
    "lon": 138.6475,
-   "lpi": 0.4,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.1857,
    "skyglow_bm_rank_pct": 17.93
@@ -1401,7 +1275,6 @@
    "prefecture": "新潟県",
    "lat": 37.8286,
    "lon": 138.2861,
-   "lpi": 0.21,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.3287,
    "skyglow_bm_rank_pct": 2.76
@@ -1412,7 +1285,6 @@
    "prefecture": "新潟県",
    "lat": 37.1514,
    "lon": 139.1867,
-   "lpi": 0.19,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.7805,
    "skyglow_bm_rank_pct": 6.9
@@ -1423,7 +1295,6 @@
    "prefecture": "静岡県",
    "lat": 35.1764,
    "lon": 137.925,
-   "lpi": 0.39,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.558,
    "skyglow_bm_rank_pct": 28.97
@@ -1434,7 +1305,6 @@
    "prefecture": "静岡県",
    "lat": 34.8361,
    "lon": 137.6669,
-   "lpi": 3.27,
    "site_type": "dark_sky",
    "skyglow_bm_index": 7.1691,
    "skyglow_bm_rank_pct": 84.14
@@ -1445,7 +1315,6 @@
    "prefecture": "静岡県",
    "lat": 34.8589,
    "lon": 138.8389,
-   "lpi": 0.63,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.1118,
    "skyglow_bm_rank_pct": 41.38
@@ -1456,8 +1325,7 @@
    "prefecture": "静岡県",
    "lat": 35.2289,
    "lon": 138.6183,
-   "lpi": 5.77,
-   "site_type": "night_view",
+   "site_type": "dark_sky",
    "skyglow_bm_index": 7.1876,
    "skyglow_bm_rank_pct": 84.83
   },
@@ -1467,7 +1335,6 @@
    "prefecture": "愛知県",
    "lat": 35.2208,
    "lon": 137.4589,
-   "lpi": 1.17,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.1947,
    "skyglow_bm_rank_pct": 67.59
@@ -1478,7 +1345,6 @@
    "prefecture": "愛知県",
    "lat": 34.9961,
    "lon": 137.4206,
-   "lpi": 1.88,
    "site_type": "dark_sky",
    "skyglow_bm_index": 6.5495,
    "skyglow_bm_rank_pct": 78.62
@@ -1489,7 +1355,6 @@
    "prefecture": "愛知県",
    "lat": 34.7236,
    "lon": 137.0422,
-   "lpi": 2.79,
    "site_type": "dark_sky",
    "skyglow_bm_index": 8.2458,
    "skyglow_bm_rank_pct": 91.03
@@ -1500,7 +1365,6 @@
    "prefecture": "長野県",
    "lat": 35.2047,
    "lon": 137.5858,
-   "lpi": 0.74,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.7599,
    "skyglow_bm_rank_pct": 56.55
@@ -1511,7 +1375,6 @@
    "prefecture": "岐阜県",
    "lat": 35.4372,
    "lon": 137.5817,
-   "lpi": 0.72,
    "site_type": "dark_sky",
    "skyglow_bm_index": 2.3572,
    "skyglow_bm_rank_pct": 48.97
@@ -1522,7 +1385,6 @@
    "prefecture": "滋賀県",
    "lat": 35.4178,
    "lon": 136.4061,
-   "lpi": 1.81,
    "site_type": "dark_sky",
    "skyglow_bm_index": 5.7893,
    "skyglow_bm_rank_pct": 77.24
@@ -1533,7 +1395,6 @@
    "prefecture": "岐阜県",
    "lat": 35.4389,
    "lon": 136.5683,
-   "lpi": 4.06,
    "site_type": "dark_sky",
    "skyglow_bm_index": 9.0132,
    "skyglow_bm_rank_pct": 95.17
@@ -1544,7 +1405,6 @@
    "prefecture": "岐阜県",
    "lat": 36.1472,
    "lon": 137.5186,
-   "lpi": 0.35,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.0049,
    "skyglow_bm_rank_pct": 8.97
@@ -1555,7 +1415,6 @@
    "prefecture": "岐阜県",
    "lat": 36.3117,
    "lon": 137.2197,
-   "lpi": 0.68,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.6047,
    "skyglow_bm_rank_pct": 29.66
@@ -1566,7 +1425,6 @@
    "prefecture": "石川県",
    "lat": 37.4258,
    "lon": 136.9997,
-   "lpi": 0.21,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.3736,
    "skyglow_bm_rank_pct": 3.45
@@ -1577,7 +1435,6 @@
    "prefecture": "石川県",
    "lat": 37.135,
    "lon": 136.6806,
-   "lpi": 0.41,
    "site_type": "dark_sky",
    "skyglow_bm_index": 0.7474,
    "skyglow_bm_rank_pct": 6.21
@@ -1588,7 +1445,6 @@
    "prefecture": "石川県",
    "lat": 36.4419,
    "lon": 136.6578,
-   "lpi": 2.48,
    "site_type": "dark_sky",
    "skyglow_bm_index": 4.536,
    "skyglow_bm_rank_pct": 71.03
@@ -1599,7 +1455,6 @@
    "prefecture": "富山県",
    "lat": 36.48,
    "lon": 137.4608,
-   "lpi": 0.33,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.2385,
    "skyglow_bm_rank_pct": 20.69
@@ -1610,7 +1465,6 @@
    "prefecture": "富山県",
    "lat": 36.6922,
    "lon": 137.6581,
-   "lpi": 0.29,
    "site_type": "dark_sky",
    "skyglow_bm_index": 1.106,
    "skyglow_bm_rank_pct": 13.79

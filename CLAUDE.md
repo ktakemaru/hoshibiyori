@@ -541,3 +541,23 @@ Cinzano/Falchiと同じ手法をNOAA/EOG VIIRSの最新データで著者が独�
   `scripts/report_courses.py`・`weekend_page.py`はlegacyの`report.html`の表記を読むため、bmのレポートには未対応。
 - **未実施**: legacy/bmの並べ比較の実測(`compare_lp_sources.py`)は、実行中にシステムのメモリ不足でバックグラウンドコマンドが停止されたため再実行していない。
   旧データ(Lorenz氏由来)の整理は計画のみ(REPORT_LP2.md第4節)。公開リポジトリに旧値が残る場所の一覧もそこにある。
+
+## 光害の既定を新指数(bm)に切り替え(段階LP3、2026-10-24)
+
+ブランチ`stageLP3`(`stageLP2`から分岐、push・マージは未実施)。**上の「段階LP2」の節の「既定は`legacy`」「bmは未対応」は、この節で上書きされた。**
+詳細・本人が決める点は`step3_light_pollution/REPORT_LP3.md`。
+
+- **既定の`--lp-source`を`bm`にした**(`lp_source.DEFAULT_LP_SOURCE`。`explore_hoshibiyori.py`・`generate_report.py`・`report_courses.py`・
+  `weekend_page.py`)。legacyは`--lp-source legacy`で残す。出力: 既定(bm)は`report.html`、legacyは`report_legacy.html`
+  (週末ページは`out/weekend_stargazing_<夜>.html` / `…_legacy.html`)。
+- bmは日本で未較正の相対指数。レポート冒頭・フッター・READMEに、相対指数であること(絶対値・等級ではない)と、
+  LPIとの比較で上位の順位差が小さいこと(見込みの上位10件のうち6件が共通、上位2件は同じ)を明記した(`BM_RELATIVE_NOTE`/`BM_RANK_NOTE`)。
+- **Lorenz氏由来の値を現行ファイルから外した**(git履歴は書き換えていない): `stargazing_spots.json`の`lpi`/`mpsas`/`bortle_approx`/
+  `light_pollution_computed`(spots 146件・viewpoint_reference 751件)、`stargazing_spots.bm.json`の`lpi`、`tests/fixtures/sky_guide/*_data.json`の
+  `spot.lpi`/`mpsas`。`site_type`はALR(仮閾値10.66)で引き直した(変わったのは堂平天文台=夜景系へ、富士山吉原=暗い空へ)。
+  星空ガイドの見出しの「光害 LPI…」欄と出典の Lorenz 氏の記載も外れた(値が無いと欄を省く既存の挙動)。
+- legacy は光害タイルを取得・キャッシュして都度LPIを計算する(`step3_light_pollution/tile_cache/`)。比較・検証用の解析スクリプトも
+  `legacy_ref.legacy_lpi()`で同様に計算する(事前計算値は無い)。閾値の件数N=141は`lp_source.BM_THRESHOLD_N_PASS`の固定値。
+- **残っているもの**: `docs/examples/senjogahara_sky_guide_20261009.html`(公開された見本。LPI値とLorenz氏の出典を含む。読み取り専用の運用のため変更せず)、
+  `light_pollution.py`とそれを使うスクリプト(legacyのため残す)、`merge_external_spots_20260907.py`・`static_ranking.py`・`run_5points.py`(単発の旧スクリプト)、
+  git履歴。著者への利用可否確認は未実施のまま(legacyを使う/公開サービスに組み込むなら要確認)。

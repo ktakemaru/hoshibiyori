@@ -20,7 +20,7 @@
   - viewpoint_reference配列(751件、origin="viewpoint"/"test_site"): OSM tourism=viewpoint由来の
     機械的収集データ(星空適性は未フィルタ)。参考候補として補助的に扱い、レポートも区別して出力する。
   地形地平線プロファイル・光害計算済みフラグは、いずれの配列でもエントリごとの
-  horizon_profile/light_pollution_computedフィールドに既に反映済み(stargazing_spots.json生成時に
+  horizon_profileフィールドに既に反映済み(stargazing_spots.json生成時に
   candidate_sites.dbとの照合・統合済みのため、本ファイル側で名前引きし直す必要はない)。
   候補地点DB自体(step7_geocoding/candidate_sites.db)はこのファイルからは直接参照しない。
 エリア代表点による事前スクリーニングは今回は見送り、格子セルキャッシュのみのシンプルな構成。
@@ -45,7 +45,7 @@ from skyfield.api import wgs84  # noqa: E402
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_time  # noqa: E402
 from light_pollution import LightPollutionTileStore  # noqa: E402
-from lp_source import BmLightPollutionStore, LP_SOURCES, describe_alr  # noqa: E402
+from lp_source import BmLightPollutionStore, DEFAULT_LP_SOURCE, LP_SOURCES, describe_alr  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
 from moon_brightness import combine_sky_brightness  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
@@ -129,7 +129,6 @@ def _build_site(entry: dict) -> dict:
         # classify_site_darkness.py(2026-09-07)がspots配列(curated由来)に事前計算した分類。
         # viewpoint_reference側には無いため未計算の地点はNone(まだ「night_view」と決めつけない)。
         "site_type": entry.get("site_type"),
-        "lpi_precomputed": entry.get("lpi"),
     }
 
 
@@ -304,9 +303,9 @@ class OutlookCandidate:
     alr_rank_pct: float | None = None
 
 
-def make_lp_store(lp_source: str = "legacy"):
-    """光害の入力を選ぶ(段階LP2)。legacy=Lorenz氏のLight Pollution Atlas由来のLPI(既定)、
-    bm=Black Marble由来のALR(相対指数。mpsas・ボートルは持たない)。どちらも get(lat, lon) を持ち、
+def make_lp_store(lp_source: str = DEFAULT_LP_SOURCE):
+    """光害の入力を選ぶ(段階LP2、段階LP3で既定をbmに)。bm=Black Marble由来のALR(相対指数。mpsas・ボートルは持たない、既定)、
+    legacy=Lorenz氏のLight Pollution Atlas由来のLPI(光害タイルを取得・キャッシュして計算する)。どちらも get(lat, lon) を持ち、
     brightness_ratio が `<= LPI_THRESHOLD` で足切りに使われる(bmは同じ件数が通るように規格化した内部値)。"""
     if lp_source not in LP_SOURCES:
         raise ValueError(f"lp_sourceは{LP_SOURCES}のいずれか: {lp_source!r}")
@@ -744,8 +743,8 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
 def parse_args(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="探索モード(月・雲量・地形・光害で夜と地点を絞る)")
-    ap.add_argument("--lp-source", choices=LP_SOURCES, default="legacy",
-                    help="光害の入力。legacy=Light Pollution Atlas由来のLPI(既定)、bm=Black Marble由来のALR(相対指数、試験運用)")
+    ap.add_argument("--lp-source", choices=LP_SOURCES, default=DEFAULT_LP_SOURCE,
+                    help="光害の入力。bm=Black Marble由来のALR(日本で未較正の相対指数、既定)、legacy=Light Pollution Atlas由来のLPI")
     return ap.parse_args(argv)
 
 
@@ -771,7 +770,7 @@ def main(argv=None) -> int:
     return 0
 
 
-def _explore(cache: GridCloudCache, lp_source: str = "legacy") -> None:
+def _explore(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> None:
     t_start = time.time()
 
     ts = load.timescale()

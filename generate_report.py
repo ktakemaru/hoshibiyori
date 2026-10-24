@@ -55,7 +55,7 @@ from explore_hoshibiyori import (  # noqa: E402
     compute_site_night_window, make_lp_store, lp_limit_text,
 )
 from lp_source import (  # noqa: E402
-    BM_ALR_THRESHOLD, BM_CITATION, BM_RELATIVE_NOTE, LP_SOURCES, describe_alr,
+    BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, DEFAULT_LP_SOURCE, LP_SOURCES, describe_alr,
 )
 from jma_weather_map import fetch_jma_weather_map, read_fetched_at as read_weather_map_fetched_at  # noqa: E402
 from himawari_image import (  # noqa: E402
@@ -65,10 +65,14 @@ from himawari_image import (  # noqa: E402
 )
 from areas import load_areas  # noqa: E402
 
+# 既定の光害の入力(bm)のレポート。scripts/report_courses.py・weekend_page.py も既定でこれを読む。
 OUTPUT_PATH = DATA_ROOT / "report.html"
-# 光害の入力をbm(新指数、試験運用)にしたときの出力先。report.html(legacy)を上書きしない
-# (scripts/report_courses.py・weekend_page.py はlegacyのreport.htmlの構造を読むため)。
-OUTPUT_PATH_BM = DATA_ROOT / "report_bm.html"
+# --lp-source legacy のときの出力先。report.html(既定のbm)を上書きしない。
+OUTPUT_PATH_LEGACY = DATA_ROOT / "report_legacy.html"
+
+
+def output_path_for(lp_source: str) -> Path:
+    return OUTPUT_PATH_LEGACY if lp_source == "legacy" else OUTPUT_PATH
 TOP_N_TIER2 = 10
 
 # --- JMA地上天気図(2段目「直近・行動用」、2026-09-06追加) ---
@@ -386,16 +390,16 @@ def build_period_summary(finals: list[FinalCandidate], outlooks: list[OutlookCan
 def parse_args(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="探索レポート(report.html)を生成する")
-    ap.add_argument("--lp-source", choices=LP_SOURCES, default="legacy",
-                    help="光害の入力。legacy=Light Pollution Atlas由来のLPI(既定、report.html)、"
-                         "bm=Black Marble由来のALR(相対指数、試験運用、report_bm.html)")
+    ap.add_argument("--lp-source", choices=LP_SOURCES, default=DEFAULT_LP_SOURCE,
+                    help="光害の入力。bm=Black Marble由来のALR(日本で未較正の相対指数、既定、report.html)、"
+                         "legacy=Light Pollution Atlas由来のLPI(report_legacy.html)")
     return ap.parse_args(argv)
 
 
 def main(argv=None) -> int:
     """終了コード: 0=出力済み(取得失敗があれば警告バナー付き)、2=取得失敗が多すぎる/429のためreport.htmlを更新せず中止。"""
     args = parse_args(argv)
-    out_path = OUTPUT_PATH_BM if args.lp_source == "bm" else OUTPUT_PATH
+    out_path = output_path_for(args.lp_source)
     cache = GridCloudCache()
     try:
         return _generate(cache, args.lp_source)
@@ -405,8 +409,15 @@ def main(argv=None) -> int:
         return 2
 
 
-def _generate(cache: GridCloudCache, lp_source: str = "legacy") -> int:
-    out_path = OUTPUT_PATH_BM if lp_source == "bm" else OUTPUT_PATH
+def _site_type(lp_store, lp_source: str, lat: float, lon: float) -> str | None:
+    """dark_sky / night_view。bmはALRの仮閾値、legacyはLPI_THRESHOLDで分ける(足切りと同じ基準)。"""
+    if lp_source == "bm":
+        return lp_store.site_type(lat, lon)
+    return "dark_sky" if lp_store.get(lat, lon).brightness_ratio <= LPI_THRESHOLD else "night_view"
+
+
+def _generate(cache: GridCloudCache, lp_source: str = DEFAULT_LP_SOURCE) -> int:
+    out_path = output_path_for(lp_source)
     t_start = datetime.now(JST)
     ts = load.timescale()
     eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
@@ -421,10 +432,11 @@ def _generate(cache: GridCloudCache, lp_source: str = "legacy") -> int:
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
 
     lp_store = make_lp_store(lp_source)
+    # 「夜景系」の分類は、選んだ光害の入力で引き直す(stargazing_spots.json の site_type は
+    # 段階LP3でALR由来に置き換えたため、legacyでは使わない)
+    for s in sites:
+        s["site_type"] = _site_type(lp_store, lp_source, s["lat"], s["lon"])
     if lp_source == "bm":
-        # 「夜景系」の分類も新指数で引き直す(既存のsite_typeはLPI由来のため使わない)
-        for s in all_sites:
-            s["site_type"] = lp_store.site_type(s["lat"], s["lon"])
         print(f"[光害の入力] bm(Black Marble由来のALR、相対指数)。仮閾値 {lp_limit_text(lp_store)}。出力先: {out_path.name}")
 
     print(f"候補地点: {len(sites)}件を読み込み(curated由来のみ、viewpoint参考データ{len(all_sites)-len(sites)}件は対象外)")
@@ -468,11 +480,13 @@ def _generate(cache: GridCloudCache, lp_source: str = "legacy") -> int:
                     "night_date": s["night"].night_date,
                     "window_start": s["window_start"], "window_end": s["window_end"],
                     "mean_obstruction": s["mean_obstruction"],
-                    "lpi": s["site"].get("lpi_precomputed") or 0.0,
+                    "lpi": 0.0,
                 }
+                reading = lp_store.get(s["site"]["lat"], s["site"]["lon"])
                 if lp_source == "bm":
-                    reading = lp_store.get(s["site"]["lat"], s["site"]["lon"])
                     night_view_by_site[name].update(alr=reading.alr, alr_rank_pct=reading.rank_pct)
+                else:
+                    night_view_by_site[name]["lpi"] = reading.brightness_ratio
         night_view_items = sorted(night_view_by_site.values(), key=lambda c: c["mean_obstruction"])
 
     outlooks: list[OutlookCandidate] = []
@@ -1097,11 +1111,12 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
                  tier2_casual, tier2_hardcore, casual_weather_note, sky_guide,
                  tier3_nights, outlooks_by_date, summary_text, weather_map_html: str = "",
                  night_view_items: list[dict] | None = None, fetch_warning_html: str = "",
-                 lp_source: str = "legacy") -> str:
+                 lp_source: str = DEFAULT_LP_SOURCE) -> str:
     if lp_source == "bm":
-        lp_notice_html = (f'<p class="wmap-caveat">光害の入力: Black Marble由来の相対指数(試験運用)。'
+        lp_notice_html = (f'<p class="wmap-caveat">光害の入力: Black Marble由来の相対指数。'
                           f'{html.escape(BM_RELATIVE_NOTE)} 足切りの仮閾値は ALR {BM_ALR_THRESHOLD}'
-                          f'(従来の判定と同じ件数が通る値。論文の目安値ではありません)。</p>')
+                          f'(従来の判定と同じ件数が通る値。論文の目安値ではありません)。'
+                          f'{html.escape(BM_RANK_NOTE)}</p>')
         lp_attribution = html.escape(BM_CITATION)
     else:
         lp_notice_html = ""

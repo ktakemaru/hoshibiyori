@@ -38,7 +38,9 @@ out/
 
 # 生成物(generate_report.py が毎回上書きする。古い版が残ると誤読されるため追跡しない)
 /report.html
-# 光害の入力をbm(新指数)にして生成した試験用レポート(段階LP2)
+# 光害の入力をlegacy(LPI)にして生成したレポート(段階LP3。既定のbmは report.html)
+/report_legacy.html
+# 段階LP2で作った試験用レポート(段階LP3以降は生成しない)
 /report_bm.html
 /artifact_report.html
 

@@ -25,15 +25,23 @@ sys.path.insert(0, str(HERE))
 import skyglow_bm as sg  # noqa: E402
 
 LP_SOURCES = ("legacy", "bm")
+# 既定の入力(段階LP3で legacy から bm に切り替えた)。legacy は --lp-source legacy で引き続き使える。
+DEFAULT_LP_SOURCE = "bm"
 
 # 仮の閾値(段階LP2)。現行の `LPI <= 5.0` で通る主軸146件中の141件と同じ件数が通るALRの境界。
 # 求め方: bm_threshold.py(ALRの141番目 10.3087 と142番目 11.0027 の中点 10.6557 を、区間内の丸めた値にした)。
 # 論文Table 3(ALR>10)は日本に較正されていないので使っていない(参考値として併記するだけ)。
 BM_ALR_THRESHOLD = 10.66
+# 閾値を決めたときの通過件数N(現行LPI<=5.0で通った主軸146件中の件数)。段階LP3で stargazing_spots.json から lpi を外したため、
+# 件数は固定値として持つ(根拠の再計算は bm_threshold.py。光害タイルが要る)。
+BM_THRESHOLD_N_PASS = 141
 # 規格化の基準。explore_hoshibiyori.LPI_THRESHOLD と同じ値でなければならない(単体テストで突き合わせる)。
 LPI_THRESHOLD_REF = 5.0
 
 BM_RELATIVE_NOTE = "ALRは日本で較正していない相対指数で、絶対値(空の明るさの等級)ではありません。順位や段階の目安として読んでください。"
+# 順位への影響の注記(LP2の並べ比較。見込み/ECMWF、2026-10-31〜11-05の6夜、主軸146件)。
+BM_RANK_NOTE = ("従来の入力(LPI)との比較では、見込みの上位10件のうち6件が共通で、上位2件は同じでした。"
+                "入れ替わりは、光害の減点が2点前後違うだけで動く範囲(上位のスコアは約4.5点幅に密集)で、順位の差は小さいものです。")
 BM_CITATION = ("光害 NASA Black Marble VNP46A4(DOI: 10.5067/VIIRS/VNP46A4.002、NASA主導ミッションのデータはCC0)を、"
                "Duriscoe et al. 2018(CC BY)の手法でスカイグロー指数に変換(相対指数)。"
                "引用: NASA VIIRS Land Science Investigator-led Processing System (2025), VIIRS/NPP Lunar BRDF-Adjusted "

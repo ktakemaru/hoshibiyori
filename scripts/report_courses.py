@@ -139,13 +139,15 @@ def _match(pattern: str, s: str, where: str) -> re.Match:
 
 
 LP_SOURCES = ("legacy", "bm")
-# bmのレポート(generate_report.py --lp-source bm、report_bm.html)の光害の欄。generate_report._light_pollution_stat と
+DEFAULT_LP_SOURCE = "bm"  # step3_light_pollution/lp_source.DEFAULT_LP_SOURCE と同じ値(単体テストで突き合わせる)
+LEGACY_REPORT_NAME = "report_legacy.html"  # generate_report.py --lp-source legacy の出力
+# bmのレポート(generate_report.py、既定、report.html)の光害の欄。generate_report._light_pollution_stat と
 # lp_source.describe_alr が作る文言「ALR 2.34(主軸の地点のうち暗い方から41%)」に合わせてある。
 BM_STAT_KEY = "光害(相対指数)"
 BM_NOTE = "光害はBlack Marble由来の相対指数です(日本で未較正で、空の明るさの絶対値ではありません)。"
 
 
-def parse_card(card: Node, where: str, lp_source: str = "legacy") -> dict:
+def parse_card(card: Node, where: str, lp_source: str = DEFAULT_LP_SOURCE) -> dict:
     rank = int(_match(r"\d+", _norm(_one(card, "div", "cand-rank", where).text()), f"{where} 順位").group())
     body = _one(card, "div", "cand-body", where)
     h3 = _find_all(body, "h3")
@@ -198,7 +200,7 @@ def parse_card(card: Node, where: str, lp_source: str = "legacy") -> dict:
     }
 
 
-def parse_courses(root: Node, lp_source: str = "legacy") -> list[dict]:
+def parse_courses(root: Node, lp_source: str = DEFAULT_LP_SOURCE) -> list[dict]:
     """気軽・硬派の2コースを(この順で)返す。どちらかが無い・構造が違えば ParseError。"""
     groups = _find_all(root, "div", "cand-group")
     out = []
@@ -228,7 +230,7 @@ def parse_courses(root: Node, lp_source: str = "legacy") -> list[dict]:
 
 # --- 出力 -------------------------------------------------------------------------------
 
-def build_result(html_text: str, report_path: Path, top: int, stale: bool, lp_source: str = "legacy") -> dict:
+def build_result(html_text: str, report_path: Path, top: int, stale: bool, lp_source: str = DEFAULT_LP_SOURCE) -> dict:
     root = parse_html(html_text)
     generated = parse_generated_at(root)
     courses = parse_courses(root, lp_source)
@@ -274,9 +276,9 @@ def format_text(result: dict, today_label: str) -> str:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="report.html から気軽・硬派コースの上位候補を表示する(通信しない)")
-    ap.add_argument("--lp-source", choices=LP_SOURCES, default="legacy",
-                    help="読むレポートの光害の入力。legacy=report.html(既定)、bm=report_bm.html(generate_report.py --lp-source bm)")
-    ap.add_argument("--report", type=Path, default=None, help="既定: legacyはreport.html、bmはreport_bm.html")
+    ap.add_argument("--lp-source", choices=LP_SOURCES, default=DEFAULT_LP_SOURCE,
+                    help="読むレポートの光害の入力。bm=report.html(既定)、legacy=report_legacy.html(generate_report.py --lp-source legacy)")
+    ap.add_argument("--report", type=Path, default=None, help="既定: bmはreport.html、legacyはreport_legacy.html")
     ap.add_argument("--top", type=int, default=3)
     ap.add_argument("--allow-stale", action="store_true", help="生成日時が今日でなくても、古い旨を明記して出力する")
     ap.add_argument("--json-out", type=Path)
@@ -292,9 +294,9 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
     if args.report is None:
-        args.report = resolve_data_root(ROOT) / ("report_bm.html" if args.lp_source == "bm" else "report.html")
+        args.report = resolve_data_root(ROOT) / (LEGACY_REPORT_NAME if args.lp_source == "legacy" else "report.html")
     if not args.report.is_file():
-        gen_cmd = "py -X utf8 generate_report.py" + (" --lp-source bm" if args.lp_source == "bm" else "")
+        gen_cmd = "py -X utf8 generate_report.py" + (" --lp-source legacy" if args.lp_source == "legacy" else "")
         print(f"[中止] {args.report} がありません。{gen_cmd} で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)
         return EXIT_STALE

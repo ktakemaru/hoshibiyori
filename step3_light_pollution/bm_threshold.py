@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import skyglow_bm as sg  # noqa: E402
 
-LPI_THRESHOLD_FALLBACK = 5.0  # explore_hoshibiyori.LPI_THRESHOLD(--liveで実物と突き合わせる)
+LPI_THRESHOLD_FALLBACK = 5.0  # explore_hoshibiyori.LPI_THRESHOLD(実物は ex.LPI_THRESHOLD)
 
 
 def load_pairs(grid_path: Path = sg.DATA_DIR / "skyglow_bm_2025.npz"):
@@ -43,7 +43,6 @@ def threshold_for_count(alr: np.ndarray, n_pass: int) -> float:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--live", action="store_true", help="光害タイルのキャッシュからLPIを再計算して事前計算値と突き合わせる")
     ap.add_argument("--json-out", type=Path)
     args = ap.parse_args()
 
@@ -52,15 +51,10 @@ def main() -> int:
 
     thr_lpi = ex.LPI_THRESHOLD
     spots, alr = load_pairs()
-    lpi = np.array([s["lpi"] for s in spots], float)
+    import legacy_ref  # LPIは事前計算値が無いので、光害タイルから計算する(キャッシュに無ければ通信)
+    lpi = legacy_ref.legacy_lpi(spots)
     n_pass = int((lpi <= thr_lpi).sum())
     res = {"lpi_threshold": thr_lpi, "n_spots": len(spots), "n_pass_legacy": n_pass}
-    if args.live:
-        from light_pollution import LightPollutionTileStore
-        store = LightPollutionTileStore(cache_dir=str(HERE / "tile_cache"), year=2025)
-        live = np.array([store.get(s["lat"], s["lon"]).brightness_ratio for s in spots])
-        res["live_vs_precomputed_max_abs_diff"] = float(np.max(np.abs(live - lpi)))
-        res["n_pass_legacy_live"] = int((live <= thr_lpi).sum())
     thr_alr = threshold_for_count(alr, n_pass)
     s_alr = np.sort(alr)
     res.update({

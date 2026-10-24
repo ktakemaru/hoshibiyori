@@ -18,7 +18,8 @@ import skyglow_bm as sg  # noqa: E402
 
 def compute(lpi_threshold: float, alr_threshold: float):
     spots, alr = bt.load_pairs()
-    lpi = np.array([s["lpi"] for s in spots], float)
+    import legacy_ref  # 事前計算のlpiは外したので、光害タイルから計算する
+    lpi = legacy_ref.legacy_lpi(spots)
     r_lpi, r_alr = sg.rank_pct(lpi), sg.rank_pct(alr)
     pass_l, pass_b = lpi <= lpi_threshold, alr <= alr_threshold
     rows = []

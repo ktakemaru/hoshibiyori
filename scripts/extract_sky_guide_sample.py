@@ -139,7 +139,8 @@ def main() -> int:
 
     data = {
         "schema": DATA_SCHEMA, "generated_at": "golden(見本 2026-10-09 から抽出。月・出来事・ピーク候補のみ再計算)",
-        "spot": {**SPOT_META, "lat": lat, "lon": lon, "elevation_m": elev, "lpi": s["lpi"], "mpsas": s["mpsas"],
+        "spot": {**SPOT_META, "lat": lat, "lon": lon, "elevation_m": elev, "lpi": s.get("lpi"), "mpsas": s.get("mpsas"),  # 段階LP3で地点ファイルから外した(見本の抽出時のみ参照)
+               
                  "coordinate_source": s["coordinate_source"], "elevation_source": "国土地理院DEM(stargazing_spots.json)"},
         "night": {"date": "2026-10-09", "dark_start": ds.strftime("%H:%M"), "dark_end": de.strftime("%H:%M"),
                   "dark_hours": round((de - ds).total_seconds() / 3600, 1)},

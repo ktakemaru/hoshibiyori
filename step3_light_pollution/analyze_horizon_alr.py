@@ -70,7 +70,8 @@ def main() -> int:
     spots = json.loads(sg.SPOTS_PATH.read_text(encoding="utf-8"))["spots"]
     grid = sg.DerivedGrid.load(sg.DATA_DIR / f"skyglow_bm_{args.year}.npz")
     alr_grid = grid.at([s["lat"] for s in spots], [s["lon"] for s in spots])
-    lpi = np.array([s["lpi"] for s in spots], float)
+    import legacy_ref  # 事前計算のlpiは外したので、光害タイルから計算する
+    lpi = legacy_ref.legacy_lpi(spots)
     r_lpi, r_alr = sg.rank_pct(lpi), sg.rank_pct(alr_grid)
 
     rows = []

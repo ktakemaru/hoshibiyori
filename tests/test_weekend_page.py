@@ -55,7 +55,7 @@ def build_html(casual=CASUAL, hardcore=HARDCORE, generated="2026-10-17 11:20", w
     icons = {n.night_date: "🌓" for n in nights}
     gen = datetime.strptime(generated, "%Y-%m-%d %H:%M")
     return gr.render_html(SimpleNamespace(name="天の川銀河中心"), gen, nights, icons, {}, 0, 3, casual, hardcore,
-                          weather_note, {}, [], {}, "概況", weather_map_html=weather_map_html)
+                          weather_note, {}, [], {}, "概況", weather_map_html=weather_map_html, lp_source="legacy")
 
 
 GOOD_COMMENTARY = {
@@ -127,7 +127,7 @@ class Base(unittest.TestCase):
             args += ["--out", str(self.out)]
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = wp.main(args + list(argv), now=now)
+            code = wp.main(["--lp-source", "legacy"] + args + list(argv), now=now)
         return code, out.getvalue(), err.getvalue()
 
     def page(self, *argv, **kw):
@@ -160,7 +160,7 @@ class DefaultDatesTest(unittest.TestCase):
         rep.write_text(build_html(), encoding="utf-8")
         o, e = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(o), contextlib.redirect_stderr(e):
-            code = wp.main(["--report", str(rep), "--access-notes", str(Path(tmp.name) / "x.json"), "--out", str(out),
+            code = wp.main(["--lp-source", "legacy", "--report", str(rep), "--access-notes", str(Path(tmp.name) / "x.json"), "--out", str(out),
                             "--dates", "2026-10-18"], now=SAT)
         self.assertEqual(code, 0, e.getvalue())
         return out.read_text(encoding="utf-8")
@@ -245,7 +245,7 @@ class AccessNotesTest(Base):
     def run_with_notes(self, notes_path):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = wp.main(["--report", str(self.report), "--access-notes", str(notes_path), "--out", str(self.out)], now=SAT)
+            code = wp.main(["--lp-source", "legacy", "--report", str(self.report), "--access-notes", str(notes_path), "--out", str(self.out)], now=SAT)
         return code, err.getvalue()
 
     def test_note_and_tag_present(self):
@@ -536,10 +536,10 @@ class WeatherSectionTest(Base):
         self.assertNotUpdated("(最終更新 2026-10-17 10時)")
 
     def test_report_parse_of_weather_block(self):
-        wm = wp.load_report(self.report.read_text(encoding="utf-8"))["wmap"]
+        wm = wp.load_report(self.report.read_text(encoding="utf-8"), "legacy")["wmap"]
         self.assertEqual(wm["fetched"], "2026-10-17 10:57")
         self.assertEqual(wm["srcs"], [p.relative_to(self.dir).as_posix() for p in self.images])
-        self.assertIsNone(wp.load_report(build_html())["wmap"])
+        self.assertIsNone(wp.load_report(build_html(), "legacy")["wmap"])
 
     def test_validation_logic_is_reused_not_copied(self):
         src = (ROOT / "scripts" / "weekend_page.py").read_text(encoding="utf-8")
@@ -569,7 +569,7 @@ class OverwriteTest(Base):
         self.addCleanup(setattr, wp, "ROOT", orig)
         code, stdout, err = self.run_cli(with_out=False)
         self.assertEqual(code, 0, err)
-        self.assertTrue((self.dir / "out" / "weekend_stargazing_20261017.html").is_file())
+        self.assertTrue((self.dir / "out" / "weekend_stargazing_20261017_legacy.html").is_file())  # legacy形式のテスト用レポート(既定のbmは接尾辞なし)
         self.assertEqual(self.run_cli(with_out=False)[0], 4)  # 2回目は拒否
 
 

@@ -1,6 +1,7 @@
 """光害の入力の切り替え(--lp-source legacy|bm、段階LP2)の単体テスト。合成データのみ・通信しない。"""
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from datetime import date, datetime, timedelta, timezone
@@ -10,13 +11,14 @@ from types import SimpleNamespace
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
-for sub in ("", "step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_moonlight", "step5_cloud_forecast"):
+for sub in ("", "scripts", "step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_moonlight", "step5_cloud_forecast"):
     sys.path.insert(0, str(ROOT / sub) if sub else str(ROOT))
 
 import bm_threshold as bt  # noqa: E402
 import explore_hoshibiyori as ex  # noqa: E402
 import generate_report as gr  # noqa: E402
 import lp_source as lp  # noqa: E402
+import report_courses as rc_mod  # noqa: E402
 import skyglow_bm as sg  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
@@ -52,7 +54,7 @@ class ThresholdTests(unittest.TestCase):
     def test_constant_reproduces_legacy_pass_count_on_committed_data(self):
         """仮閾値が、現行の通過件数(LPI<=閾値)と同じ件数をALRで通す(データが変わったら気づける)。"""
         spots, alr = bt.load_pairs()
-        n_legacy = sum(1 for s in spots if s["lpi"] <= ex.LPI_THRESHOLD)
+        n_legacy = lp.BM_THRESHOLD_N_PASS
         self.assertEqual(int((alr <= lp.BM_ALR_THRESHOLD).sum()), n_legacy)
         s = np.sort(alr)
         self.assertLess(s[n_legacy - 1], lp.BM_ALR_THRESHOLD)
@@ -101,9 +103,16 @@ class BmStoreTests(unittest.TestCase):
 
 
 class ExploreSwitchTests(unittest.TestCase):
-    def test_default_is_legacy(self):
-        self.assertEqual(ex.parse_args([]).lp_source, "legacy")
-        self.assertEqual(gr.parse_args([]).lp_source, "legacy")
+    def test_default_is_bm(self):
+        self.assertEqual(lp.DEFAULT_LP_SOURCE, "bm")
+        self.assertEqual(ex.parse_args([]).lp_source, "bm")
+        self.assertEqual(gr.parse_args([]).lp_source, "bm")
+        self.assertEqual(rc_mod.DEFAULT_LP_SOURCE, lp.DEFAULT_LP_SOURCE)  # report_courses.py・weekend_page.py の既定も同じ
+        self.assertIsInstance(ex.make_lp_store(), lp.BmLightPollutionStore)
+
+    def test_legacy_still_selectable(self):
+        self.assertEqual(ex.parse_args(["--lp-source", "legacy"]).lp_source, "legacy")
+        self.assertEqual(gr.parse_args(["--lp-source", "legacy"]).lp_source, "legacy")
 
     def test_option_accepts_only_known_sources(self):
         self.assertEqual(ex.parse_args(["--lp-source", "bm"]).lp_source, "bm")
@@ -126,8 +135,29 @@ class ExploreSwitchTests(unittest.TestCase):
         self.assertIn("ALR", ex.lp_limit_text(lp.BmLightPollutionStore(grid=synthetic_grid(), reference=np.array([1.0]))))
         self.assertIn("LPI", ex.lp_limit_text(object()))
 
-    def test_bm_output_does_not_overwrite_legacy_report(self):
-        self.assertNotEqual(gr.OUTPUT_PATH_BM, gr.OUTPUT_PATH)
+    def test_legacy_output_does_not_overwrite_default_report(self):
+        self.assertEqual(gr.output_path_for("bm"), gr.OUTPUT_PATH)
+        self.assertEqual(gr.output_path_for("legacy"), gr.OUTPUT_PATH_LEGACY)
+        self.assertNotEqual(gr.OUTPUT_PATH_LEGACY, gr.OUTPUT_PATH)
+
+    def test_default_threshold_ref_matches_explore(self):
+        self.assertEqual(lp.LPI_THRESHOLD_REF, ex.LPI_THRESHOLD)
+        import legacy_ref
+        self.assertEqual(legacy_ref.LPI_THRESHOLD_LEGACY, ex.LPI_THRESHOLD)
+
+    def test_committed_spots_have_no_lorenz_values(self):
+        """段階LP3: 現行の地点ファイルに Lorenz 氏由来の値(lpi/mpsas/bortle_approx/light_pollution_computed)が無い。"""
+        for path in (sg.SPOTS_PATH, sg.REPO_ROOT / "stargazing_spots.bm.json"):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            for arr in ("spots", "viewpoint_reference"):
+                for s in data.get(arr, []):
+                    for k in ("lpi", "mpsas", "bortle_approx", "light_pollution_computed"):
+                        self.assertNotIn(k, s, f"{path.name} {s.get('name')}")
+
+    def test_site_type_of_committed_spots_follows_alr_threshold(self):
+        store = lp.BmLightPollutionStore()
+        for s in json.loads(sg.SPOTS_PATH.read_text(encoding="utf-8"))["spots"]:
+            self.assertEqual(s["site_type"], store.site_type(s["lat"], s["lon"]), s["name"])
 
 
 def _card(effective_mpsas, alr=None, rank=None):

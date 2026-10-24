@@ -130,6 +130,6 @@
 
 ## 注意・免責(ページ下部に自動で入る)
 
-- 出典: Skyfield(JPL DE421)、Open-Meteo(CC BY 4.0、気象庁MSM・ECMWF IFS)、国土地理院の標高タイルを加工、Light Pollution Atlas。
+- 出典: Skyfield(JPL DE421)、Open-Meteo(CC BY 4.0、気象庁MSM・ECMWF IFS)、国土地理院の標高タイルを加工。
 - 予報値であり、当日の空を保証しない。山名と構図の位置関係は現地で確認する。
 - 位置が特定できる私的な情報(自宅・非公開の撮影地など)は、地点名・本文に書かない。

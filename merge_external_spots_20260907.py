@@ -1,4 +1,7 @@
-"""外部システムから入手した星空撮影スポットリスト(external_spots_20260907.csv)のうち、
+"""【段階LP3の注記】単発の旧スクリプト(2026-09-07実行済み)。lpi/mpsas/bortle_approx/light_pollution_computed を書き込むが、
+これらのLorenz氏由来の値は段階LP3で stargazing_spots.json から外した。再実行すると旧値が戻るので、再実行しないこと。
+
+外部システムから入手した星空撮影スポットリスト(external_spots_20260907.csv)のうち、
 重複判定(scratch_dedup_check.py)で「新規」と判断された62件を、逆ジオコーディング・
 標高取得・光害計算のうえstargazing_spots.jsonのspots配列に追加する(2026-09-07)。
 

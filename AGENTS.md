@@ -45,7 +45,7 @@ py -m venv .venv
 |---|---|---|
 | 視界遮蔽雲量の見上げ型ハイブリッド | `step5_cloud_forecast/elevation_cloud.py` | 全層雲量が主、気圧面は観測者より下の雲の差し引きのみ。API変数は `level_hourly_vars()` に一元化 |
 | スコア式 | `explore_hoshibiyori.py` の `FinalCandidate.score` / `OutlookCandidate.score` | 近日中と中期見込みで式が異なり絶対値は比較不可 |
-| 光害閾値 | `explore_hoshibiyori.py` `LPI_THRESHOLD` | 5.0。実地の成功・失敗例に基づく暫定値 |
+| 光害閾値 | `explore_hoshibiyori.py` `LPI_THRESHOLD`(legacy)、`lp_source.py` `BM_ALR_THRESHOLD`(既定のbm) | 5.0(実地の成功・失敗例に基づく暫定値)/ ALR 10.66(LPI≦5.0で通る件数141と同数になる仮の値。日本未較正) |
 | 雲量閾値・最小晴れ間 | `CLOUD_OBSTRUCTION_THRESHOLD` / `MIN_CLEAR_WINDOW_HOURS` | 30.0% / 1.0時間 |
 | 失敗セル率と終了コード | `step5_cloud_forecast/grid_cache.py` `FAILED_CELL_RATE_ABORT` | 0.20。0/2 の意味は上記 |
 | 格子セルキャッシュとTTL | `grid_cache.py` `CACHE_TTL_SEC` | MSM 3時間 / ECMWF 6時間 |
@@ -89,13 +89,13 @@ py -m venv .venv
 2. 答え方
    - 候補は「日付・地点・見頃の時間帯・視界遮蔽雲量・光害」で示す。
    - 「星空撮影に適した日と場所は?」と聞かれたら、**気軽コースと硬派コースの両方**を最初に示す(片方だけで答えない)。材料は `py -X utf8 scripts/report_courses.py` の出力(通信なし。`--top`・`--json-out`・`--out`。今日の `report.html` でなければ終了コード2で止まり、構造が違えば3)。`report.html` を目視で読み写さない。
-   - 各コースの上位3件を、日付・地点・見頃の時間帯・視界遮蔽雲量・光害(実効的な空の明るさ)・東京からの距離で示し、コース条件の違いを一言添える(気軽=東京から直線250km圏内で離島・本格登山・リフト要を除く / 硬派=距離・アクセスを問わず条件のみ)。
+   - 各コースの上位3件を、日付・地点・見頃の時間帯・視界遮蔽雲量・光害(ALRと順位。日本で未較正の相対指数)・東京からの距離で示し、コース条件の違いを一言添える(気軽=東京から直線250km圏内で離島・本格登山・リフト要を除く / 硬派=距離・アクセスを問わず条件のみ)。
    - 順序は、近場・気軽を求めるなら気軽が先、遠征・ベスト・登山可を求めるなら硬派が先、どちらでもなければ気軽が先。
    - 候補が無いコースは、出力の理由(MSM圏内の夜が無い等)をそのまま伝え、空欄を埋めない。「気象メモ」(気軽コースの雲量の注記)があれば添える。
    - 答えたあと、選んだ(または筆頭を提案して承認された)地点と夜で、第10節の星空ガイドに進む案内を一言添える(下の3)。
    - 近日中(MSM)と中期見込み(ECMWF)はスコアの式が違い、絶対値は比べられない(第6節)。中期見込みの雲量は晴天率の参考表示で、足切りには使われていないと断る。
    - 雲量は全天の平均で、方角ごとの雲は分からない(第10節と同じ)。
-   - 光害の入力を新指数(Black Marble 由来のALR、試験運用)にしたレポート(`py -X utf8 generate_report.py --lp-source bm` → `report_bm.html`)を読むときは、`report_courses.py`・`weekend_page.py` に `--lp-source bm` を付ける(既定は legacy の `report.html`)。bm では空の明るさ(mag/arcsec²)は無く、ALR は日本で未較正の相対指数なので、順位・段階の目安としてだけ伝える。解説JSONの verdict に等級(N.NN mag)は書けず、ALR の値はレポートの候補と照合される。
+   - 光害の既定の入力は Black Marble 由来のALR(`generate_report.py` の既定 `--lp-source bm` → `report.html`。段階LP3で legacy から切り替えた)。`report_courses.py`・`weekend_page.py` の既定も bm で、空の明るさ(mag/arcsec²)は無く、ALR は日本で未較正の相対指数なので、順位・段階の目安としてだけ伝える。解説JSONの verdict に等級(N.NN mag)は書けず、ALR の値はレポートの候補と照合される。従来の入力(LPI)は `generate_report.py --lp-source legacy`(→ `report_legacy.html`)で作り、読むときは `report_courses.py`・`weekend_page.py` に `--lp-source legacy` を付ける。
 3. 星空ガイドへ進む
    - ユーザーが選んだ(または筆頭候補を提案して承認された)地点と夜で、第10節の手順に進む。
    - `--spot` にはレポートに出た地点名をそのまま使う(`stargazing_spots.json` の name と同じ表記)。見つからないときは推測で置き換えず、そのままユーザーに報告する。

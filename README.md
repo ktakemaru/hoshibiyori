@@ -22,10 +22,11 @@
 - **探索モード**(`explore_hoshibiyori.py`) — 直近14夜 × 候補地点146件を「月 → 雲 → 方角」の3段階漏斗で絞り込み、天の川銀河中心が狙える組み合わせをスコア順に出す。
   - 月フィルタ: 天文薄明終了〜開始(太陽高度−18°)のうち月が沈んでいる、または新月に近い時間帯を地点ごとに計算。
   - 雲フィルタ: 時間別の**視界遮蔽雲量**(観測者より上の雲)が30%以下で連続1時間以上続く「晴れ間」があるものだけ残し、その晴れ間を「見頃」として表示。直近約3日は気象庁MSM(約5km格子)、それ以降はECMWF IFS(0.25°)を時刻ごとに自動結合。
-  - 方角フィルタ: 対象天体の方位・高度を計算し、地形地平線(国土地理院DEM)を上回り、光害(Light Pollution Atlas由来のLPI)が閾値以下の地点だけ残す。
+  - 方角フィルタ: 対象天体の方位・高度を計算し、地形地平線(国土地理院DEM)を上回り、光害(Black Marble由来のスカイグロー指数ALR。日本で未較正の相対指数)が仮閾値以下の地点だけ残す。
 - **レポート生成**(`generate_report.py`) — 探索結果を`report.html`に出力。「気軽コース」(東京から直線250km圏内で、離島・本格登山・リフト要の地点を除く)と「硬派コース」(距離・アクセスを問わず条件のみ)のTOP10(「星空撮影に適した日と場所は?」と聞くと両コースを示す。`scripts/report_courses.py`を使う)、夜景系スポットの別枠、2週間先までの中期見込み(ECMWF、雲量は晴天率の参考表示のみ)、気象庁天気図のスクリーンショット、気象衛星ひまわり赤外画像(「現況の雲の様子(参考)」)を含む。ひまわり画像は実況の参考表示のみで、スコア・順位・足切りには使わない。
+- **光害の指数について(相対指数であること)** — 既定の光害は、NASA Black Marble(VNP46A4、2025年)から Duriscoe et al. 2018 の手法で求めたスカイグロー指数 **ALR** です(`--lp-source bm`、既定)。**日本では較正していない相対指数で、空の明るさの絶対値(mag/arcsec²)やボートルスケールではありません**(全天平均で、標高・地形遮蔽は扱いません)。このため画面には ALR と順位だけを出し、足切りには仮閾値(ALR 10.66。従来の判定と同じ件数が通る値で、論文の目安値ではありません)を使います。従来の入力(LPI)と比べた上位の順位差は小さく(見込みの上位10件のうち6件が共通、上位2件は同じ。入れ替わりは光害の減点が2点前後違うだけで動く範囲)、最終的な判断は実地の経験に基づいて行ってください。従来の入力は `--lp-source legacy`(出力は `report_legacy.html`)で使えます。
 - **取得失敗の扱い** — Open-Meteoが429(利用上限)を返したら即中止する。失敗セル率(要求したユニークセルのうち取得に失敗した割合)が20%未満なら、`report.html`冒頭に警告バナーを出して続行する(終了コード0)。20%以上、または429の場合は`report.html`を更新せず終了コード2で終わる(閾値は`grid_cache.py`の`FAILED_CELL_RATE_ABORT`)。
-- **候補地点マスター**(`stargazing_spots.json`) — 星空撮影の専門家・愛好家サイトのWeb調査と外部リスト取り込みによる主軸146件(`spots`)と、OSM `tourism=viewpoint`由来の参考データ751件(`viewpoint_reference`)。各地点に光害LPI・簡易ボートル値・`site_type`(暗い空/夜景系)を付与。
+- **候補地点マスター**(`stargazing_spots.json`) — 星空撮影の専門家・愛好家サイトのWeb調査と外部リスト取り込みによる主軸146件(`spots`)と、OSM `tourism=viewpoint`由来の参考データ751件(`viewpoint_reference`)。各地点に`site_type`(暗い空/夜景系。ALRの仮閾値で分類)を付与。光害の数値(LPI・簡易ボートル値)は、Lorenz氏のデータ由来のため段階LP3で外した。
 
 ## 見上げ型ハイブリッド雲量判定
 
@@ -60,7 +61,7 @@ ender_sky_guide.py --data out\senjogahara_data.json --commentary out\senjogahara
 |---|---|
 | `step1_astronomy/` | 天体位置・薄明計算(Skyfield) |
 | `step2_terrain/` | 国土地理院DEMタイルから方位角別の地形地平線仰角プロファイル |
-| `step3_light_pollution/` | 光害レベル(Light Pollution Atlas バイナリタイル) |
+| `step3_light_pollution/` | 光害(既定: Black Marble由来のスカイグロー指数ALR。`--lp-source legacy` のときだけ Light Pollution Atlas のタイルを使う) |
 | `step4_moonlight/` | 月明かりによる空の明るさ増加(Krisciunas & Schaefer 1991) |
 | `step5_cloud_forecast/` | Open-Meteo雲量予報、見上げ型ハイブリッド雲量判定、格子セルキャッシュ、気象庁天気図取得、ひまわり赤外画像取得(`himawari_image.py`) |
 | `step6_viewpoint_survey/` | OSM viewpoint収集(参考データ) |
@@ -156,7 +157,7 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 
 次の処理は、所要時間・通信先・回数・書き込み先を確認し、承認を得てから行います。
 
-- `generate_report.py`: 10〜30分、Open-Meteo API 約220回。加えて気象庁(ひまわり・天気図)と光害タイル(Light Pollution Atlas)へも通信します。
+- `generate_report.py`: 10〜30分、Open-Meteo API 約220回。加えて気象庁(ひまわり・天気図)へも通信します。光害は既定(bm)では同梱の派生データを読むだけで通信しません(`--lp-source legacy` のときだけ光害タイル[Light Pollution Atlas]へ通信します)。
 - 星空ガイドの雲量取得(`--cloud fetch --allow-network`。先に `--estimate`)。
 
 **HTTP 429 が出たら即中止**し、別経路やリトライの連打で回避しません(`AGENTS.md` 第7節)。
@@ -179,8 +180,8 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 |---|---|---|
 | 気象予報(雲量・気圧面・ジオポテンシャル高度) | [Open-Meteo.com](https://open-meteo.com/)(気象庁MSM・ECMWF IFSの数値予報を配信) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。「Weather data by Open-Meteo.com」の表示 |
 | 標高(地形地平線) | [国土地理院 地理院タイル(標高タイル)](https://maps.gsi.go.jp/development/ichiran.html) | [国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)に基づき「**出典：国土地理院 地理院タイル(標高タイル)を加工して作成**」と表示 |
-| 光害(人工夜空輝度) | David Lorenz, [Light Pollution Atlas](https://djlorenz.github.io/astronomy/lp/) | 個人運営サイト。明示的なライセンス表記なし。出典表示を行い、**公開サービスへ組み込む前に著者への利用可否確認が必要**(未実施)。ボートルスケール値は非公式の簡易近似 |
-| 光害(スカイグロー指数。**準備段階・既定では未使用**) | [NASA Black Marble VNP46A4](https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A4/)(DOI [10.5067/VIIRS/VNP46A4.002](https://doi.org/10.5067/VIIRS/VNP46A4.002))。手法は Duriscoe et al. 2018(CC BY) | NASA主導ミッションのデータは CC0(NASA Earthdata データ利用ガイダンス)で、引用が強く推奨されている。引用: NASA VIIRS Land Science Investigator-led Processing System. (2025). VIIRS/NPP Lunar BRDF-Adjusted Nighttime Lights Yearly L3 Global 15 arc second Linear Lat Lon Grid [Dataset]. NASA LAADS DAAC. https://doi.org/10.5067/VIIRS/VNP46A4.002 。派生データ(`step3_light_pollution/data/`)のみ同梱し、実行時の通信・トークンは不要。日本では未較正の相対指数(詳細は `step3_light_pollution/METHOD.md`)。上のLorenz氏の行は切り替えまで残す |
+| 光害(人工夜空輝度。**`--lp-source legacy` のときだけ使用**) | David Lorenz, [Light Pollution Atlas](https://djlorenz.github.io/astronomy/lp/) | 個人運営サイト。明示的なライセンス表記なし。出典表示を行い、**公開サービスへ組み込む前に著者への利用可否確認が必要**(未実施)。このデータ由来の値(LPI・mpsas・ボートル近似)は、現行の地点ファイル等には同梱していない(過去のコミットには残る)。ボートルスケール値は非公式の簡易近似 |
+| 光害(スカイグロー指数。**既定**) | [NASA Black Marble VNP46A4](https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A4/)(DOI [10.5067/VIIRS/VNP46A4.002](https://doi.org/10.5067/VIIRS/VNP46A4.002))。手法は Duriscoe et al. 2018(CC BY) | NASA主導ミッションのデータは CC0(NASA Earthdata データ利用ガイダンス)で、引用が強く推奨されている。引用: NASA VIIRS Land Science Investigator-led Processing System. (2025). VIIRS/NPP Lunar BRDF-Adjusted Nighttime Lights Yearly L3 Global 15 arc second Linear Lat Lon Grid [Dataset]. NASA LAADS DAAC. https://doi.org/10.5067/VIIRS/VNP46A4.002 。派生データ(`step3_light_pollution/data/`)のみ同梱し、実行時の通信・トークンは不要。日本では未較正の相対指数(詳細は `step3_light_pollution/METHOD.md`) |
 | 地上天気図・予想天気図 | [気象庁ホームページ](https://www.jma.go.jp/) | [気象庁ホームページ利用規約](https://www.jma.go.jp/jma/kishou/info/coment.html)に基づき出典表示 |
 | 気象衛星ひまわり画像(現況の雲の様子・参考表示のみ) | [気象庁ホームページ](https://www.jma.go.jp/bosai/map.html) | [気象庁ホームページ利用規約](https://www.jma.go.jp/jma/kishou/info/coment.html)に基づき「出典：気象庁ホームページ (https://www.jma.go.jp/bosai/map.html)」と表示。画像は実況で予報ではなく、スコアには使わない。Pillowが必要 |
 | 候補地点(OSM展望データ)・地名(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | [ODbL](https://opendatacommons.org/licenses/odbl/)。Nominatimは[利用規約](https://operations.osmfoundation.org/policies/nominatim/)(1リクエスト/秒以下・識別可能なUser-Agent・結果のキャッシュ)を遵守 |

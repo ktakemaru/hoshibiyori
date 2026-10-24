@@ -77,7 +77,7 @@ class ReportCoursesBmTests(unittest.TestCase):
         self.assertIn("相対指数", res["lp_note"])
 
     def test_legacy_result_unchanged(self):
-        res = rc.build_result(build("legacy"), Path("report.html"), 3, False)
+        res = rc.build_result(build("legacy"), Path("report_legacy.html"), 3, False, "legacy")
         self.assertNotIn("lp_source", res)
         k = res["courses"][0]["candidates"][0]
         self.assertNotIn("alr", k)
@@ -99,7 +99,7 @@ class ReportCoursesBmTests(unittest.TestCase):
         self.assertIn("相対指数", text)
         self.assertIn("ALR 2.34(主軸の地点のうち暗い方から41%)", text)
         self.assertNotIn("mag/arcsec", text)
-        legacy = rc.format_text(rc.build_result(build("legacy"), Path("r"), 3, False), "2026-10-17")
+        legacy = rc.format_text(rc.build_result(build("legacy"), Path("r"), 3, False, "legacy"), "2026-10-17")
         self.assertIn("mag/arcsec²", legacy)
         self.assertNotIn("ALR", legacy)
 
@@ -109,21 +109,36 @@ class ReportCoursesBmTests(unittest.TestCase):
             with redirect_stderr(err), redirect_stdout(io.StringIO()):
                 code = rc.main(["--lp-source", "bm"], now=NOW)
             self.assertEqual(code, rc.EXIT_STALE)
-            self.assertIn("report_bm.html", err.getvalue())
-            self.assertIn("--lp-source bm", err.getvalue())
-            (d / "report_bm.html").write_text(build("bm"), encoding="utf-8")
+            self.assertIn("report.html", err.getvalue())
+            self.assertNotIn("--lp-source", err.getvalue())  # 既定(bm)の再生成コマンドに引数は要らない
+            (d / "report.html").write_text(build("bm"), encoding="utf-8")
             out = io.StringIO()
             with redirect_stdout(out):
                 code = rc.main(["--lp-source", "bm"], now=NOW)
             self.assertEqual(code, rc.EXIT_OK)
             self.assertIn("ALR 2.34", out.getvalue())
 
-    def test_cli_default_still_reads_report_html(self):
+    def test_cli_default_reads_report_html_as_bm(self):
         with _DataDir() as d:
-            (d / "report.html").write_text(build("legacy"), encoding="utf-8")
+            (d / "report.html").write_text(build("bm"), encoding="utf-8")
             out = io.StringIO()
             with redirect_stdout(out):
                 code = rc.main([], now=NOW)
+            self.assertEqual(code, rc.EXIT_OK)
+            self.assertIn("ALR 2.34", out.getvalue())
+            self.assertNotIn("mag/arcsec²", out.getvalue())
+
+    def test_cli_legacy_reads_report_legacy_html(self):
+        with _DataDir() as d:
+            err = io.StringIO()
+            with redirect_stderr(err), redirect_stdout(io.StringIO()):
+                self.assertEqual(rc.main(["--lp-source", "legacy"], now=NOW), rc.EXIT_STALE)
+            self.assertIn("report_legacy.html", err.getvalue())
+            self.assertIn("--lp-source legacy", err.getvalue())
+            (d / "report_legacy.html").write_text(build("legacy"), encoding="utf-8")
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = rc.main(["--lp-source", "legacy"], now=NOW)
             self.assertEqual(code, rc.EXIT_OK)
             self.assertIn("mag/arcsec²", out.getvalue())
 
@@ -142,7 +157,7 @@ class WeekendPageBmTests(unittest.TestCase):
         self.assertIn("10.5067/VIIRS/VNP46A4.002", page)  # フッターはレポートの出典(Black Marble)を引く
 
     def test_legacy_page_has_no_bm_parts(self):
-        report = wp.load_report(build("legacy"))
+        report = wp.load_report(build("legacy"), "legacy")
         self.assertNotIn("lp_source", report)
         page = wp.render_page(report, self.nights, 6, None, {})
         self.assertIn("mag/arcsec²", page)
@@ -162,26 +177,33 @@ class WeekendPageBmTests(unittest.TestCase):
             wp.check_verdict(commentary("空の明るさ 21.80 mag です。"), report, [])
         self.assertIn("等級が無い", str(e.exception))
         with self.assertRaises(wp.CommentaryError) as e:
-            wp.check_verdict(commentary("ALR 2.34です。"), wp.load_report(build("legacy")), [])
+            wp.check_verdict(commentary("ALR 2.34です。"), wp.load_report(build("legacy"), "legacy"), [])
         self.assertIn("legacyのレポートにはALRが無い", str(e.exception))
 
     def test_cli_bm_output_name_and_default_report(self):
         with _DataDir() as d:
-            (d / "report_bm.html").write_text(build("bm"), encoding="utf-8")
+            (d / "report.html").write_text(build("bm"), encoding="utf-8")
             out = d / "page.html"
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                 code = wp.main(["--lp-source", "bm", "--out", str(out), "--dates", "2026-10-17"], now=NOW)
             self.assertEqual(code, wp.EXIT_OK)
             self.assertIn("ALR", out.read_text(encoding="utf-8"))
-            so = io.StringIO()  # 出力先を省略すると、legacyのページと別名(_bm)になる
+            so = io.StringIO()  # 出力先を省略すると既定(bm)のページ名。legacyは別名(_legacy)になる
             with redirect_stdout(so), redirect_stderr(io.StringIO()):
-                code = wp.main(["--lp-source", "bm", "--dates", "2026-10-17"], now=NOW)
+                code = wp.main(["--dates", "2026-10-17"], now=NOW)
             self.assertEqual(code, wp.EXIT_OK)
-            self.assertIn("weekend_stargazing_20261017_bm.html", so.getvalue())
+            self.assertIn("weekend_stargazing_20261017.html", so.getvalue())
+            self.assertNotIn("_legacy", so.getvalue())
+            (d / "report_legacy.html").write_text(build("legacy"), encoding="utf-8")
+            so = io.StringIO()
+            with redirect_stdout(so), redirect_stderr(io.StringIO()):
+                code = wp.main(["--lp-source", "legacy", "--dates", "2026-10-17"], now=NOW)
+            self.assertEqual(code, wp.EXIT_OK)
+            self.assertIn("weekend_stargazing_20261017_legacy.html", so.getvalue())
 
     def test_cli_wrong_source_exits_with_parse_error(self):
         with _DataDir() as d:
-            (d / "report_bm.html").write_text(build("legacy"), encoding="utf-8")  # 形式の食い違い
+            (d / "report.html").write_text(build("legacy"), encoding="utf-8")  # 形式の食い違い
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                 code = wp.main(["--lp-source", "bm", "--dates", "2026-10-17"], now=NOW)
             self.assertEqual(code, wp.EXIT_PARSE)

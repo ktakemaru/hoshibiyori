@@ -25,7 +25,7 @@ SPOTS_PATH = ROOT / "stargazing_spots.json"
 STEP_MIN = 20
 
 ATTRIBUTION = ("天体位置はSkyfield(JPL DE421)で計算。雲量はOpen-Meteo経由の気象庁MSM・ECMWF IFS(CC BY 4.0)、"
-               "地形は国土地理院の標高タイルを加工して作成、光害は David Lorenz 氏の Light Pollution Atlas によります。")
+               "地形は国土地理院の標高タイルを加工して作成。")
 DISCLAIMER = ("雲量は予報値で、当日の空を保証するものではありません。山名と構図の位置関係は、現地での確認を前提にしてください。")
 
 

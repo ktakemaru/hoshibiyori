@@ -128,7 +128,7 @@ def parse_weather_map(root: rc.Node) -> dict | None:
     return {"srcs": srcs, "fetched": fetched}
 
 
-def load_report(text: str, lp_source: str = "legacy") -> dict:
+def load_report(text: str, lp_source: str = rc.DEFAULT_LP_SOURCE) -> dict:
     root = rc.parse_html(text)
     generated = rc.parse_generated_at(root)
     courses = rc.parse_courses(root, lp_source)
@@ -636,9 +636,9 @@ def _iso_date(s: str) -> date:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="今週末の星空撮影ページ(HTML)を report.html から生成する(通信しない)")
-    ap.add_argument("--lp-source", choices=rc.LP_SOURCES, default="legacy",
-                    help="読むレポートの光害の入力。legacy=report.html(既定)、bm=report_bm.html(generate_report.py --lp-source bm)")
-    ap.add_argument("--report", type=Path, default=None, help="既定: legacyはreport.html、bmはreport_bm.html")
+    ap.add_argument("--lp-source", choices=rc.LP_SOURCES, default=rc.DEFAULT_LP_SOURCE,
+                    help="読むレポートの光害の入力。bm=report.html(既定)、legacy=report_legacy.html(generate_report.py --lp-source legacy)")
+    ap.add_argument("--report", type=Path, default=None, help="既定: bmはreport.html、legacyはreport_legacy.html")
     ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)。無ければ結論は出さない")
     ap.add_argument("--weather-commentary", type=Path, help="天気図の解説(既定: リポジトリ直下の weather_map_commentary.json、schema /2)")
     ap.add_argument("--spots", type=Path, default=ROOT / "stargazing_spots.json", help="verdict の地点名の照合に使う地点マスター")
@@ -659,9 +659,9 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
     if args.report is None:
-        args.report = resolve_data_root(ROOT) / ("report_bm.html" if args.lp_source == "bm" else "report.html")
+        args.report = resolve_data_root(ROOT) / (rc.LEGACY_REPORT_NAME if args.lp_source == "legacy" else "report.html")
     if not args.report.is_file():
-        gen_cmd = "py -X utf8 generate_report.py" + (" --lp-source bm" if args.lp_source == "bm" else "")
+        gen_cmd = "py -X utf8 generate_report.py" + (" --lp-source legacy" if args.lp_source == "legacy" else "")
         print(f"[中止] {args.report} がありません。{gen_cmd} で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)
         return EXIT_STALE
@@ -694,7 +694,7 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
         print(f"[天気図の解説] 未更新として扱います: {weather['reason']}", file=sys.stderr)
 
     nights = sorted(set(args.dates)) if args.dates else default_dates(gen_date)
-    suffix = "_bm" if args.lp_source == "bm" else ""  # bmのページはlegacyのページと別名にする
+    suffix = "_legacy" if args.lp_source == "legacy" else ""  # legacyのページは既定(bm)のページと別名にする
     out = args.out or resolve_data_root(ROOT) / "out" / f"weekend_stargazing_{nights[0]:%Y%m%d}{suffix}.html"
     if out.exists() and not args.force:
         print(f"[中止] {out} は既に存在します。別名にするか --force を付けてください(何も書いていません)。", file=sys.stderr)

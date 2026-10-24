@@ -1,7 +1,7 @@
 """各地点にスカイグロー指数(別フィールド)を付けて `stargazing_spots.bm.json` に出す(段階LP1)。
 
-既存の `stargazing_spots.json` は変更しない。既存のLPI/mpsas/bortle_approxにも触れない。
-numpyのみ・通信なし。出力には突き合わせのため id/name/lat/lon と既存の lpi を写す。
+`stargazing_spots.json` は変更しない。numpyのみ・通信なし。出力には突き合わせのため id/name/prefecture/lat/lon/site_type を写す
+(段階LP3でLorenz氏由来の lpi は写さないことにした)。
 
     py -X utf8 step3_light_pollution/annotate_spots_bm.py [--grid ...npz] [--out stargazing_spots.bm.json]
 """
@@ -19,7 +19,7 @@ import skyglow_bm as sg  # noqa: E402
 
 DEFAULT_GRID = sg.DATA_DIR / "skyglow_bm_2025.npz"
 DEFAULT_OUT = sg.REPO_ROOT / "stargazing_spots.bm.json"
-KEEP = ("id", "name", "prefecture", "lat", "lon", "lpi", "site_type")
+KEEP = ("id", "name", "prefecture", "lat", "lon", "site_type")
 
 
 def build_payload(grid_path: Path, spots_path: Path = sg.SPOTS_PATH) -> dict:
@@ -32,7 +32,7 @@ def build_payload(grid_path: Path, spots_path: Path = sg.SPOTS_PATH) -> dict:
     return {
         "schema": "hoshibiyori-spots-skyglow-bm/1",
         "note": "ALRは日本では未較正の相対指数。小さいほど暗い。rank_pctは0=最も暗い・100=最も明るい"
-                "(この146地点の中での位置)。既存のlpi/mpsas/bortle_approxは置き換えていない。",
+                "(この146地点の中での位置)。",
         "grid": {"file": grid_path.name, "sha256": hashlib.sha256(grid_path.read_bytes()).hexdigest(),
                  "product": grid.meta["product"], "year": grid.meta["year"], "built": grid.meta["built"]},
         "spots": rows,

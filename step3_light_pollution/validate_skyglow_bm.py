@@ -52,6 +52,9 @@ def main() -> int:
 
     grid = sg.DerivedGrid.load(args.grid)
     spots = json.loads(sg.SPOTS_PATH.read_text(encoding="utf-8"))["spots"]
+    import legacy_ref  # 事前計算のlpiは外したので、光害タイルから計算する
+    for s, v in zip(spots, legacy_ref.legacy_lpi(spots)):
+        s["lpi"] = float(v)
     ann = sg.annotate_spots(spots, grid)
     res = {"grid": str(args.grid.name), "n_spots": len(spots)}
 

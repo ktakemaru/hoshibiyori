@@ -61,7 +61,7 @@ class Base(unittest.TestCase):
     def run_cli(self, *argv, now=NOW):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = rc.main(list(argv), now=now)
+            code = rc.main(["--lp-source", "legacy"] + list(argv), now=now)  # このテストのレポートはlegacy形式
         return code, out.getvalue(), err.getvalue()
 
 
