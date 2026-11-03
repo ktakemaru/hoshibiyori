@@ -60,6 +60,12 @@ CLOUD_OBSTRUCTION_THRESHOLD = 30.0
 MIN_CLEAR_WINDOW_HOURS = 1.0  # これ未満の晴れ間は「見頃」として採用しない(2026-09-07追加)
 MOON_PHASE_NEGLIGIBLE_DEG = 150.0
 TARGET_ID = "galactic_center"
+# 探索の目的。"milkyway"=天の川(銀河中心の高度・方角・地形を条件にする、既定)、
+# "stars"=星空・星座(銀河中心の条件を使わず、雲・月・光害・暗い時間帯だけで選ぶ)
+TARGET_MODES = ("milkyway", "stars")
+DEFAULT_TARGET_MODE = "milkyway"
+# milkywayモードの候補がこの件数未満のとき、starsモードの案内を1行出す
+MILKYWAY_FEW_RESULTS = 5
 
 STARGAZING_SPOTS_PATH = ROOT / "stargazing_spots.json"
 
@@ -256,8 +262,8 @@ class FinalCandidate:
     window_start: datetime
     window_end: datetime
     best_time: datetime
-    target_az: float
-    target_alt: float
+    target_az: float | None             # starsモードではNone(銀河中心を評価しない)
+    target_alt: float | None
     horizon_alt: float | None
     terrain_available: bool
     mean_obstruction: float
@@ -496,7 +502,24 @@ def stage2_cloud_filter(ts, eph, nights: list[NightCandidate], sites: list[dict]
     return survivors
 
 
-def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPollutionStore) -> list[FinalCandidate]:
+def final_rank_key(f: "FinalCandidate", target_mode: str = DEFAULT_TARGET_MODE):
+    """降順ソート用のキー(大きいほど上位)。milkywayは従来のスコア。
+    starsは、晴れ時間が長い → 平均雲量が低い → ALRが小さい → 月の影響が小さい時間が長い、の辞書式順序。"""
+    if target_mode == "stars":
+        return (f.clear_hours, -f.mean_obstruction, -(f.alr if f.alr is not None else f.lp_index), f.moon_free_hours)
+    return (f.score,)
+
+
+def outlook_rank_key(o: "OutlookCandidate", target_mode: str = DEFAULT_TARGET_MODE):
+    """見込み(ECMWF)側。starsは雲を使わないため、ALRが小さい → 月の影響が小さい時間が長い、の順。"""
+    if target_mode == "stars":
+        return (-(o.alr if o.alr is not None else o.lp_index), o.moon_free_hours)
+    return (o.score,)
+
+
+def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPollutionStore,
+                            target_mode: str = DEFAULT_TARGET_MODE) -> list[FinalCandidate]:
+    stars_mode = target_mode == "stars"
     target = get_target(TARGET_ID)
     finals = []
     horizon_profile_cache: dict[str, dict[int, float]] = {}
@@ -507,13 +530,29 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
         site = s["site"]
         window_start, window_end, moon_free_hours = s["window_start"], s["window_end"], s["moon_free_hours"]
 
+        lp_result = lp_store.get(site["lat"], site["lon"])
+
+        if stars_mode:
+            # 銀河中心の高度・方角・地形(稜線)は評価しない。光害だけ足切りに使う。
+            if lp_result.brightness_ratio <= LP_INDEX_LIMIT:
+                finals.append(FinalCandidate(
+                    night_date=night.night_date, site_name=site["name"], municipality=site["municipality"],
+                    origin=site["origin"], site_lat=site["lat"], site_lon=site["lon"],
+                    requires_lift_access=site["requires_lift_access"],
+                    window_start=window_start, window_end=window_end,
+                    best_time=window_start, target_az=None, target_alt=None,
+                    horizon_alt=None, terrain_available=False,
+                    mean_obstruction=s["mean_obstruction"], lp_index=lp_result.brightness_ratio,
+                    moon_free_hours=moon_free_hours, clear_hours=s["clear_hours"], score=0.0,
+                    alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
+                ))
+            continue
+
         profile = None
         if site["horizon_csv"]:
             if site["horizon_csv"] not in horizon_profile_cache:
                 horizon_profile_cache[site["horizon_csv"]] = load_horizon_profile(site["horizon_csv"])
             profile = horizon_profile_cache[site["horizon_csv"]]
-
-        lp_result = lp_store.get(site["lat"], site["lon"])
 
         best_alt, best_az, best_time = -90.0, None, None
         t = window_start
@@ -558,6 +597,10 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
                 alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
             ))
 
+    if stars_mode:
+        print(f"\n[第3段階: 光害フィルタ(星空・星座モード)] {len(survivors)}組のうち、"
+              f"銀河中心の方角・地形は評価せず、{lp_limit_text(lp_store)}を満たすのは {len(finals)}件")
+        return finals
     print(f"\n[第3段階: 方角フィルタ] {len(survivors)}組のうち、"
           f"「{target.name}が地形地平線を上回り(地形データ有りの場合)、かつ{lp_limit_text(lp_store)}」を満たすのは"
           f" {len(finals)}件")
@@ -566,10 +609,12 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
 
 
 def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
-                   lp_store: BmLightPollutionStore, cache: GridCloudCache) -> list[OutlookCandidate]:
+                   lp_store: BmLightPollutionStore, cache: GridCloudCache,
+                   target_mode: str = DEFAULT_TARGET_MODE) -> list[OutlookCandidate]:
     """ECMWF圏内(長期見込み)の夜を処理する。雲量は数値スコア・足切りに使わず、
     月・地形・光害という決定論的要素だけでランキングし、雲は「晴天率」の参考値として添える。
     """
+    stars_mode = target_mode == "stars"
     target = get_target(TARGET_ID)
     horizon_profile_cache: dict[str, dict[int, float]] = {}
     results = []
@@ -581,14 +626,18 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 continue
 
             profile = None
-            if site["horizon_csv"]:
-                if site["horizon_csv"] not in horizon_profile_cache:
-                    horizon_profile_cache[site["horizon_csv"]] = load_horizon_profile(site["horizon_csv"])
-                profile = horizon_profile_cache[site["horizon_csv"]]
+            if stars_mode:
+                # 銀河中心を評価しないので、見どころ区間は暗い無月時間帯そのもの
+                v_start, v_end, peak_az, peak_alt = w_start, w_end, None, None
+            else:
+                if site["horizon_csv"]:
+                    if site["horizon_csv"] not in horizon_profile_cache:
+                        horizon_profile_cache[site["horizon_csv"]] = load_horizon_profile(site["horizon_csv"])
+                    profile = horizon_profile_cache[site["horizon_csv"]]
 
-            v_start, v_end, peak_time, peak_az, peak_alt = compute_target_window(ts, eph, site, target, w_start, w_end, profile)
-            if v_start is None:
-                continue
+                v_start, v_end, peak_time, peak_az, peak_alt = compute_target_window(ts, eph, site, target, w_start, w_end, profile)
+                if v_start is None:
+                    continue
 
             lp_result = lp_store.get(site["lat"], site["lon"])
             if lp_result.brightness_ratio > LP_INDEX_LIMIT:
@@ -603,11 +652,14 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 if valid else None
             )
 
-            score = (
-                (100.0 - lp_result.brightness_ratio * 10.0)
-                + max(0.0, peak_alt - (horizon_alt_at(profile, peak_az) if profile is not None else 0.0)) * 0.5
-                + moon_free_hours * 3.0
-            )
+            if stars_mode:
+                score = 0.0   # 並び順は outlook_rank_key が決める(銀河中心の項が無いため)
+            else:
+                score = (
+                    (100.0 - lp_result.brightness_ratio * 10.0)
+                    + max(0.0, peak_alt - (horizon_alt_at(profile, peak_az) if profile is not None else 0.0)) * 0.5
+                    + moon_free_hours * 3.0
+                )
 
             results.append(OutlookCandidate(
                 night_date=night.night_date, site_name=site["name"], municipality=site["municipality"],
@@ -615,7 +667,7 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 requires_lift_access=site["requires_lift_access"],
                 visible_start=v_start, visible_end=v_end,
                 target_az=peak_az, target_alt=peak_alt,
-                horizon_alt=(horizon_alt_at(profile, peak_az) if profile is not None else None),
+                horizon_alt=(horizon_alt_at(profile, peak_az) if profile is not None and peak_az is not None else None),
                 terrain_available=profile is not None,
                 lp_index=lp_result.brightness_ratio,
                 clear_sky_pct=clear_sky_pct, moon_free_hours=moon_free_hours, score=score,
@@ -623,38 +675,44 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
             ))
 
     print(f"\n[見込み(ECMWF圏内)] 候補日{len(nights)}日 × 候補地点{len(sites)}件のうち、"
-          f"月・地形・光害の決定論的条件を満たすのは {len(results)}件"
+          f"月・{'光害' if stars_mode else '地形・光害'}の決定論的条件を満たすのは {len(results)}件"
           f"(雲量は足切りに使わず、晴天率として参考表示のみ)")
     return results
 
 
-def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int) -> None:
+def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int,
+                         target_mode: str = DEFAULT_TARGET_MODE) -> None:
+    stars_mode = target_mode == "stars"
     for i, o in enumerate(outlooks[:top_n], 1):
         terrain_note = (f"地形地平線{o.horizon_alt:.1f}°を{o.target_alt - o.horizon_alt:.1f}°上回る"
-                         if o.terrain_available else "地形データなし(未評価)")
+                         if o.terrain_available and o.horizon_alt is not None else "地形データなし(未評価)")
         clear_note = f"参考: この時間帯の晴天率 約{o.clear_sky_pct:.0f}%" if o.clear_sky_pct is not None else "参考: 晴天率データなし"
-        print(f"\n[{i}位] スコア {o.score:.1f}")
+        print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {o.score:.1f}"))
         print(f"  日付      : {o.night_date}")
         print(f"  地点      : {o.site_name}（{o.municipality}）")
         print(f"  由来      : {ORIGIN_LABELS.get(o.origin, o.origin)}")
-        print(f"  {target.name}の見頃: {o.visible_start.strftime('%H:%M')} 〜 {o.visible_end.strftime('%H:%M')}"
-              f"（{terrain_note}）")
+        if stars_mode:
+            print(f"  暗い無月時間帯: {o.visible_start.strftime('%H:%M')} 〜 {o.visible_end.strftime('%H:%M')}")
+        else:
+            print(f"  {target.name}の見頃: {o.visible_start.strftime('%H:%M')} 〜 {o.visible_end.strftime('%H:%M')}"
+                  f"（{terrain_note}）")
         print(f"  光害(相対指数): {describe_alr(o.alr, o.alr_rank_pct)}")
         print(f"  → 晴れれば {o.visible_start.strftime('%H:%M')}〜{o.visible_end.strftime('%H:%M')} にチャンスがあります。"
               f"({clear_note})")
 
 
-def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_n_reference: int = 10) -> None:
+def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_n_reference: int = 10,
+                         target_mode: str = DEFAULT_TARGET_MODE) -> None:
     target = get_target(TARGET_ID)
-    primary = sorted((o for o in outlooks if is_primary_origin(o.origin)), key=lambda o: o.score, reverse=True)
-    reference = sorted((o for o in outlooks if not is_primary_origin(o.origin)), key=lambda o: o.score, reverse=True)
+    primary = sorted((o for o in outlooks if is_primary_origin(o.origin)), key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
+    reference = sorted((o for o in outlooks if not is_primary_origin(o.origin)), key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
 
     print(f"\n{'-'*78}")
     print(f"見込み一覧・主要候補(対象: {target.name}、星空撮影名所ベース、"
           f"月・地形・光害による決定論的スコア順、上位{top_n}件)")
     print(f"{'-'*78}")
     if primary:
-        _print_outlook_items(primary, target, top_n)
+        _print_outlook_items(primary, target, top_n, target_mode)
     else:
         print("\n  該当なし(主要候補=curated由来の地点で条件を満たすものがありませんでした)")
 
@@ -662,35 +720,42 @@ def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_
     print(f"見込み一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'-'*78}")
     if reference:
-        _print_outlook_items(reference, target, top_n_reference)
+        _print_outlook_items(reference, target, top_n_reference, target_mode)
     else:
         print("\n  該当なし")
 
 
-def _print_final_items(finals: list[FinalCandidate], target, top_n: int) -> None:
+def _print_final_items(finals: list[FinalCandidate], target, top_n: int,
+                       target_mode: str = DEFAULT_TARGET_MODE) -> None:
+    stars_mode = target_mode == "stars"
     for i, f in enumerate(finals[:top_n], 1):
         terrain_note = (f"地形地平線 {f.horizon_alt:.1f}°を{f.target_alt - f.horizon_alt:.1f}°上回る"
-                         if f.terrain_available else "地形データなし(未評価)")
-        print(f"\n[{i}位] スコア {f.score:.1f}")
+                         if f.terrain_available and f.horizon_alt is not None else "地形データなし(未評価)")
+        print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {f.score:.1f}"))
         print(f"  日付      : {f.night_date}")
         print(f"  地点      : {f.site_name}（{f.municipality}）")
         print(f"  由来      : {ORIGIN_LABELS.get(f.origin, f.origin)}")
-        print(f"  推奨時間帯 : {f.window_start.strftime('%H:%M')} 〜 {f.window_end.strftime('%H:%M')}"
-              f"（狙い目 {f.best_time.strftime('%H:%M')} 頃、月の影響小 {f.moon_free_hours:.1f}時間）")
-        print(f"  {target.name}: 方位角{f.target_az:.0f}° / 高度{f.target_alt:.1f}°({terrain_note})")
+        if stars_mode:
+            print(f"  推奨時間帯 : {f.window_start.strftime('%H:%M')} 〜 {f.window_end.strftime('%H:%M')}"
+                  f"（晴れ間 {f.clear_hours:.1f}時間、月の影響小 {f.moon_free_hours:.1f}時間）")
+        else:
+            print(f"  推奨時間帯 : {f.window_start.strftime('%H:%M')} 〜 {f.window_end.strftime('%H:%M')}"
+                  f"（狙い目 {f.best_time.strftime('%H:%M')} 頃、月の影響小 {f.moon_free_hours:.1f}時間）")
+            print(f"  {target.name}: 方位角{f.target_az:.0f}° / 高度{f.target_alt:.1f}°({terrain_note})")
         print(f"  条件要約  : 視界遮蔽雲量 平均{f.mean_obstruction:.0f}% / 光害(相対指数) {describe_alr(f.alr, f.alr_rank_pct)}")
 
 
-def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_reference: int = 10) -> None:
+def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_reference: int = 10,
+                       target_mode: str = DEFAULT_TARGET_MODE) -> None:
     target = get_target(TARGET_ID)
-    primary = sorted((f for f in finals if is_primary_origin(f.origin)), key=lambda f: f.score, reverse=True)
-    reference = sorted((f for f in finals if not is_primary_origin(f.origin)), key=lambda f: f.score, reverse=True)
+    primary = sorted((f for f in finals if is_primary_origin(f.origin)), key=lambda f: final_rank_key(f, target_mode), reverse=True)
+    reference = sorted((f for f in finals if not is_primary_origin(f.origin)), key=lambda f: final_rank_key(f, target_mode), reverse=True)
 
     print(f"\n{'='*78}")
     print(f"探索モード 最終候補一覧・主要候補(対象: {target.name}、星空撮影名所ベース、スコア順、上位{top_n}件)")
     print(f"{'='*78}")
     if primary:
-        _print_final_items(primary, target, top_n)
+        _print_final_items(primary, target, top_n, target_mode)
     else:
         print("\n  該当なし(主要候補=curated由来の地点で条件を満たすものがありませんでした)")
 
@@ -698,7 +763,7 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
     print(f"探索モード 最終候補一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'='*78}")
     if reference:
-        _print_final_items(reference, target, top_n_reference)
+        _print_final_items(reference, target, top_n_reference, target_mode)
     else:
         print("\n  該当なし")
 
@@ -707,15 +772,18 @@ def parse_args(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="探索モード(月・雲量・地形・光害で夜と地点を絞る)。"
                                              "光害は Black Marble 由来のALR(日本で未較正の相対指数)")
+    ap.add_argument("--target", choices=TARGET_MODES, default=DEFAULT_TARGET_MODE,
+                    help="milkyway=天の川(既定。銀河中心の高度・方角・地形を条件にする) / "
+                         "stars=星空・星座(銀河中心の条件を使わず、雲・月・光害・暗い時間帯で選ぶ。天の川は対象外)")
     return ap.parse_args(argv)
 
 
 def main(argv=None) -> int:
     """終了コード: 0=完了(取得失敗があれば警告を表示)、2=取得失敗が多すぎる/429。"""
-    parse_args(argv)
+    args = parse_args(argv)
     cache = GridCloudCache()
     try:
-        _explore(cache)
+        _explore(cache, args.target)
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}")
         print("  " + cache.summary().console_line())
@@ -732,7 +800,7 @@ def main(argv=None) -> int:
     return 0
 
 
-def _explore(cache: GridCloudCache) -> None:
+def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE) -> None:
     t_start = time.time()
 
     ts = load.timescale()
@@ -766,21 +834,24 @@ def _explore(cache: GridCloudCache) -> None:
     t_stage2_start = time.time()
     if msm_nights:
         survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache)
-        finals = stage3_direction_filter(ts, eph, survivors, lp_store)
-        print_final_report(finals)
+        finals = stage3_direction_filter(ts, eph, survivors, lp_store, target_mode)
+        print_final_report(finals, target_mode=target_mode)
     else:
         finals = []
         print("\n[精密予報パート] 該当する候補夜がありません(現時点では候補日が全てMSM予報期間の外)。")
     t_stage2_end = time.time()
 
     if ecmwf_nights:
-        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache)
-        print_outlook_report(outlooks)
+        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode)
+        print_outlook_report(outlooks, target_mode=target_mode)
     else:
         outlooks = []
         print("\n[見込みパート] 該当する候補夜がありません。")
 
     t_end = time.time()
+    if target_mode == "milkyway" and len(finals) + len(outlooks) < MILKYWAY_FEW_RESULTS:
+        print("\n候補が少ない場合は `--target stars` で星空・星座向けの候補を探せます。")
+
     print(f"\n{'='*78}")
     print(f"実行時間: 全体 {(t_end - t_start)/60:.1f}分"
           f"(うち雲量取得 {(t_stage2_end - t_stage2_start)/60:.1f}分)")
