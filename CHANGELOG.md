@@ -3,6 +3,11 @@
 このファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) の形式に従います。
 ここに書くのは、実際に main にマージされた変更だけです。
 
+## [Unreleased]
+
+### Added
+- **星空・星座モード(`--target stars`)**: `explore_hoshibiyori.py` と `generate_report.py` に `--target {milkyway,stars}` を追加(既定は `milkyway`で従来どおり)。`stars` では銀河中心の高度・方角・地形(稜線)の条件を使わず、視界遮蔽雲量・月・光害(ALR)・夜景系除外・暗い時間帯で候補を選ぶ。順位は晴れ時間 → 平均雲量 → ALR → 月の影響が小さい時間(見込み側は雲を使わないため ALR → 月の影響が小さい時間)。レポートは `report_stars.html` に出力(`report.html` は上書きしない)し、見出しに「星空・星座モード」「天の川は対象外」を明記、「この時期の見どころ」から銀河中心を外す。`milkyway` の候補が5件未満のときは `--target stars` の案内を1行出す。
+
 ## [1.0.0] - 2026-10-24
 
 光害データを、ライセンスが不明瞭な外部データから、NASA Black Marble 由来の自前計算に切り替えた版。

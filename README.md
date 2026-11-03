@@ -95,6 +95,18 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -X utf8 generate_report.py       # report.html を生成(初回はAPI取得のため10〜30分)
 ```
 
+### 探索の目的を切り替える(`--target`)
+
+`generate_report.py` と `explore_hoshibiyori.py` は `--target {milkyway,stars}` を受け付けます。
+
+| 値 | 向く時期・目的 | 条件 |
+|---|---|---|
+| `milkyway`(既定) | 天の川を撮る(春〜秋) | 雲・月・光害に加え、銀河中心が地形の地平線を上回ることが必要 |
+| `stars` | 冬、星座、明るい星や惑星を見る、天の川にこだわらない | 銀河中心の高度・方角・地形は問わず、雲・月・光害・暗い時間帯で選ぶ(天の川は対象外) |
+
+`stars` のレポートは `report_stars.html` に出力され、`report.html` は上書きしません。例: `.\.venv\Scripts\python.exe -X utf8 generate_report.py --target stars`。
+`milkyway` の候補が少ない(5件未満)ときは、レポートの末尾にこの案内が出ます。
+
 依存パッケージは `requirements.txt` を参照: `skyfield`・`requests`・`numpy`(標高・光害タイルの配列処理)・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(任意。未導入なら天気図セクションは省略される)。
 
 テスト(ネットワーク不使用、標準ライブラリのunittest):
