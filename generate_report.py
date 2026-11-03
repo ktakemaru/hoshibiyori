@@ -47,6 +47,7 @@ from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and
 
 from explore_hoshibiyori import (  # noqa: E402
     JST, TARGET_ID, NUM_NIGHTS_TO_SCAN,
+    TARGET_MODES, DEFAULT_TARGET_MODE, MILKYWAY_FEW_RESULTS, final_rank_key, outlook_rank_key,
     NightCandidate, FinalCandidate, OutlookCandidate,
     ORIGIN_LABELS, is_primary_origin,
     load_candidate_sites, all_nights_timeline, forecast_regime_for_night,
@@ -66,6 +67,8 @@ from areas import load_areas  # noqa: E402
 
 # scripts/report_courses.py・weekend_page.py もこれを読む。
 OUTPUT_PATH = DATA_ROOT / "report.html"
+# 星空・星座モード(--target stars)の出力先。天の川モードのreport.htmlを上書きしない
+OUTPUT_PATH_STARS = DATA_ROOT / "report_stars.html"
 TOP_N_TIER2 = 10
 
 # --- JMA地上天気図(2段目「直近・行動用」、2026-09-06追加) ---
@@ -136,10 +139,13 @@ def _season_status(best_months: list[int], month: int) -> str | None:
     return None
 
 
-def select_seasonal_targets(month: int) -> list[tuple]:
-    """月に応じて、常時表示の主対象+季節が近い天体を(Target, status)のペアで返す。"""
-    core = get_target(CORE_TARGET_ID)
-    selected = [(core, _season_status(core.best_months, month))]
+def select_seasonal_targets(month: int, include_core: bool = True) -> list[tuple]:
+    """月に応じて、常時表示の主対象+季節が近い天体を(Target, status)のペアで返す。
+    include_core=False(星空・星座モード)では銀河中心を含めない。"""
+    selected = []
+    if include_core:
+        core = get_target(CORE_TARGET_ID)
+        selected.append((core, _season_status(core.best_months, month)))
 
     candidates = []
     for target_id in SEASONAL_TARGET_IDS:
@@ -340,14 +346,15 @@ def _find_visible_windows(ts, eph, lat: float, lon: float, target,
     return results
 
 
-def build_sky_guide(ts, eph, ref_lat: float, ref_lon: float, night: NightCandidate, month: int) -> dict:
+def build_sky_guide(ts, eph, ref_lat: float, ref_lon: float, night: NightCandidate, month: int,
+                    include_core: bool = True) -> dict:
     """代表夜(通常は直近14夜のうち今夜)について、月に応じて選んだ天体の見える時間帯と方角をまとめる。
 
     月の有無(無月時間帯)には左右されない一般的な「見どころ」ガイドなので、
     夜全体(天文薄明終了〜天文薄明開始)を対象にする(night.window_start/endという
     無月区間には限定しないが、空が完全に暗くなる時間帯には限定する)。
     """
-    selected = select_seasonal_targets(month)
+    selected = select_seasonal_targets(month, include_core)
     targets_out = []
     for target, status in selected:
         if night.dark_start is None or night.dark_end is None:
@@ -358,14 +365,16 @@ def build_sky_guide(ts, eph, ref_lat: float, ref_lon: float, night: NightCandida
     return {"night_date": night.night_date, "targets": targets_out}
 
 
-def build_period_summary(finals: list[FinalCandidate], outlooks: list[OutlookCandidate]) -> str:
+def build_period_summary(finals: list[FinalCandidate], outlooks: list[OutlookCandidate],
+                         target_mode: str = DEFAULT_TARGET_MODE) -> str:
     parts = []
     if finals:
         avg_obstruction = sum(f.mean_obstruction for f in finals) / len(finals)
-        best = max(finals, key=lambda f: f.score)
+        best = max(finals, key=lambda f: final_rank_key(f, target_mode))
+        best_note = "" if target_mode == "stars" else f"(スコア{best.score:.0f})"
         parts.append(
             f"直近の精密予報期間は平均視界遮蔽雲量{avg_obstruction:.0f}%で、"
-            f"最有力は{best.night_date}の{best.site_name}(スコア{best.score:.0f})です。"
+            f"最有力は{best.night_date}の{best.site_name}{best_note}です。"
         )
     else:
         parts.append("直近の精密予報(MSM)圏内にはまだ候補夜がありません。")
@@ -384,23 +393,26 @@ def parse_args(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="探索レポート(report.html)を生成する。"
                                              "光害は Black Marble 由来のALR(日本で未較正の相対指数)")
+    ap.add_argument("--target", choices=TARGET_MODES, default=DEFAULT_TARGET_MODE,
+                    help="milkyway=天の川(既定。report.htmlに出力) / "
+                         "stars=星空・星座(銀河中心の条件を使わない。天の川は対象外。report_stars.htmlに出力)")
     return ap.parse_args(argv)
 
 
 def main(argv=None) -> int:
     """終了コード: 0=出力済み(取得失敗があれば警告バナー付き)、2=取得失敗が多すぎる/429のためreport.htmlを更新せず中止。"""
-    parse_args(argv)
+    args = parse_args(argv)
     cache = GridCloudCache()
+    out_path = OUTPUT_PATH_STARS if args.target == "stars" else OUTPUT_PATH
     try:
-        return _generate(cache)
+        return _generate(cache, args.target, out_path)
     except OpenMeteoDailyLimitError as e:
-        print(f"\n[中止] {e}。{OUTPUT_PATH.name}は更新していません。")
+        print(f"\n[中止] {e}。{out_path.name}は更新していません。")
         print("  " + cache.summary().console_line())
         return 2
 
 
-def _generate(cache: GridCloudCache) -> int:
-    out_path = OUTPUT_PATH
+def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out_path: Path = OUTPUT_PATH) -> int:
     t_start = datetime.now(JST)
     ts = load.timescale()
     eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
@@ -445,7 +457,7 @@ def _generate(cache: GridCloudCache) -> int:
     night_view_items: list[dict] = []
     if msm_nights:
         survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache)
-        finals = stage3_direction_filter(ts, eph, survivors, lp_store)
+        finals = stage3_direction_filter(ts, eph, survivors, lp_store, target_mode)
         # 「星空観賞向き」枠(2026-09-07追加): stage3の光害の足切りで気軽/硬派コースから
         # 除外される夜景系地点(site_type=="night_view")も、天気(晴れ間)条件さえ満たせば
         # 観賞向きスポットとして別枠で残す。地点ごとに最も晴れる(視界遮蔽雲量が低い)夜を1件だけ選ぶ。
@@ -468,32 +480,33 @@ def _generate(cache: GridCloudCache) -> int:
 
     outlooks: list[OutlookCandidate] = []
     if ecmwf_nights:
-        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache)
+        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode)
 
     # MSM圏内に入るまでの残り日数
     msm_index = next((i for i, n in enumerate(all_nights) if regimes.get(n.night_date) == "MSM"), None)
 
     finals_casual = [f for f in finals
                      if is_casual_site(f.site_name, f.municipality, f.site_lat, f.site_lon, f.requires_lift_access)]
-    tier2_casual = sorted(finals_casual, key=lambda f: f.score, reverse=True)[:TOP_N_TIER2]
+    tier2_casual = sorted(finals_casual, key=lambda f: final_rank_key(f, target_mode), reverse=True)[:TOP_N_TIER2]
 
     casual_eligible_sites = [s for s in sites
                               if is_casual_site(s["name"], s["municipality"], s["lat"], s["lon"], s["requires_lift_access"])]
     casual_weather_note = build_casual_weather_note(ts, eph, casual_eligible_sites, msm_nights, cache)
 
-    sky_guide = build_sky_guide(ts, eph, ref_site["lat"], ref_site["lon"], all_nights[0], t_start.month)
-    tier2_hardcore = sorted(finals, key=lambda f: f.score, reverse=True)[:TOP_N_TIER2]
+    sky_guide = build_sky_guide(ts, eph, ref_site["lat"], ref_site["lon"], all_nights[0], t_start.month,
+                            include_core=target_mode != "stars")
+    tier2_hardcore = sorted(finals, key=lambda f: final_rank_key(f, target_mode), reverse=True)[:TOP_N_TIER2]
 
     outlooks_by_date: dict = {}
     for o in outlooks:
         outlooks_by_date.setdefault(o.night_date, []).append(o)
     for lst in outlooks_by_date.values():
-        lst.sort(key=lambda o: o.score, reverse=True)
+        lst.sort(key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
 
     # 3段目の対象夜: MSM圏外(ECMWF、または無月時間帯なし)の夜すべて、日付順
     tier3_nights = [n for n in all_nights if regimes.get(n.night_date) != "MSM"]
 
-    summary_text = build_period_summary(finals, outlooks)
+    summary_text = build_period_summary(finals, outlooks, target_mode)
 
     try:
         weather_map_paths, weather_map_fetched_at = collect_weather_map(t_start)
@@ -523,6 +536,8 @@ def _generate(cache: GridCloudCache) -> int:
         tier3_nights=tier3_nights, outlooks_by_date=outlooks_by_date, summary_text=summary_text,
         weather_map_html=weather_map_html, night_view_items=night_view_items,
         fetch_warning_html=fetch_warning_html,
+        target_mode=target_mode,
+        few_results_note=(target_mode == "milkyway" and len(finals) + len(outlooks) < MILKYWAY_FEW_RESULTS),
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html_out, encoding="utf-8")
@@ -740,7 +755,8 @@ def _light_pollution_stat(c) -> str:
             f'</dd></div>')
 
 
-def render_candidate_group(cards, group_title: str, group_note: str, empty_note: str, weather_note: str = "") -> str:
+def render_candidate_group(cards, group_title: str, group_note: str, empty_note: str, weather_note: str = "",
+                           stars_mode: bool = False) -> str:
     weather_html = f'<p class="weather-note">🌤 {html.escape(weather_note)}</p>' if weather_note else ""
 
     if not cards:
@@ -762,12 +778,12 @@ def render_candidate_group(cards, group_title: str, group_note: str, empty_note:
             <div class="cand-body">
               <h3>{html.escape(c.site_name)}<span class="cand-muni">（{html.escape(c.municipality)}）</span></h3>
               <div class="cand-badges">
-                <span class="badge score">スコア {c.score:.0f}</span>
+                {"" if stars_mode else f'<span class="badge score">スコア {c.score:.0f}</span>'}
                 <span class="badge origin">{html.escape(origin_label)}</span>
                 <span class="badge dist">東京から直線{dist_km:.0f}km</span>
               </div>
               <dl class="cand-stats">
-                <div><dt>見頃</dt><dd>{fmt_range(c.window_start, c.window_end)}(狙い目 {fmt_hm(c.best_time)})</dd></div>
+                <div><dt>見頃</dt><dd>{fmt_range(c.window_start, c.window_end)}{f"(晴れ間 {c.clear_hours:.1f}時間)" if stars_mode else f"(狙い目 {fmt_hm(c.best_time)})"}</dd></div>
                 <div><dt>日付</dt><dd>{c.night_date}</dd></div>
                 <div><dt>視界遮蔽雲量</dt><dd>平均{c.mean_obstruction:.0f}%</dd></div>
                 {_light_pollution_stat(c)}
@@ -998,7 +1014,8 @@ def render_weather_map_section(image_paths: list, now: datetime, commentary_path
 
 
 def render_tier2(tier2_casual, tier2_hardcore, msm_index, msm_nights_count: int, casual_weather_note: str = "",
-                  weather_map_html: str = "", night_view_items: list[dict] | None = None) -> str:
+                  weather_map_html: str = "", night_view_items: list[dict] | None = None,
+                  stars_mode: bool = False) -> str:
     if msm_nights_count == 0:
         if msm_index is None:
             empty_note = "現在、直近の精密予報(MSM)圏内に候補夜がありません。JMA MSMは起点から約78時間程度をカバーするため、日を改めて実行すると近い夜から精密予報に切り替わる見込みです。"
@@ -1012,14 +1029,17 @@ def render_tier2(tier2_casual, tier2_hardcore, msm_index, msm_nights_count: int,
         tier2_casual, f"気軽コース TOP{len(tier2_casual) or TOP_N_TIER2}",
         f"東京から直線距離{CASUAL_RADIUS_KM:.0f}km圏内(車で概ね4〜5時間の目安)・離島や本格的な登山・"
         "リフト等の交通機関を要する地点は除く。",
-        empty_note, weather_note=casual_weather_note,
+        empty_note, weather_note=casual_weather_note, stars_mode=stars_mode,
     )
     hardcore_html = render_candidate_group(
         tier2_hardcore, f"硬派コース TOP{len(tier2_hardcore) or TOP_N_TIER2}",
-        "距離・アクセス方法を問わず、条件(月・地形・光害)だけで見た全国TOP。遠征・登山・離島渡航が前提の地点も含む。",
-        empty_note,
+        ("距離・アクセス方法を問わず、条件(雲・月・光害)だけで見た全国TOP。遠征・登山・離島渡航が前提の地点も含む。"
+         if stars_mode else
+         "距離・アクセス方法を問わず、条件(月・地形・光害)だけで見た全国TOP。遠征・登山・離島渡航が前提の地点も含む。"),
+        empty_note, stars_mode=stars_mode,
     )
-    night_view_html = render_night_view_group(night_view_items or [])
+    # 星空・星座モードでも夜景系は候補から除外する(別枠の「星空観賞向き」も天の川向けの文面のため出さない)
+    night_view_html = "" if stars_mode else render_night_view_group(night_view_items or [])
 
     return f"""
     <section class="tier tier2">
@@ -1032,7 +1052,7 @@ def render_tier2(tier2_casual, tier2_hardcore, msm_index, msm_nights_count: int,
     </section>"""
 
 
-def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index) -> str:
+def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index, stars_mode: bool = False) -> str:
     if msm_index is None:
         msm_note = "現在の精密予報(MSM)圏内: 該当なし(直近14夜すべて対象)"
     elif msm_index == 0:
@@ -1048,6 +1068,8 @@ def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index) -> str:
             body = '<p class="cal-empty">この夜は無月時間帯が確保できず、候補地点の評価を省略しています。</p>'
         elif not day_outlooks:
             body = '<p class="cal-empty">条件(光害・地形)を満たす候補地点が見つかりませんでした。</p>'
+            if stars_mode:
+                body = body.replace("光害・地形", "光害")
         else:
             items = []
             for o in day_outlooks:
@@ -1056,7 +1078,7 @@ def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index) -> str:
                 items.append(f"""
                   <li>
                     <div class="cal-site-name">{html.escape(o.site_name)}<span class="cal-site-muni">（{html.escape(o.municipality)}）</span></div>
-                    <div class="cal-site-badge">{html.escape(origin_label)} ・ スコア{o.score:.0f}</div>
+                    <div class="cal-site-badge">{html.escape(origin_label)}{"" if stars_mode else f" ・ スコア{o.score:.0f}"}</div>
                     <div class="cal-chance">→ 晴れれば {fmt_range(o.visible_start, o.visible_end)} にチャンス（{clear_note}）</div>
                   </li>""")
             body = f'<ul class="cal-list">{"".join(items)}</ul>'
@@ -1081,7 +1103,9 @@ def render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index) -> str:
 def render_html(target, generated_at, all_nights, night_icons, regimes, msm_index, msm_nights_count,
                  tier2_casual, tier2_hardcore, casual_weather_note, sky_guide,
                  tier3_nights, outlooks_by_date, summary_text, weather_map_html: str = "",
-                 night_view_items: list[dict] | None = None, fetch_warning_html: str = "") -> str:
+                 night_view_items: list[dict] | None = None, fetch_warning_html: str = "",
+                 target_mode: str = DEFAULT_TARGET_MODE, few_results_note: bool = False) -> str:
+    stars_mode = target_mode == "stars"
     lp_notice_html = (f'<p class="wmap-caveat">光害の入力: Black Marble由来の相対指数。'
                       f'{html.escape(BM_RELATIVE_NOTE)} 足切りの仮閾値は ALR {BM_ALR_THRESHOLD}'
                       f'(以前の判定と同じ件数が通る値。論文の目安値ではありません)。'
@@ -1089,15 +1113,24 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
     lp_attribution = html.escape(BM_CITATION)
     tier1 = render_tier1(all_nights, night_icons, summary_text, sky_guide)
     tier2 = render_tier2(tier2_casual, tier2_hardcore, msm_index, msm_nights_count, casual_weather_note,
-                          weather_map_html, night_view_items)
-    tier3 = render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index)
+                          weather_map_html, night_view_items, stars_mode)
+    tier3 = render_tier3(tier3_nights, outlooks_by_date, night_icons, msm_index, stars_mode)
+    if stars_mode:
+        mode_title = "星の日和 探索レポート(星空・星座モード)"
+        target_line = ("星空・星座モード ・ 天の川は対象外(銀河中心の高度・方角・地形は条件にしていません。"
+                       "雲・月・光害・暗い時間帯だけで選んでいます)")
+    else:
+        mode_title = "星の日和 探索レポート"
+        target_line = f"対象天体: {html.escape(target.name)}"
+    few_note_html = ('<p class="wmap-caveat">候補が少ない場合は <code>--target stars</code> で星空・星座向けの候補を探せます。</p>'
+                     if few_results_note else "")
 
     return f"""<!doctype html>
 <html lang="ja" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>星の日和 探索レポート</title>
+<title>{mode_title}</title>
 <style>
 {CSS}
 </style>
@@ -1106,13 +1139,14 @@ def render_html(target, generated_at, all_nights, night_icons, regimes, msm_inde
 <div class="wrap">
   <header class="page-header">
     <div class="eyebrow">hoshibiyori 探索モード</div>
-    <h1>星の日和 探索レポート</h1>
-    <p class="target-line">対象天体: {html.escape(target.name)} ・ 生成日時: {generated_at.strftime('%Y-%m-%d %H:%M')} JST</p>
+    <h1>{mode_title}</h1>
+    <p class="target-line">{target_line} ・ 生成日時: {generated_at.strftime('%Y-%m-%d %H:%M')} JST</p>
   </header>
   {fetch_warning_html}{lp_notice_html}
   {tier1}
   {tier2}
   {tier3}
+  {few_note_html}
   <footer class="page-footer">
     <p class="attribution">出典・データ提供:
     気象予報 <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>(<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>、気象庁MSM・ECMWF IFSの数値予報を配信。雲量を加工して視界遮蔽雲量を算出) ・
