@@ -38,6 +38,7 @@ out/
 
 # 生成物(generate_report.py が毎回上書きする。古い版が残ると誤読されるため追跡しない)
 /report.html
+/report_stars.html
 # 段階LP2・LP3で作った比較用レポート(段階LP3bで生成しなくなった。手元に残っている場合のため除外を残す)
 /report_legacy.html
 /report_bm.html
