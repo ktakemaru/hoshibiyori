@@ -66,6 +66,23 @@ class FetchOutcome:
     rate_limited: bool = False  # HTTP 429 を受けた場合 True(リトライしない)
 
 
+# プロセスの中で使い回す接続(2026-11-12)。最初の通信のときに作る。
+# 新しい接続を毎回張ると、TLSの途中で止まる(20秒の打ち切りまで待つ)ことがあるという実測
+# (ビヨリコンシェルの計測で60回中11回、1本の接続を使い回すと0回)を受け、ヤマビヨリ v1.9.1 と同じ考え方で
+# 入れた(ヤマビヨリのコードは見ずに独自に書いた)。切れた接続の張り直しは requests に任せ、
+# アダプタや独自の再試行は付けない(再試行は _fetch_hourly_detailed のまま)。
+_SESSION: requests.Session | None = None
+
+
+def _http_session() -> requests.Session:
+    global _SESSION
+    if _SESSION is None:
+        session = requests.Session()
+        session.headers.update({"User-Agent": _USER_AGENT})
+        _SESSION = session
+    return _SESSION
+
+
 def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: int,
                            variables: str = _HOURLY_VARS) -> FetchOutcome:
     """Open-Meteoを呼び出す。761件規模のバッチ処理では一時的な接続エラーが起こり得るため、
@@ -83,9 +100,10 @@ def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: in
         "forecast_days": forecast_days,
         "timezone": "Asia/Tokyo",
     }
+    session = _http_session()
     for attempt in range(1, _FETCH_MAX_RETRIES + 1):
         try:
-            resp = requests.get(_OPEN_METEO_URL, params=params, timeout=20, headers={"User-Agent": _USER_AGENT})
+            resp = session.get(_OPEN_METEO_URL, params=params, timeout=20, headers={"User-Agent": _USER_AGENT})
             if resp.status_code == 429:
                 print(f"    [警告] Open-Meteoが429(利用上限)を返しました(lat={lat},lon={lon},model={model})。リトライしません")
                 return FetchOutcome(None, reason="HTTP 429 (daily limit)", rate_limited=True)

@@ -1,5 +1,5 @@
 """取得失敗の扱い(cloud_forecast._fetch_hourly_detailed / grid_cache.GridCloudCache)の単体テスト。
-ネットワークは使わない(requests.get と time.sleep をモックする)。
+ネットワークは使わない(requests.Session.get と time.sleep をモックする)。
 
 実行: python -m unittest discover -s tests -v
 """
@@ -37,7 +37,7 @@ class FetchHourlyDetailedTest(unittest.TestCase):
         return cloud_forecast._fetch_hourly_detailed(35.0, 139.0, "jma_msm", 4)
 
     def test_200_success(self, _sleep):
-        with mock.patch("cloud_forecast.requests.get", return_value=_resp(200)) as g:
+        with mock.patch("requests.Session.get", return_value=_resp(200)) as g:
             out = self.call()
         self.assertEqual(out.hourly, OK_HOURLY)
         self.assertIsNone(out.reason)
@@ -45,7 +45,7 @@ class FetchHourlyDetailedTest(unittest.TestCase):
         self.assertEqual(g.call_count, 1)
 
     def test_429_is_not_retried(self, sleep):
-        with mock.patch("cloud_forecast.requests.get", return_value=_resp(429)) as g:
+        with mock.patch("requests.Session.get", return_value=_resp(429)) as g:
             out = self.call()
         self.assertIsNone(out.hourly)
         self.assertTrue(out.rate_limited)
@@ -54,7 +54,7 @@ class FetchHourlyDetailedTest(unittest.TestCase):
         sleep.assert_not_called()
 
     def test_400_is_client_error_without_retry(self, sleep):
-        with mock.patch("cloud_forecast.requests.get", return_value=_resp(400)) as g:
+        with mock.patch("requests.Session.get", return_value=_resp(400)) as g:
             out = self.call()
         self.assertIsNone(out.hourly)
         self.assertFalse(out.rate_limited)
@@ -63,21 +63,21 @@ class FetchHourlyDetailedTest(unittest.TestCase):
         sleep.assert_not_called()
 
     def test_408_is_retried(self, sleep):
-        with mock.patch("cloud_forecast.requests.get", side_effect=[_resp(408), _resp(200)]) as g:
+        with mock.patch("requests.Session.get", side_effect=[_resp(408), _resp(200)]) as g:
             out = self.call()
         self.assertEqual(out.hourly, OK_HOURLY)
         self.assertEqual(g.call_count, 2)
         self.assertEqual(sleep.call_count, 1)
 
     def test_500_then_success(self, sleep):
-        with mock.patch("cloud_forecast.requests.get", side_effect=[_resp(500), _resp(500), _resp(200)]) as g:
+        with mock.patch("requests.Session.get", side_effect=[_resp(500), _resp(500), _resp(200)]) as g:
             out = self.call()
         self.assertEqual(out.hourly, OK_HOURLY)
         self.assertEqual(g.call_count, 3)
         self.assertEqual(sleep.call_count, 2)
 
     def test_connection_error_three_times(self, _sleep):
-        with mock.patch("cloud_forecast.requests.get", side_effect=requests.ConnectionError("boom")) as g:
+        with mock.patch("requests.Session.get", side_effect=requests.ConnectionError("boom")) as g:
             out = self.call()
         self.assertIsNone(out.hourly)
         self.assertFalse(out.rate_limited)
@@ -85,7 +85,7 @@ class FetchHourlyDetailedTest(unittest.TestCase):
         self.assertEqual(g.call_count, 3)
 
     def test_legacy_wrapper_returns_none_on_failure(self, _sleep):
-        with mock.patch("cloud_forecast.requests.get", side_effect=requests.ConnectionError("x")):
+        with mock.patch("requests.Session.get", side_effect=requests.ConnectionError("x")):
             self.assertIsNone(cloud_forecast._fetch_hourly(35.0, 139.0, "jma_msm", 4))
 
 
@@ -156,6 +156,42 @@ class FetchWarningRenderTest(unittest.TestCase):
         self.assertIn("一部の予報が取得できていない", html_out)
         self.assertIn("50件中5件", html_out)
 
+
+
+@mock.patch("cloud_forecast.time.sleep")
+class SessionReuseTest(unittest.TestCase):
+    """接続の使い回し(2026-11-12): 1つの requests.Session をプロセスの中で使い回す。"""
+
+    def setUp(self):
+        patcher = mock.patch.object(cloud_forecast, "_SESSION", None)  # 作り直しから始め、終わったら元に戻す
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_same_session_for_two_fetches(self, _sleep):
+        with mock.patch("requests.Session.get", autospec=True, return_value=_resp(200)) as g:
+            cloud_forecast._fetch_hourly_detailed(35.0, 139.0, "jma_msm", 4)
+            cloud_forecast._fetch_hourly_detailed(36.0, 140.0, "ecmwf_ifs025", 15)
+        self.assertEqual(g.call_count, 2)
+        first, second = (c.args[0] for c in g.call_args_list)  # autospec なので self(Session)が先頭に入る
+        self.assertIsInstance(first, requests.Session)
+        self.assertIs(first, second)
+
+    def test_user_agent_is_sent(self, _sleep):
+        with mock.patch("requests.Session.get", autospec=True, return_value=_resp(200)) as g:
+            cloud_forecast._fetch_hourly_detailed(35.0, 139.0, "jma_msm", 4)
+        session = g.call_args.args[0]
+        self.assertEqual(session.headers["User-Agent"], cloud_forecast._USER_AGENT)
+        self.assertEqual(g.call_args.kwargs["headers"]["User-Agent"], cloud_forecast._USER_AGENT)
+        self.assertIn("hoshibiyori", cloud_forecast._USER_AGENT)
+
+    def test_url_params_timeout_unchanged(self, _sleep):
+        with mock.patch("requests.Session.get", autospec=True, return_value=_resp(200)) as g:
+            cloud_forecast._fetch_hourly_detailed(35.0, 139.0, "jma_msm", 4, variables="cloudcover")
+        self.assertEqual(g.call_args.args[1], "https://api.open-meteo.com/v1/forecast")
+        self.assertEqual(g.call_args.kwargs["timeout"], 20)
+        self.assertEqual(g.call_args.kwargs["params"], {
+            "latitude": 35.0, "longitude": 139.0, "hourly": "cloudcover", "models": "jma_msm",
+            "forecast_days": 4, "timezone": "Asia/Tokyo"})
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-"""himawari_image の単体テスト。ネットワーク不使用(requests.get をモック)、キャッシュは一時ディレクトリ。
+"""himawari_image の単体テスト。ネットワーク不使用(requests.Session.get をモック)、キャッシュは一時ディレクトリ。
 
 実行: py -X utf8 -m unittest discover -s tests -v
 """
@@ -48,6 +48,33 @@ def resp(status=200, content=b"", payload=None):
     if status >= 400:
         r.raise_for_status.side_effect = requests.HTTPError(str(status))
     return r
+
+
+@mock.patch("himawari_image.time.sleep")
+class SessionReuseTest(unittest.TestCase):
+    """接続の使い回し(2026-11-12): ひまわりも1つの requests.Session を使い回す(Open-Meteoとは別)。"""
+
+    def setUp(self):
+        patcher = mock.patch.object(hi, "_SESSION", None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_same_session_and_user_agent(self, _sleep):
+        with mock.patch("requests.Session.get", autospec=True, return_value=resp(content=b"x")) as g:
+            hi._http_get("https://example.invalid/a")
+            hi._http_get("https://example.invalid/b")
+        first, second = (c.args[0] for c in g.call_args_list)
+        self.assertIsInstance(first, requests.Session)
+        self.assertIs(first, second)
+        self.assertIn("hoshibiyori", first.headers["User-Agent"])
+        for c in g.call_args_list:
+            self.assertEqual(c.kwargs["headers"]["User-Agent"], hi._USER_AGENT)
+            self.assertEqual(c.kwargs["timeout"], 20)
+
+    def test_separate_from_open_meteo_session(self, _sleep):
+        import cloud_forecast
+        with mock.patch.object(cloud_forecast, "_SESSION", None):
+            self.assertIsNot(hi._http_session(), cloud_forecast._http_session())
 
 
 class TileMathTest(unittest.TestCase):
@@ -123,7 +150,7 @@ class FetchTest(unittest.TestCase):
             if url.endswith("targetTimes_jp.json"):
                 return resp(payload=[{"basetime": "20261012110000"}, {"basetime": "20261012120000"}])
             return resp(content=jpeg_bytes())
-        with mock.patch("himawari_image.requests.get", side_effect=fake_get) as g:
+        with mock.patch("requests.Session.get", side_effect=fake_get) as g:
             img = self.fetch()
         urls = [c.args[0] for c in g.call_args_list]
         self.assertEqual(sum(u.endswith("targetTimes_jp.json") for u in urls), 1)
@@ -138,7 +165,7 @@ class FetchTest(unittest.TestCase):
             self.assertIn("hoshibiyori", call.kwargs["headers"]["User-Agent"])
 
     def test_same_basetime_uses_cache_without_tile_requests(self, _sleep):
-        with mock.patch("himawari_image.requests.get", return_value=resp(content=jpeg_bytes())) as g:
+        with mock.patch("requests.Session.get", return_value=resp(content=jpeg_bytes())) as g:
             self.fetch(basetime="20261012120000")
             first = g.call_count
             self.fetch(basetime="20261012120000")
@@ -146,7 +173,7 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(g.call_count, 4)  # 2回目はタイルを再取得しない
 
     def test_new_basetime_is_not_reused(self, _sleep):
-        with mock.patch("himawari_image.requests.get", return_value=resp(content=jpeg_bytes())) as g:
+        with mock.patch("requests.Session.get", return_value=resp(content=jpeg_bytes())) as g:
             self.fetch(basetime="20261012120000")
             self.fetch(basetime="20261012121000")
         self.assertEqual(g.call_count, 8)
@@ -157,26 +184,26 @@ class FetchTest(unittest.TestCase):
         def fake_get(url, **kw):
             calls["n"] += 1
             return resp(404) if calls["n"] == 1 else resp(content=jpeg_bytes((255, 255, 255)))
-        with mock.patch("himawari_image.requests.get", side_effect=fake_get):
+        with mock.patch("requests.Session.get", side_effect=fake_get):
             img = self.fetch(basetime="20261012120000")
         self.assertEqual((img.tiles_ok, img.tiles_total), (3, 4))
         with Image.open(img.path) as im:
             self.assertLess(im.convert("RGB").getpixel((10, 10))[0], 100)  # 左上は灰色
 
     def test_all_tiles_missing_returns_none(self, _sleep):
-        with mock.patch("himawari_image.requests.get", return_value=resp(404)):
+        with mock.patch("requests.Session.get", return_value=resp(404)):
             self.assertIsNone(self.fetch(basetime="20261012120000"))
         self.assertEqual(list(self.dir.glob("mosaic_*")), [])
 
     def test_429_aborts_without_retry(self, sleep):
-        with mock.patch("himawari_image.requests.get", return_value=resp(429)) as g:
+        with mock.patch("requests.Session.get", return_value=resp(429)) as g:
             with self.assertRaises(hi.HimawariRateLimitError):
                 self.fetch(basetime="20261012120000")
         self.assertEqual(g.call_count, 1)
         sleep.assert_not_called()
 
     def test_500_is_retried_then_succeeds(self, _sleep):
-        with mock.patch("himawari_image.requests.get", side_effect=[resp(500), resp(200, b"x")]) as g:
+        with mock.patch("requests.Session.get", side_effect=[resp(500), resp(200, b"x")]) as g:
             r = hi._http_get("https://example.invalid/x")
         self.assertEqual(r.content, b"x")
         self.assertEqual(g.call_count, 2)
