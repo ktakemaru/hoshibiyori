@@ -257,6 +257,24 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
 分析のログ・出力もリポジトリ内に作らず同フォルダに置く。理由: キャッシュはTTL(MSM 3時間/ECMWF 6時間)で上書きされ、
 後から再現できなくなるため(yamabiyoriで実際に起きた事例が元)。2026-10-12の前後比較で実地運用した。
 
+### 接続の使い回し(2026-11-12、ブランチ`feature/reuse-connection`)
+
+- **基準点: ヤマビヨリ v1.9.1 の接続の使い回し**(Open-Meteo への通信を1つの`requests.Session`で使い回す)。
+  ただし今回は**yamabiyori側(`C:\mountain-weather`)のファイルは開いていない**。v1.9.1の内容は本人の指示書
+  (`docs/open-meteo-session-instructions.md`)の記述だけで把握し、コードはhoshibiyoriで独自に書いた
+  (「プロジェクトの独立性」の例外は都度承認が必要で、今回は確認できなかったため読まない側を選んだ)。
+- 理由(ビヨリコンシェル`docs/collect-run4-analysis.md`の実測、指示書から引用): GitHubのマシンからapi.open-meteo.comへ新しい接続を
+  張ると60回中11回がTLSの途中で止まり(20秒の打ち切り)、1本の接続を使い回すと60回中0回。
+- 移植した範囲: ①`cloud_forecast._fetch_hourly_detailed`の通信を、プロセス内で1つの`requests.Session`(`_http_session()`、
+  最初の通信のときに作る。User-Agentは従来の文字列をSessionと通信ごとの両方に付ける)に通す。②`himawari_image._http_get`も
+  別の1つのSessionを使い回す(相手のホストが違うため)。張り直しはrequestsに任せ、アダプタ・独自の再試行は足していない。
+  ③通信時間の計測(`FetchOutcome.attempts/elapsed_sec/failed_attempt_sec` → `GridCloudCache`/`FetchSummary`の
+  `fetch_sec/retries/failed_attempt_sec`、`console_line()`の後ろに追記、`grid_cache.timing_line()`で全体と通信以外の秒数)。
+  「失敗の待ち」は失敗した試行そのものの秒数で、再試行の間の待ち(2秒・4秒)は「通信」の合計にだけ含む。
+- 変えていないもの: URL・パラメータ・変数文字列・キャッシュのキーとTTL・再試行の回数と間隔・打ち切り20秒・429/4xxの扱い・
+  失敗セルの集計と終了コード・スコア・候補の選び方・レポートの中身。国土地理院・Nominatim・Black Marble・気象庁の天気図は触っていない。
+- 計測の結果と言えること・言えないことは`docs/open-meteo-session-report.md`。
+
 ## 使用予定の主なライブラリ
 
 - **astropy** または **Skyfield** — 天文計算（ステップ1で使用）

@@ -8,6 +8,10 @@
 ### Added
 - **星空・星座モード(`--target stars`)**: `explore_hoshibiyori.py` と `generate_report.py` に `--target {milkyway,stars}` を追加(既定は `milkyway`で従来どおり)。`stars` では銀河中心の高度・方角・地形(稜線)の条件を使わず、視界遮蔽雲量・月・光害(ALR)・夜景系除外・暗い時間帯で候補を選ぶ。順位は晴れ時間 → 平均雲量 → ALR → 月の影響が小さい時間(見込み側は雲を使わないため ALR → 月の影響が小さい時間)。レポートは `report_stars.html` に出力(`report.html` は上書きしない)し、見出しに「星空・星座モード」「天の川は対象外」を明記、「この時期の見どころ」から銀河中心を外す。`milkyway` の候補が5件未満のときは `--target stars` の案内を1行出す。
 
+### Changed
+- **Open-Meteo とひまわりの取得で接続を使い回す**: `step5_cloud_forecast/cloud_forecast.py` の `_fetch_hourly_detailed` と `himawari_image.py` の `_http_get` が、毎回新しい接続を張る `requests.get` から、プロセス内で1つずつ持つ `requests.Session`(最初の通信のときに作る)に変わった。理由: ビヨリコンシェルの実測で、GitHub のマシンから api.open-meteo.com へ新しい接続を張ると60回中11回が TLS の途中で止まり(20秒の打ち切り)、1本の接続を使い回すと60回中0回だったため(ヤマビヨリ v1.9.1 と同じ考え方)。URL・パラメータ・User-Agent・キャッシュ・再試行・打ち切り・429/4xxの扱い・終了コード・レポートの中身は変えていない
+- **通信時間の表示**: 実行の最後の「予報取得の集計」の行の後ろに、Open-Meteo の通信にかかった秒数(再試行と再試行の間の待ちを含む)・失敗した試行にかかった秒数・再試行の回数を足した(例: `… / 通信 132.4 秒(うち失敗の待ち 40.2 秒・再試行 2 回)`)。`explore_hoshibiyori.py` と `generate_report.py` は最後に、全体の秒数と通信以外の秒数(全体 − 通信)を1行で出す。画面の表示だけで、レポート(HTML)には出さない
+
 ## [1.0.0] - 2026-10-24
 
 光害データを、ライセンスが不明瞭な外部データから、NASA Black Marble 由来の自前計算に切り替えた版。
