@@ -72,6 +72,10 @@ class FetchSummary:
     cache_hits: int
     failed: int
     rate_limited: bool
+    # 時間の計測(画面表示用。2026-11-12)。キャッシュヒットは数えない。
+    fetch_sec: float = 0.0           # 通信にかかった秒数の合計(再試行と、再試行の間の待ちを含む)
+    retries: int = 0                 # 再試行した回数(セルごとの「試行の回数 − 1」の合計)
+    failed_attempt_sec: float = 0.0  # 失敗した試行(成功する前の失敗も含む)にかかった秒数の合計
 
     @property
     def failed_rate(self) -> float:
@@ -86,7 +90,14 @@ class FetchSummary:
 
     def console_line(self) -> str:
         return (f"取得セル{self.total_cells}件 / API呼び出し{self.api_calls}回 / "
-                f"キャッシュヒット{self.cache_hits}回 / 失敗{self.failed}件({self.failed_rate:.1%})")
+                f"キャッシュヒット{self.cache_hits}回 / 失敗{self.failed}件({self.failed_rate:.1%})"
+                f" / 通信 {self.fetch_sec:.1f} 秒(うち失敗の待ち {self.failed_attempt_sec:.1f} 秒・再試行 {self.retries} 回)")
+
+
+def timing_line(total_sec: float, summary: FetchSummary) -> str:
+    """実行全体の秒数と、通信以外の秒数(全体 − Open-Meteoの通信)を1行で返す(画面表示用。レポートには出さない)。"""
+    return (f"実行時間の内訳: 全体 {total_sec:.1f} 秒 / Open-Meteoの通信 {summary.fetch_sec:.1f} 秒 / "
+            f"通信以外 {total_sec - summary.fetch_sec:.1f} 秒(全体 − 通信)")
 
 
 def grid_cell(lat: float, lon: float, model: str) -> tuple[float, float]:
@@ -127,6 +138,10 @@ class GridCloudCache:
         self.disk_hit_count = 0
         self.failures: list[FailedCell] = []
         self.rate_limited = False
+        # 時間の計測(画面表示用。2026-11-12)。API呼び出しした分だけ数える(キャッシュヒットは0秒扱い)。
+        self.fetch_sec = 0.0
+        self.retry_count = 0
+        self.failed_attempt_sec = 0.0
         self.disk_cache_enabled = disk_cache
         self.cache_dir = Path(cache_dir)
         if self.disk_cache_enabled:
@@ -177,6 +192,10 @@ class GridCloudCache:
         hourly = outcome.hourly
         self._cache[key] = hourly
         self.call_count += 1
+        # 429で中止する場合も数値が残るよう、例外を投げる前に足す
+        self.fetch_sec += outcome.elapsed_sec
+        self.retry_count += max(outcome.attempts - 1, 0)
+        self.failed_attempt_sec += outcome.failed_attempt_sec
         if hourly is None:
             self.failures.append(FailedCell(model, cell_lat, cell_lon, outcome.reason or "unknown"))
             if outcome.rate_limited:
@@ -192,4 +211,6 @@ class GridCloudCache:
             total_cells=len(self._cache), api_calls=self.call_count,
             cache_hits=self.cache_hit_count, failed=len(self.failures),
             rate_limited=self.rate_limited,
+            fetch_sec=self.fetch_sec, retries=self.retry_count,
+            failed_attempt_sec=self.failed_attempt_sec,
         )

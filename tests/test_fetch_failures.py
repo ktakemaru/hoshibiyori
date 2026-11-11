@@ -156,6 +156,14 @@ class FetchWarningRenderTest(unittest.TestCase):
         self.assertIn("一部の予報が取得できていない", html_out)
         self.assertIn("50件中5件", html_out)
 
+    def test_warning_has_no_timing(self):
+        # 時間の計測は画面表示だけで、レポート(HTML)には出さない
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        import generate_report  # noqa: E402
+        s = FetchSummary(50, 50, 0, 5, False, fetch_sec=12.3, retries=2, failed_attempt_sec=4.5)
+        html_out = generate_report.render_fetch_warning(s)
+        self.assertNotIn("通信", html_out)
+        self.assertNotIn("12.3", html_out)
 
 
 @mock.patch("cloud_forecast.time.sleep")
@@ -192,6 +200,83 @@ class SessionReuseTest(unittest.TestCase):
         self.assertEqual(g.call_args.kwargs["params"], {
             "latitude": 35.0, "longitude": 139.0, "hourly": "cloudcover", "models": "jma_msm",
             "forecast_days": 4, "timezone": "Asia/Tokyo"})
+
+
+@mock.patch("cloud_forecast.time.sleep")
+class FetchTimingTest(unittest.TestCase):
+    """時間の計測(2026-11-12)。時計(cloud_forecast._clock)を差し替える。"""
+
+    def run_with_clock(self, ticks, get_kwargs):
+        with mock.patch("cloud_forecast._clock", side_effect=ticks), \
+                mock.patch("requests.Session.get", **get_kwargs):
+            return cloud_forecast._fetch_hourly_detailed(35.0, 139.0, "jma_msm", 4)
+
+    def test_success_first_try(self, _sleep):
+        # t0=100, 試行開始=100, 成功の返却=100.5
+        out = self.run_with_clock([100.0, 100.0, 100.5], {"return_value": _resp(200)})
+        self.assertEqual(out.attempts, 1)
+        self.assertAlmostEqual(out.elapsed_sec, 0.5)
+        self.assertAlmostEqual(out.failed_attempt_sec, 0.0)
+
+    def test_failure_then_success(self, _sleep):
+        # 1回目: 0→20(失敗、20秒)、待ち2秒、2回目: 22→23(成功)。全体23秒、失敗の試行20秒
+        out = self.run_with_clock([0.0, 0.0, 20.0, 22.0, 23.0],
+                                  {"side_effect": [requests.ConnectionError("x"), _resp(200)]})
+        self.assertEqual(out.hourly, OK_HOURLY)
+        self.assertEqual(out.attempts, 2)
+        self.assertAlmostEqual(out.elapsed_sec, 23.0)
+        self.assertAlmostEqual(out.failed_attempt_sec, 20.0)
+
+    def test_429_counts_as_failed_attempt(self, _sleep):
+        out = self.run_with_clock([0.0, 0.0, 0.4, 0.4], {"return_value": _resp(429)})
+        self.assertTrue(out.rate_limited)
+        self.assertEqual(out.attempts, 1)
+        self.assertAlmostEqual(out.failed_attempt_sec, 0.4)
+
+
+class GridCacheTimingTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.cache = GridCloudCache(cache_dir=self._tmp.name)
+
+    def test_summary_and_console_line(self):
+        outcomes = [
+            cloud_forecast.FetchOutcome(OK_HOURLY, attempts=2, elapsed_sec=23.0, failed_attempt_sec=20.0),
+            cloud_forecast.FetchOutcome(OK_HOURLY, attempts=1, elapsed_sec=0.6, failed_attempt_sec=0.0),
+        ]
+        with mock.patch("grid_cache._fetch_hourly_detailed", side_effect=outcomes):
+            self.cache.get_hourly(35.0, 139.0, "jma_msm", 4, "cloudcover")
+            self.cache.get_hourly(36.0, 139.0, "jma_msm", 4, "cloudcover")
+            self.cache.get_hourly(36.0, 139.0, "jma_msm", 4, "cloudcover")  # メモリキャッシュ(時間は数えない)
+        s = self.cache.summary()
+        self.assertAlmostEqual(s.fetch_sec, 23.6)
+        self.assertEqual(s.retries, 1)
+        self.assertAlmostEqual(s.failed_attempt_sec, 20.0)
+        line = s.console_line()
+        self.assertTrue(line.startswith("取得セル2件 / API呼び出し2回 / キャッシュヒット1回 / 失敗0件(0.0%)"))
+        self.assertTrue(line.endswith(" / 通信 23.6 秒(うち失敗の待ち 20.0 秒・再試行 1 回)"))
+
+    def test_timing_kept_on_429(self):
+        limit = cloud_forecast.FetchOutcome(None, reason="HTTP 429 (daily limit)", rate_limited=True,
+                                            attempts=1, elapsed_sec=0.3, failed_attempt_sec=0.3)
+        with mock.patch("grid_cache._fetch_hourly_detailed", side_effect=[limit]):
+            with self.assertRaises(cloud_forecast.OpenMeteoDailyLimitError):
+                self.cache.get_hourly(35.0, 139.0, "jma_msm", 4, "cloudcover")
+        s = self.cache.summary()
+        self.assertAlmostEqual(s.fetch_sec, 0.3)
+        self.assertAlmostEqual(s.failed_attempt_sec, 0.3)
+
+    def test_legacy_positional_summary_defaults(self):
+        s = FetchSummary(10, 10, 0, 0, False)
+        self.assertEqual((s.fetch_sec, s.retries, s.failed_attempt_sec), (0.0, 0, 0.0))
+        self.assertIn("通信 0.0 秒(うち失敗の待ち 0.0 秒・再試行 0 回)", s.console_line())
+
+    def test_timing_line(self):
+        s = FetchSummary(10, 10, 0, 0, False, fetch_sec=40.0)
+        self.assertEqual(grid_cache.timing_line(100.0, s),
+                         "実行時間の内訳: 全体 100.0 秒 / Open-Meteoの通信 40.0 秒 / 通信以外 60.0 秒(全体 − 通信)")
+
 
 if __name__ == "__main__":
     unittest.main()
