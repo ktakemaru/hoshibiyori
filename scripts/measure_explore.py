@@ -16,6 +16,7 @@
 - --primary-only : 主要候補(curated系の origin)だけで実行する(速い確かめ用)。
 - --profile   : cProfile をかけ、累積時間の上位40件を <label>.profile.txt に、生データを <label>.prof に出す。
 - --site-stride N : 全地点(主要+参考)から N 件おきに選んだ地点と石廊崎(第1段階の基準点)だけで実行する(全897地点の代わりの抜き取り)。
+- --astro-grid ecmwf|site : explore に --astro-grid を渡す(省略時は渡さない)。--astro-cache-dir : 天文計算の保存先(2026-11-13)。
 - --code-root : explore_hoshibiyori.py を読むリポジトリ(既定はこのスクリプトの親)。変更前のコードの写しを測るのに使う。
 - --max-minutes : この分数を超えたら出力を書き出して強制終了する(既定60分、終了コード9)。
 - 秒数のJSONには、全体(壁時計)・通信・通信以外に加えて、このプロセスのCPU時間(cpu_sec、time.process_time)も入れる
@@ -51,6 +52,8 @@ COMPARE_EXCLUDE = [
     re.compile(r"^\s*実行時間"),
     re.compile(r"API呼び出し"),
     re.compile(r"キャッシュヒット"),
+    # 2026-11-13: 天文計算のキャッシュの集計(計算した件数・保存済みを使った件数。保存の有無で変わる)
+    re.compile(r"^天文計算のキャッシュ:"),
 ]
 
 
@@ -148,6 +151,10 @@ def run(args) -> int:
                 return None
 
     ex.GridCloudCache = MeasureCache
+    if args.astro_cache_dir:
+        # 天文計算の保存先を差し替える(リポジトリ既定の astro_cache は使わない)
+        Path(args.astro_cache_dir).mkdir(parents=True, exist_ok=True)
+        ex.ASTRO_CACHE_DIR = Path(args.astro_cache_dir).resolve()
     if args.frozen:
         def _no_fetch(lat, lon, model, forecast_days, variables=None):
             return FetchOutcome(None, reason="frozen: キャッシュに無いセル(通信しない)")
@@ -211,7 +218,10 @@ def run(args) -> int:
             if prof:
                 prof.enable()
             try:
-                code = ex.main(["--target", args.target])
+                main_args = ["--target", args.target]
+                if args.astro_grid:  # 指定したときだけ渡す(引数の無い変更前のコードの写しも測れるように)
+                    main_args += ["--astro-grid", args.astro_grid]
+                code = ex.main(main_args)
             finally:
                 if prof:
                     prof.disable()
@@ -226,7 +236,8 @@ def run(args) -> int:
     s = cache.summary() if cache else None
     result = {
         "label": label, "code_root": str(code_root), "git_rev": _git_rev(code_root),
-        "target": args.target, "frozen": args.frozen, "primary_only": args.primary_only, "profile": args.profile,
+        "target": args.target, "astro_grid": args.astro_grid, "astro_cache_dir": args.astro_cache_dir,
+        "frozen": args.frozen, "primary_only": args.primary_only, "profile": args.profile,
         "cache_dir": str(cache_dir), "started_jst": started.isoformat(), "ended_jst": ended.isoformat(),
         "exit_code": code, "total_sec": round(total, 3), "cpu_sec": round(cpu, 3),
         "fetch_sec": round(s.fetch_sec, 3) if s else None,
@@ -266,6 +277,10 @@ def main(argv=None) -> int:
     r.add_argument("--target", choices=("stars", "milkyway"), default="stars")
     r.add_argument("--code-root", default=str(REPO_ROOT))
     r.add_argument("--max-minutes", type=float, default=60.0)
+    r.add_argument("--astro-grid", choices=("ecmwf", "site"), default=None,
+                   help="explore に --astro-grid を渡す(省略時は渡さない=explore の既定)")
+    r.add_argument("--astro-cache-dir", default=None,
+                   help="天文計算の保存先(explore_hoshibiyori.ASTRO_CACHE_DIR を差し替える)。ecmwf で測るときは必ず指定する")
     r.add_argument("--site-stride", type=int, default=0,
                    help="全地点(主要+参考)のうち N 件おき(先頭から)と石廊崎だけで実行する(全体の確かめの代わりの抜き取り)")
     c = sub.add_parser("compare")

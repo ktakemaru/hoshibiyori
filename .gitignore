@@ -21,6 +21,8 @@ step5_cloud_forecast/cloud_cache/
 step5_cloud_forecast/weather_map_cache/
 # 気象衛星ひまわりのタイル・モザイク
 step5_cloud_forecast/himawari_cache/
+# 薄明・月の時刻の計算結果(0.25度格子×夜。astro_grid_cache.py、作り直せる)
+step1_astronomy/astro_cache/
 
 # --- Skyfield ephemeris (17MB, auto-downloaded on first use) ---
 *.bsp
