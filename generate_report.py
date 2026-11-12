@@ -54,6 +54,7 @@ from explore_hoshibiyori import (  # noqa: E402
     load_candidate_sites, all_nights_timeline, forecast_regime_for_night,
     stage2_cloud_filter, stage3_direction_filter, stage_outlook,
     compute_site_night_window, make_lp_store, lp_limit_text,
+    ReferenceForecastUnavailable,
 )
 from lp_source import (  # noqa: E402
     BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, describe_alr,
@@ -411,6 +412,12 @@ def main(argv=None) -> int:
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}。{out_path.name}は更新していません。")
         print("  " + cache.summary().console_line())
+        return 2
+    except ReferenceForecastUnavailable as e:
+        print(f"\n[中止] {e}。{out_path.name}は更新していません。")
+        print("  " + cache.summary().console_line())
+        for f in cache.failures[:10]:
+            print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
         return 2
     finally:
         # 全体の秒数と通信以外の秒数(画面表示のみ。レポートのHTMLには出さない)

@@ -55,7 +55,40 @@ _FETCH_RETRY_BACKOFF_SEC = 2.0
 
 
 class OpenMeteoDailyLimitError(RuntimeError):
-    """Open-Meteoが429(日次などの利用上限)を返したことを表す。以降の取得は意味が無いので中止する。"""
+    """Open-Meteoが429(利用上限)を返し、以降の取得を中止することを表す。
+
+    名前は後方互換のため「Daily」のまま(呼び出し側が捕まえている)。2026-11-13から、1分の上限(minutely)は
+    grid_cache.GridCloudCache が65秒待って同じセルを取り直し(1回の実行で5回まで)、それでも足りないとき・
+    1時間(hourly)・1日(daily)・種類が分からない(unknown)ときにこの例外で中止する。文に種類とreasonを入れる。
+    """
+
+
+# 429 の種類(本文の reason の語で分ける。2026-11-13)
+RATE_LIMIT_KINDS = ("minutely", "hourly", "daily", "unknown")
+
+
+def classify_rate_limit(reason_text: str | None) -> str:
+    """429 の本文の reason から種類を返す。語は大文字小文字を区別しない。重い順(daily→hourly→minutely)に見る。"""
+    text = (reason_text or "").lower()
+    for kind in ("daily", "hourly", "minutely"):
+        if kind in text:
+            return kind
+    return "unknown"
+
+
+def _rate_limit_reason(resp) -> str:
+    """429 の応答から reason を取り出す。JSON の reason が読めなければ本文の先頭200文字(それも無ければ空)。"""
+    try:
+        body = resp.json()
+        if isinstance(body, dict) and isinstance(body.get("reason"), str):
+            return body["reason"]
+    except Exception:
+        pass
+    try:
+        text = resp.text
+        return text[:200] if isinstance(text, str) else ""
+    except Exception:
+        return ""
 
 
 @dataclass
@@ -63,17 +96,85 @@ class FetchOutcome:
     """1回の取得結果。成功なら hourly に時系列、失敗なら hourly=None と理由が入る。"""
     hourly: dict[str, list] | None
     reason: str | None = None  # 失敗理由(人間向けの短い文字列)
-    rate_limited: bool = False  # HTTP 429 を受けた場合 True(リトライしない)
+    rate_limited: bool = False  # HTTP 429 を受けた場合 True(この関数の中ではリトライしない)
     # 時間の計測(画面表示用。2026-11-12)。attempts=試行の回数、elapsed_sec=通信にかかった秒数の合計
-    # (再試行と、再試行の間の待ちを含む)、failed_attempt_sec=失敗した試行(成功する前の失敗も含む)に
-    # かかった秒数の合計(再試行の間の待ちは含まない)。
+    # (再試行と、再試行の間の待ちを含む。2026-11-13から、通信の間隔の調整の待ちは含まない)、
+    # failed_attempt_sec=失敗した試行(成功する前の失敗も含む)にかかった秒数の合計(再試行の間の待ちは含まない)。
     attempts: int = 0
     elapsed_sec: float = 0.0
     failed_attempt_sec: float = 0.0
+    # 2026-11-13: 429 の種類(minutely/hourly/daily/unknown。429でなければNone)と本文のreason、
+    # 通信の間隔の調整で待った秒数(この取得の全試行の合計)
+    rate_limit_kind: str | None = None
+    rate_limit_reason: str | None = None
+    paced_sec: float = 0.0
 
 
 # 時計(テストで差し替えられるよう、モジュールの変数にしておく)
 _clock = time.perf_counter
+
+
+# ---------------------------------------------------------------------------
+# 通信の間隔の調整(2026-11-13)
+# ---------------------------------------------------------------------------
+# Open-Meteo の無料枠の上限(1分600・1時間5,000・1日10,000、IPアドレス単位)は、変数が多い・日数が長い
+# 通信を1回より多く数える。直近60秒の重さの合計が PACING_LIMIT_PER_MINUTE を超えないよう、
+# 通信の前(再試行も含む)に必要なだけ待つ。キャッシュヒットは通信しないので数えない。
+PACING_WINDOW_SEC = 60.0
+PACING_LIMIT_PER_MINUTE = 300.0  # 1分の上限600の半分(初期値)
+
+
+def request_weight(variables: str, forecast_days: int) -> float:
+    """1回の通信の重さの見積もり: max(1, 変数の数/10) × max(1, 予報日数/14)。"""
+    n_vars = len([v for v in variables.split(",") if v.strip()])
+    return max(1.0, n_vars / 10.0) * max(1.0, forecast_days / 14.0)
+
+
+class RequestPacer:
+    """直近 window_sec 秒の重さの合計が limit を超えないように待つ。時計と sleep は差し替えられる(テスト用)。"""
+
+    def __init__(self, limit: float = PACING_LIMIT_PER_MINUTE, window_sec: float = PACING_WINDOW_SEC,
+                 clock=time.monotonic, sleep=time.sleep):
+        self.limit = limit
+        self.window_sec = window_sec
+        self.clock = clock
+        self.sleep = sleep
+        self._sent: list[tuple[float, float]] = []  # (送った時刻, 重さ)
+
+    def _drop_old(self, now: float) -> None:
+        cutoff = now - self.window_sec
+        while self._sent and self._sent[0][0] <= cutoff:
+            self._sent.pop(0)
+
+    def window_total(self) -> float:
+        self._drop_old(self.clock())
+        return sum(w for _, w in self._sent)
+
+    def acquire(self, weight: float) -> float:
+        """重さ weight の通信を送ってよくなるまで待ち、送ったことを記録する。待った秒数を返す。"""
+        waited = 0.0
+        while True:
+            now = self.clock()
+            self._drop_old(now)
+            total = sum(w for _, w in self._sent)
+            if not self._sent or total + weight <= self.limit:
+                self._sent.append((now, weight))
+                return waited
+            # 古いものから抜けていき、送れるようになる時刻まで待つ
+            freed = 0.0
+            wait_until = now
+            for t_sent, w in self._sent:
+                freed += w
+                wait_until = t_sent + self.window_sec
+                if total - freed + weight <= self.limit:
+                    break
+            delay = max(wait_until - now, 0.0)
+            if delay > 0:
+                self.sleep(delay)
+                waited += delay
+
+
+_PACER = RequestPacer()
 
 # プロセスの中で使い回す接続(2026-11-12)。最初の通信のときに作る。
 # 新しい接続を毎回張ると、TLSの途中で止まる(20秒の打ち切りまで待つ)ことがあるという実測
@@ -97,7 +198,9 @@ def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: in
     """Open-Meteoを呼び出す。761件規模のバッチ処理では一時的な接続エラーが起こり得るため、
     5xx・408・接続エラーは短い間隔で数回リトライする。429以外の4xxも回復しないため即座に失敗として返す。HTTP 429(利用上限)はリトライしても
     回復しないため、即座に rate_limited=True で返す(2026-10-12、yamabiyori v1.7.0の
-    「全滅時は終了コード2」を元に、失敗理由を保持する形で独自拡張)。
+    「全滅時は終了コード2」を元に、失敗理由を保持する形で独自拡張)。2026-11-13から、429の本文のreasonを読み
+    種類(minutely/hourly/daily/unknown)を rate_limit_kind に入れて返す(1分の上限の待ちと取り直しは
+    grid_cache 側)。各試行の前に通信の間隔の調整(_PACER)で待つことがある(待った秒数は paced_sec)。
     それでも失敗した場合は例外を投げず FetchOutcome(hourly=None, ...) を返し、
     呼び出し元(GridCloudCache)がそのセルをスキップ・集計できるようにする。
     """
@@ -110,23 +213,32 @@ def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: in
         "timezone": "Asia/Tokyo",
     }
     session = _http_session()
+    weight = request_weight(variables, forecast_days)
     t0 = _clock()
     attempts = 0
     failed_sec = 0.0
+    paced_sec = 0.0
 
-    def outcome(hourly, reason=None, rate_limited=False) -> FetchOutcome:
+    def outcome(hourly, reason=None, rate_limited=False, kind=None, rl_reason=None) -> FetchOutcome:
+        # 通信の秒数から、間隔の調整の待ちを除く(内訳で別に数えるため)
         return FetchOutcome(hourly, reason=reason, rate_limited=rate_limited, attempts=attempts,
-                            elapsed_sec=_clock() - t0, failed_attempt_sec=failed_sec)
+                            elapsed_sec=_clock() - t0 - paced_sec, failed_attempt_sec=failed_sec,
+                            rate_limit_kind=kind, rate_limit_reason=rl_reason, paced_sec=paced_sec)
 
     for attempt in range(1, _FETCH_MAX_RETRIES + 1):
         attempts = attempt
+        paced_sec += _PACER.acquire(weight)  # 再試行の通信も数える
         t_try = _clock()
         try:
             resp = session.get(_OPEN_METEO_URL, params=params, timeout=20, headers={"User-Agent": _USER_AGENT})
             if resp.status_code == 429:
                 failed_sec += _clock() - t_try
-                print(f"    [警告] Open-Meteoが429(利用上限)を返しました(lat={lat},lon={lon},model={model})。リトライしません")
-                return outcome(None, reason="HTTP 429 (daily limit)", rate_limited=True)
+                rl_reason = _rate_limit_reason(resp)
+                kind = classify_rate_limit(rl_reason)
+                print(f"    [警告] Open-Meteoが429(利用上限、種類={kind})を返しました"
+                      f"(lat={lat},lon={lon},model={model})。reason: {rl_reason or '(本文なし)'}")
+                return outcome(None, reason=f"HTTP 429 ({kind}): {rl_reason}", rate_limited=True,
+                               kind=kind, rl_reason=rl_reason)
             if 400 <= resp.status_code < 500 and resp.status_code != 408:
                 # 429以外の4xx(400/401/403/404等)はリクエスト側の問題でリトライしても回復しない。
                 # 408(Request Timeout)だけは一時的な事象のため、5xxや接続エラーと同様にリトライする。
@@ -141,6 +253,9 @@ def _fetch_hourly_detailed(lat: float, lon: float, model: str, forecast_days: in
                 print(f"    [警告] Open-Meteo取得失敗(lat={lat},lon={lon},model={model}): {e} "
                       f"-> {_FETCH_MAX_RETRIES}回リトライ後も失敗、このセルをスキップします")
                 return outcome(None, reason=f"{type(e).__name__}: {e}")
+            # 再試行のたびに1行出す(2026-11-13。回数・間隔・打ち切りは変えていない)
+            print(f"    [再試行] Open-Meteo(lat={lat},lon={lon},model={model}): {type(e).__name__} -> "
+                  f"{_FETCH_RETRY_BACKOFF_SEC * attempt:.0f}秒待って{attempt + 1}回目を試します")
             time.sleep(_FETCH_RETRY_BACKOFF_SEC * attempt)
     return outcome(None, reason="unknown")
 

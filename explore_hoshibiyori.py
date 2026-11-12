@@ -46,9 +46,9 @@ from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_time  # noqa: E402
 from lp_source import LP_INDEX_LIMIT, BmLightPollutionStore, describe_alr  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
-from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
+from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea, level_hourly_vars  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache, timing_line  # noqa: E402
-from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
+from cloud_forecast import MSM_MAX_FORECAST_DAYS, MSM_MODEL, OpenMeteoDailyLimitError  # noqa: E402
 from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
@@ -195,15 +195,35 @@ def find_astro_dark_events(ts, eph, lat: float, lon: float, day_start_local: dat
     return dark_start, dark_end
 
 
+def _moon_negligible_flags(ts, eph, lat: float, lon: float, times_local: list[datetime]) -> list[bool]:
+    """各時刻について「月が地平線下、または新月に近く影響が小さい」か(compute_moon_position(標高0m)と同じ式)。
+
+    時刻の配列を1回でSkyfieldに渡す。式は moon_position.compute_moon_position と同じ
+    (高度<=0、または 位相角=180-月と太陽の離角 >= MOON_PHASE_NEGLIGIBLE_DEG)。
+    """
+    if not times_local:
+        return []
+    t = ts.from_datetimes([x.astimezone(timezone.utc) for x in times_local])
+    observer = eph["earth"] + wgs84.latlon(lat, lon, elevation_m=0.0)
+    at = observer.at(t)
+    moon = at.observe(eph["moon"]).apparent()
+    alt, _az, _ = moon.altaz()
+    sun = at.observe(eph["sun"]).apparent()
+    phase_angle = 180.0 - moon.separation_from(sun).degrees
+    return [bool(a <= 0 or p >= MOON_PHASE_NEGLIGIBLE_DEG) for a, p in zip(alt.degrees, phase_angle)]
+
+
 def longest_negligible_window(ts, eph, ref_lat: float, ref_lon: float, sunset: datetime, sunrise: datetime,
                                sample_interval_min: int = 15) -> tuple[datetime | None, datetime | None, float]:
-    samples = []
+    sample_times = []
     t = sunset
     while t <= sunrise:
-        moon = compute_moon_position(ts, eph, ref_lat, ref_lon, 0.0, t)
-        negligible = moon.alt_deg <= 0 or moon.phase_angle_deg >= MOON_PHASE_NEGLIGIBLE_DEG
-        samples.append((t, negligible))
+        sample_times.append(t)
         t += timedelta(minutes=sample_interval_min)
+    # 月の高度・位相角は、compute_moon_position と同じ計算を時刻の配列でまとめて行う(2026-11-12、処理時間の短縮。
+    # 1時刻ずつ呼ぶと地点×夜ごとに数十回のSkyfield呼び出しになっていた)。判定の式・サンプル間隔は同じ。
+    flags = _moon_negligible_flags(ts, eph, ref_lat, ref_lon, sample_times)
+    samples = list(zip(sample_times, flags))
 
     best_start, best_end, best_len = None, None, 0.0
     cur_start = None
@@ -310,13 +330,30 @@ def lp_limit_text(lp_store) -> str:
     return f"ALR<={lp_store.alr_threshold}(仮閾値・相対指数)"
 
 
+class ReferenceForecastUnavailable(RuntimeError):
+    """MSMの範囲内かを決める基準地点(石廊崎)のMSMのセルが、取得の失敗で空だったことを表す(2026-11-13)。
+
+    この場合は夜を見込み側に回さず中止する(終了コード2)。「取得はできたが、その夜はMSMの範囲の外」とは区別する。
+    """
+
+
+REFERENCE_UNAVAILABLE_MESSAGE = "基準地点の予報を取得できなかったため中止します"
+
+
 def forecast_regime_for_night(cache: GridCloudCache, ref_site: dict, night: "NightCandidate") -> str:
     """候補夜がMSM(精密)圏内かECMWF(見込み)圏内かを、実際のフォールバック結果から判定する。
 
     cloud_forecast.py/elevation_cloud.pyの結合ロジックが各時刻に付与するsource
     ("MSM"/"ECMWF")の多数決で判定する(既存のフォールバック判定をそのまま流用)。
+    基準地点のMSMのセルが取得の失敗で空のときは ReferenceForecastUnavailable を投げる(2026-11-13)。
     """
     levels = get_level_cloud_forecast(ref_site["lat"], ref_site["lon"], night.window_start, night.window_end, cache=cache)
+    fetch_failed = getattr(cache, "fetch_failed", None)
+    if fetch_failed is not None and fetch_failed(ref_site["lat"], ref_site["lon"], MSM_MODEL,
+                                                 MSM_MAX_FORECAST_DAYS, level_hourly_vars()):
+        raise ReferenceForecastUnavailable(
+            f"{REFERENCE_UNAVAILABLE_MESSAGE}(基準地点 {ref_site['name']} のMSMのセルの取得に失敗したため、"
+            "MSMの範囲内かを決められません)")
     if not levels:
         return "ECMWF"
     msm_count = sum(1 for l in levels if l.source == "MSM")
@@ -621,6 +658,12 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
 
     for night in nights:
         for site in sites:
+            # 光害の足切りを天文計算より先に行う(2026-11-12、処理時間の短縮)。光害で落ちる地点は
+            # 結果に入らず、ここまでの計算に副作用も無いため、残る候補・順位・表示は同じ。
+            lp_result = lp_store.get(site["lat"], site["lon"])
+            if lp_result.brightness_ratio > LP_INDEX_LIMIT:
+                continue
+
             w_start, w_end, moon_free_hours = compute_site_night_window(ts, eph, site, night.night_date)
             if w_start is None:
                 continue
@@ -638,10 +681,6 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 v_start, v_end, peak_time, peak_az, peak_alt = compute_target_window(ts, eph, site, target, w_start, w_end, profile)
                 if v_start is None:
                     continue
-
-            lp_result = lp_store.get(site["lat"], site["lon"])
-            if lp_result.brightness_ratio > LP_INDEX_LIMIT:
-                continue
 
             # 雲量は参考値(晴天率)としてのみ計算し、足切りには使わない
             levels = get_level_cloud_forecast(site["lat"], site["lon"], v_start, v_end, cache=cache)
@@ -796,6 +835,12 @@ def _run(cache: GridCloudCache, args) -> int:
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}")
         print("  " + cache.summary().console_line())
+        return 2
+    except ReferenceForecastUnavailable as e:
+        print(f"\n[中止] {e}")
+        print("  " + cache.summary().console_line())
+        for f in cache.failures[:10]:
+            print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
         return 2
     summary = cache.summary()
     print(f"予報取得の集計: {summary.console_line()}")

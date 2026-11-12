@@ -50,6 +50,11 @@ _DEFAULT_CACHE_DIR = DATA_ROOT / "step5_cloud_forecast" / "cloud_cache"
 # 値はユーザー承認済みの暫定値(2026-10-12)で、運用しながら調整してよい。
 FAILED_CELL_RATE_ABORT = 0.20
 
+# 429 の「1分の上限」(minutely)のときの待ち(2026-11-13)。65秒待って同じセルを取り直す。
+# 1回の実行(GridCloudCache 1つ)で合計 MINUTELY_RETRY_MAX 回まで。それを超えたら従来どおり中止(終了コード2)。
+MINUTELY_RETRY_WAIT_SEC = 65.0
+MINUTELY_RETRY_MAX = 5
+
 # モデルの実際の更新頻度に合わせたディスクキャッシュの有効期限(秒)。
 CACHE_TTL_SEC = {
     MSM_MODEL: 3 * 3600,
@@ -76,6 +81,15 @@ class FetchSummary:
     fetch_sec: float = 0.0           # 通信にかかった秒数の合計(再試行と、再試行の間の待ちを含む)
     retries: int = 0                 # 再試行した回数(セルごとの「試行の回数 − 1」の合計)
     failed_attempt_sec: float = 0.0  # 失敗した試行(成功する前の失敗も含む)にかかった秒数の合計
+    # 2026-11-13: 通信の間隔の調整で待った秒数と、429(1分の上限)で65秒待った回数・秒数。通信(fetch_sec)には含まない
+    pacing_sec: float = 0.0
+    minutely_waits: int = 0
+    minutely_wait_sec: float = 0.0
+
+    @property
+    def wait_sec(self) -> float:
+        """間隔の調整の合計(通信の間隔の調整 + 1分の上限の待ち)。"""
+        return self.pacing_sec + self.minutely_wait_sec
 
     @property
     def failed_rate(self) -> float:
@@ -91,13 +105,29 @@ class FetchSummary:
     def console_line(self) -> str:
         return (f"取得セル{self.total_cells}件 / API呼び出し{self.api_calls}回 / "
                 f"キャッシュヒット{self.cache_hits}回 / 失敗{self.failed}件({self.failed_rate:.1%})"
-                f" / 通信 {self.fetch_sec:.1f} 秒(うち失敗の待ち {self.failed_attempt_sec:.1f} 秒・再試行 {self.retries} 回)")
+                f" / 通信 {self.fetch_sec:.1f} 秒(うち失敗の待ち {self.failed_attempt_sec:.1f} 秒・再試行 {self.retries} 回)"
+                + self._wait_suffix())
+
+    def _wait_suffix(self) -> str:
+        """待ちが起きたときだけ足す(待ちが無いときの画面の出力は従来と同じ)。"""
+        if self.wait_sec <= 0 and not self.minutely_waits:
+            return ""
+        text = f" / 間隔の調整 {self.wait_sec:.1f} 秒"
+        if self.minutely_waits:
+            text += f"(うち1分の上限の待ち {self.minutely_waits} 回・{self.minutely_wait_sec:.1f} 秒)"
+        return text
 
 
 def timing_line(total_sec: float, summary: FetchSummary) -> str:
     """実行全体の秒数と、通信以外の秒数(全体 − Open-Meteoの通信)を1行で返す(画面表示用。レポートには出さない)。"""
+    wait = summary.wait_sec
+    if wait <= 0:
+        return (f"実行時間の内訳: 全体 {total_sec:.1f} 秒 / Open-Meteoの通信 {summary.fetch_sec:.1f} 秒 / "
+                f"通信以外 {total_sec - summary.fetch_sec:.1f} 秒(全体 − 通信)")
+    # 待ちが起きたときは、通信・間隔の調整・それ以外に分ける(2026-11-13)
     return (f"実行時間の内訳: 全体 {total_sec:.1f} 秒 / Open-Meteoの通信 {summary.fetch_sec:.1f} 秒 / "
-            f"通信以外 {total_sec - summary.fetch_sec:.1f} 秒(全体 − 通信)")
+            f"間隔の調整 {wait:.1f} 秒 / "
+            f"それ以外 {total_sec - summary.fetch_sec - wait:.1f} 秒(全体 − 通信 − 間隔の調整)")
 
 
 def grid_cell(lat: float, lon: float, model: str) -> tuple[float, float]:
@@ -142,6 +172,12 @@ class GridCloudCache:
         self.fetch_sec = 0.0
         self.retry_count = 0
         self.failed_attempt_sec = 0.0
+        # 2026-11-13: 間隔の調整・429(1分の上限)の待ちと、受けた429の記録(種類, reason)
+        self.pacing_sec = 0.0
+        self.minutely_waits = 0
+        self.minutely_wait_sec = 0.0
+        self.rate_limit_events: list[tuple[str, str]] = []
+        self._sleep = time.sleep  # テストで差し替える
         self.disk_cache_enabled = disk_cache
         self.cache_dir = Path(cache_dir)
         if self.disk_cache_enabled:
@@ -188,20 +224,37 @@ class GridCloudCache:
                 return cached
 
         cell_lat, cell_lon = cell
-        outcome = _fetch_hourly_detailed(cell_lat, cell_lon, model, forecast_days, variables=variables)
+        while True:
+            outcome = _fetch_hourly_detailed(cell_lat, cell_lon, model, forecast_days, variables=variables)
+            self.call_count += 1
+            # 429で中止する場合も数値が残るよう、例外を投げる前に足す
+            self.fetch_sec += outcome.elapsed_sec
+            self.retry_count += max(outcome.attempts - 1, 0)
+            self.failed_attempt_sec += outcome.failed_attempt_sec
+            self.pacing_sec += getattr(outcome, "paced_sec", 0.0) or 0.0
+            if not (outcome.hourly is None and outcome.rate_limited):
+                break
+            kind = getattr(outcome, "rate_limit_kind", None) or "unknown"
+            rl_reason = getattr(outcome, "rate_limit_reason", None) or ""
+            self.rate_limit_events.append((kind, rl_reason))
+            if kind == "minutely" and self.minutely_waits < MINUTELY_RETRY_MAX:
+                # 1分の上限: 65秒待って同じセルを取り直す(1回の実行で合計5回まで)
+                self.minutely_waits += 1
+                print(f"    1分の上限のため{MINUTELY_RETRY_WAIT_SEC:.0f}秒待ちます({self.minutely_waits}/{MINUTELY_RETRY_MAX})")
+                self._sleep(MINUTELY_RETRY_WAIT_SEC)
+                self.minutely_wait_sec += MINUTELY_RETRY_WAIT_SEC
+                continue
+            self._cache[key] = None
+            self.failures.append(FailedCell(model, cell_lat, cell_lon, outcome.reason or "unknown"))
+            self.rate_limited = True
+            extra = (f"、1分の上限の待ちを{MINUTELY_RETRY_MAX}回使い切りました" if kind == "minutely" else "")
+            raise OpenMeteoDailyLimitError(
+                f"Open-Meteoが429(利用上限、種類={kind}、reason={rl_reason or '(本文なし)'})を返したため"
+                f"{extra}、以降の取得を中止します")
         hourly = outcome.hourly
         self._cache[key] = hourly
-        self.call_count += 1
-        # 429で中止する場合も数値が残るよう、例外を投げる前に足す
-        self.fetch_sec += outcome.elapsed_sec
-        self.retry_count += max(outcome.attempts - 1, 0)
-        self.failed_attempt_sec += outcome.failed_attempt_sec
         if hourly is None:
             self.failures.append(FailedCell(model, cell_lat, cell_lon, outcome.reason or "unknown"))
-            if outcome.rate_limited:
-                self.rate_limited = True
-                raise OpenMeteoDailyLimitError(
-                    "Open-Meteoが429(利用上限)を返したため、以降の取得を中止します")
         if self.disk_cache_enabled:
             self._write_disk(key, hourly)
         return hourly
@@ -213,4 +266,14 @@ class GridCloudCache:
             rate_limited=self.rate_limited,
             fetch_sec=self.fetch_sec, retries=self.retry_count,
             failed_attempt_sec=self.failed_attempt_sec,
+            pacing_sec=self.pacing_sec, minutely_waits=self.minutely_waits,
+            minutely_wait_sec=self.minutely_wait_sec,
         )
+
+    def fetch_failed(self, lat: float, lon: float, model: str, forecast_days: int, variables: str) -> bool:
+        """このセルを取りに行って失敗した(メモリに None がある)なら True。通信も、キャッシュヒットの計上もしない。
+
+        「取得はできたが、その時刻は予報の範囲の外」(時系列はある)と「取得に失敗した」を見分けるために使う(2026-11-13)。
+        """
+        key = (model, grid_cell(lat, lon, model), forecast_days, variables)
+        return key in self._cache and self._cache[key] is None
