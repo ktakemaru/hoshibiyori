@@ -220,6 +220,7 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
 `generate_report.py`/`explore_hoshibiyori.py`(終了コードと集計表示)。
 
 - **HTTP 429**(利用上限): リトライせず`OpenMeteoDailyLimitError`を送出し、以降の取得を中止。**終了コード2**、`report.html`は更新しない。
+  (2026-11-13から、1分の上限[`minutely`]だけは65秒待って取り直す。下の「429 の種類ごとの扱い」)
 - **429以外の4xx**(400/401/403/404等): リトライしない(理由`client_error`、失敗セルに数える)。**408・5xx・接続エラーは3回リトライ**。
 - **失敗セル率** = 失敗セル数 ÷ その実行で要求したユニークセル数(ディスクキャッシュのヒットは成功に数える)。閾値は
   `grid_cache.FAILED_CELL_RATE_ABORT = 0.20`(暫定値、運用しながら調整してよい)。
@@ -229,6 +230,21 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
 - 従来の挙動(失敗セルは`None`でプロセス内メモリに保持して再試行しない、ディスクには保存しない)は維持している。
 - 実行末尾に「取得セル数 / API呼び出し / キャッシュヒット / 失敗」を表示する(ログはリポジトリ内に作らない)。
 - ひまわり・天気図の取得失敗は予報セルの失敗率に含めない(画像セクションを省略して続行する)。
+- **429 の種類ごとの扱い(2026-11-13)**: 429 の本文の `reason`(`{"error":true,"reason":"..."}`)を読んで画面に出し、
+  語(`Minutely`/`Hourly`/`Daily`、大文字小文字を区別しない。重い順に見る)で `minutely`/`hourly`/`daily`/`unknown` に分ける
+  (`cloud_forecast.classify_rate_limit`)。JSON でなければ本文の先頭200文字を出す。`minutely` は65秒待って同じセルを取り直す
+  (`grid_cache.MINUTELY_RETRY_WAIT_SEC`/`MINUTELY_RETRY_MAX`、1回の実行=`GridCloudCache` 1つで合計5回まで)。6回目と、
+  `hourly`/`daily`/`unknown` は従来どおり `OpenMeteoDailyLimitError`(名前は互換のため据え置き)で中止、終了コード2。
+- **通信の間隔の調整(2026-11-13)**: `cloud_forecast.RequestPacer`(プロセスに1つ、`_PACER`)が、直近60秒の通信の重さ
+  (`request_weight`: `max(1, 変数の数/10) × max(1, 予報日数/14)`。探索の1回は2.4〜2.57)の合計を
+  `PACING_LIMIT_PER_MINUTE = 300`(1分の上限600の半分、初期値)以下に保つよう、各試行の前に待つ。再試行は数え、キャッシュヒットは
+  数えない。待った秒数は通信の秒数(`fetch_sec`)に含めず `pacing_sec` に、65秒待ちは `minutely_wait_sec` に分ける。
+  待ちが起きたときだけ `console_line()` に「間隔の調整」を、`timing_line()` に「通信・間隔の調整・それ以外」を出す。
+- **基準地点の取得失敗(2026-11-13)**: MSM の範囲内かを決める基準地点(石廊崎)の MSM のセルが取得の失敗で空なら
+  (`GridCloudCache.fetch_failed`)、`forecast_regime_for_night` が `ReferenceForecastUnavailable` を投げ、
+  explore・generate_report とも「基準地点の予報を取得できなかったため中止します」で終了コード2(レポートは更新しない)。
+  取得できて範囲の外なら従来どおり ECMWF。ECMWF のセルだけの失敗は判定に影響しないので中止しない。
+- 再試行(接続エラー・408・5xx)のたびに1行出す。経緯と実測は `docs/open-meteo-pacing-report.md`。
 - 検証: 失敗ゼロのとき、ベース(`c0afe30`)と本ブランチの`report.html`は生成日時・天気図ファイル名の時刻・空白行1行を除き同一
   (同一設定・同一キャッシュ期間内でのフル実行比較、2026-10-12)。
 
