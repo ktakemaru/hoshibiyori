@@ -138,8 +138,9 @@ hoshibiyoriの視界遮蔽雲量は気圧面別(相対湿度近似)雲量を全�
     詳細は`docs/astro-speedup-report.md`。
   - **2026-11-13の短縮(ブランチ`feature/astro-grid-cache`、本人の決定で出力が変わる変更)**: 残っていた天文薄明の探索を、
     0.25度格子の代表点で「セル×夜」1回にまとめ(主要146件 → 89セル)、結果をディスクに保存した(`astro_grid_cache.py`、
-    `--astro-grid site`で従来どおり)。固定キャッシュ・通信なし・主要146件で、stars: 146秒(変更前)→ 85秒(保存なし)→ **3.1秒**(保存済み)、
-    milkyway: 234秒 → 61秒 → 50秒(残りは地点ごとのままの銀河中心の方位・高度`compute_target_window`と第3段階のサンプル)。
+    `--astro-grid site`で従来どおり)。固定キャッシュ・通信なし・主要146件(2回測った範囲)で、stars: 地点ごと46〜147秒 → 保存なし30〜85秒 →
+    **保存済み1.2〜3.1秒**、milkyway: 73〜212秒 → 55〜61秒 → 27〜50秒(残りは地点ごとのままの銀河中心の方位・高度`compute_target_window`と第3段階のサンプル)。
+    秒数は同じPCのほかの処理で最大3倍ぶれる。
     全897地点の実行の時間は本人のPowerShellで確かめる(Claude Codeの中では行わない)。詳細は`docs/astro-grid-cache-report.md`。
 - **`reverse_geocode.py`の東京都山間部での市区町村誤認識バグ**: 上記「候補地点データの現状」の4番目の項目参照。`_MUNICIPALITY_KEYS`の優先順位(`city`>`town`>`village`)が、Nominatimが東京都山間部(奥多摩町・檜原村等)で`city`キーに「東京都」自体を返すケースで逆効果になる。今回追加した2件は手動修正したが、既存の757件(`candidate_sites.db`)側で同様の誤りが無いか未検証。
 - **重複判定30グループ(51件)が承認待ち**: `step7_geocoding/dedup_report2.txt`・`pending_deletions_round2.json`に判断案あり。round1(検証済み地点が絡む4件)のみ`apply_dedup.py`で適用済みで、残る30グループは削除の実行前にユーザーの目視確認が必要。これは`candidate_sites.db`内部(viewpoint同士)の重複判定であり、上記の`curated_spots.json`↔`candidate_sites.db`間のクロス重複統合(対応済み)とは別の課題。

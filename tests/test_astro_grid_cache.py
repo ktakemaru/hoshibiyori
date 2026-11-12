@@ -303,7 +303,7 @@ class RealAstroTests(unittest.TestCase):
 
     def test_grid_equals_site_calc_at_cell_point(self):
         site = {"lat": 36.80, "lon": 139.42}
-        d = date(2026, 11, 20)
+        d = datetime.now(JST).date() + timedelta(days=1)  # 今日からの相対(古い夜の削除に当たらないように)
         cell = agc.grid_cell(site["lat"], site["lon"], agc.ECMWF_MODEL)
         astro = ex.make_astro_cache("ecmwf", cache_dir=self.tmp)
         got = ex.compute_site_night_window(self.ts, self.eph, site, d, astro)
@@ -330,17 +330,19 @@ class RealAstroTests(unittest.TestCase):
             if "(1/2夜)" in s:
                 raise Stop  # 1夜目を書き出したあとで止める
 
+        d0 = datetime.now(JST).date() + timedelta(days=1)  # 今日からの相対(古い夜の削除に当たらないように)
+        d1 = d0 + timedelta(days=1)
         with self.assertRaises(Stop):
-            warm.warm(2, start=date(2026, 11, 20), cache_dir=self.tmp, ts=self.ts, eph=self.eph, sites=sites, out=out_stop)
+            warm.warm(2, start=d0, cache_dir=self.tmp, ts=self.ts, eph=self.eph, sites=sites, out=out_stop)
         files = sorted(p.name for p in next(self.tmp.iterdir()).iterdir())
-        self.assertEqual(files, ["night_2026-11-20.json"])  # 止めても1夜目は保存済み
-        c, r = warm.warm(2, start=date(2026, 11, 20), cache_dir=self.tmp, ts=self.ts, eph=self.eph, sites=sites,
+        self.assertEqual(files, [f"night_{d0.isoformat()}.json"])  # 止めても1夜目は保存済み
+        c, r = warm.warm(2, start=d0, cache_dir=self.tmp, ts=self.ts, eph=self.eph, sites=sites,
                          out=lambda s: None)
         self.assertEqual((c, r), (3, 3))  # 2セル+基準地点 × 1夜目は保存済み、2夜目は計算
         astro = ex.make_astro_cache("ecmwf", cache_dir=self.tmp)
-        got = ex.compute_site_night_window(self.ts, self.eph, sites[2], date(2026, 11, 21), astro)
+        got = ex.compute_site_night_window(self.ts, self.eph, sites[2], d1, astro)
         self.assertEqual(astro.computed, 0)
-        self.assertEqual(got, ex.compute_site_night_window(self.ts, self.eph, {"lat": 36.75, "lon": 139.5}, date(2026, 11, 21)))
+        self.assertEqual(got, ex.compute_site_night_window(self.ts, self.eph, {"lat": 36.75, "lon": 139.5}, d1))
 
     def test_reference_night_same_as_before(self):
         day = datetime(2026, 11, 20, tzinfo=JST)
