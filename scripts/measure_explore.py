@@ -15,8 +15,11 @@
                 通信は0回(requests.Session.get も止める)。
 - --primary-only : 主要候補(curated系の origin)だけで実行する(速い確かめ用)。
 - --profile   : cProfile をかけ、累積時間の上位40件を <label>.profile.txt に、生データを <label>.prof に出す。
+- --site-stride N : 全地点(主要+参考)から N 件おきに選んだ地点と石廊崎(第1段階の基準点)だけで実行する(全897地点の代わりの抜き取り)。
 - --code-root : explore_hoshibiyori.py を読むリポジトリ(既定はこのスクリプトの親)。変更前のコードの写しを測るのに使う。
 - --max-minutes : この分数を超えたら出力を書き出して強制終了する(既定60分、終了コード9)。
+- 秒数のJSONには、全体(壁時計)・通信・通信以外に加えて、このプロセスのCPU時間(cpu_sec、time.process_time)も入れる
+  (他の処理やメモリの逼迫で壁時計の秒数が大きくぶれるため、前後の比較の参考にする)。
 - 画面の出力のほかに、第2段階・第3段階・見込みの戻り値の全件(上位N件で切らない)を <label>.results.txt に書く。
   compare は両方の .results.txt があればそれも比べる。また2つの <label>.json の開始日(JST)が違えば「比べられない」とする。
 
@@ -156,6 +159,13 @@ def run(args) -> int:
         requests.Session.get = _blocked
         requests.get = _blocked
 
+    if args.site_stride:
+        orig_load_all = ex.load_candidate_sites
+
+        def _strided():
+            sites = orig_load_all()
+            return [x for i, x in enumerate(sites) if i % args.site_stride == 0 or x["name"] == "石廊崎"]
+        ex.load_candidate_sites = _strided
     if args.primary_only:
         orig_load = ex.load_candidate_sites
 
@@ -197,6 +207,7 @@ def run(args) -> int:
     with open(log_path, "w", encoding="utf-8", newline="\n") as logf:
         with contextlib.redirect_stdout(_Tee(logf)):
             t0 = time.perf_counter()
+            c0 = time.process_time()
             if prof:
                 prof.enable()
             try:
@@ -205,6 +216,7 @@ def run(args) -> int:
                 if prof:
                     prof.disable()
                 total = time.perf_counter() - t0
+                cpu = time.process_time() - c0
     ended = datetime.now(JST)
     timer.cancel()
     with open(out_dir / f"{label}.results.txt", "w", encoding="utf-8", newline="\n") as rf:
@@ -216,7 +228,7 @@ def run(args) -> int:
         "label": label, "code_root": str(code_root), "git_rev": _git_rev(code_root),
         "target": args.target, "frozen": args.frozen, "primary_only": args.primary_only, "profile": args.profile,
         "cache_dir": str(cache_dir), "started_jst": started.isoformat(), "ended_jst": ended.isoformat(),
-        "exit_code": code, "total_sec": round(total, 3),
+        "exit_code": code, "total_sec": round(total, 3), "cpu_sec": round(cpu, 3),
         "fetch_sec": round(s.fetch_sec, 3) if s else None,
         "non_fetch_sec": round(total - s.fetch_sec, 3) if s else None,
         "api_calls": s.api_calls if s else None, "cache_hits": s.cache_hits if s else None,
@@ -246,6 +258,8 @@ def main(argv=None) -> int:
     r.add_argument("--target", choices=("stars", "milkyway"), default="stars")
     r.add_argument("--code-root", default=str(REPO_ROOT))
     r.add_argument("--max-minutes", type=float, default=60.0)
+    r.add_argument("--site-stride", type=int, default=0,
+                   help="全地点(主要+参考)のうち N 件おき(先頭から)と石廊崎だけで実行する(全体の確かめの代わりの抜き取り)")
     c = sub.add_parser("compare")
     c.add_argument("a")
     c.add_argument("b")
