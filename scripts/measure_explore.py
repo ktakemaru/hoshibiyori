@@ -233,6 +233,14 @@ def run(args) -> int:
         "non_fetch_sec": round(total - s.fetch_sec, 3) if s else None,
         "api_calls": s.api_calls if s else None, "cache_hits": s.cache_hits if s else None,
         "failed_cells": s.failed if s else None, "total_cells": s.total_cells if s else None,
+        # 2026-11-13: 再試行・間隔の調整・429(種類とreason)・失敗セルの理由
+        "retries": s.retries if s else None,
+        "failed_attempt_sec": round(s.failed_attempt_sec, 3) if s else None,
+        "pacing_sec": round(getattr(s, "pacing_sec", 0.0), 3) if s else None,
+        "minutely_waits": getattr(s, "minutely_waits", 0) if s else None,
+        "minutely_wait_sec": round(getattr(s, "minutely_wait_sec", 0.0), 3) if s else None,
+        "rate_limit_events": [list(e) for e in getattr(cache, "rate_limit_events", [])] if cache else None,
+        "failures": [[f.model, f.lat, f.lon, f.reason] for f in cache.failures] if cache else None,
         "log": str(log_path),
     }
     (out_dir / f"{label}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

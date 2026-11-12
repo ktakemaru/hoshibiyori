@@ -46,9 +46,9 @@ from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_time  # noqa: E402
 from lp_source import LP_INDEX_LIMIT, BmLightPollutionStore, describe_alr  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
-from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
+from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea, level_hourly_vars  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache, timing_line  # noqa: E402
-from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
+from cloud_forecast import MSM_MAX_FORECAST_DAYS, MSM_MODEL, OpenMeteoDailyLimitError  # noqa: E402
 from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
@@ -330,13 +330,30 @@ def lp_limit_text(lp_store) -> str:
     return f"ALR<={lp_store.alr_threshold}(仮閾値・相対指数)"
 
 
+class ReferenceForecastUnavailable(RuntimeError):
+    """MSMの範囲内かを決める基準地点(石廊崎)のMSMのセルが、取得の失敗で空だったことを表す(2026-11-13)。
+
+    この場合は夜を見込み側に回さず中止する(終了コード2)。「取得はできたが、その夜はMSMの範囲の外」とは区別する。
+    """
+
+
+REFERENCE_UNAVAILABLE_MESSAGE = "基準地点の予報を取得できなかったため中止します"
+
+
 def forecast_regime_for_night(cache: GridCloudCache, ref_site: dict, night: "NightCandidate") -> str:
     """候補夜がMSM(精密)圏内かECMWF(見込み)圏内かを、実際のフォールバック結果から判定する。
 
     cloud_forecast.py/elevation_cloud.pyの結合ロジックが各時刻に付与するsource
     ("MSM"/"ECMWF")の多数決で判定する(既存のフォールバック判定をそのまま流用)。
+    基準地点のMSMのセルが取得の失敗で空のときは ReferenceForecastUnavailable を投げる(2026-11-13)。
     """
     levels = get_level_cloud_forecast(ref_site["lat"], ref_site["lon"], night.window_start, night.window_end, cache=cache)
+    fetch_failed = getattr(cache, "fetch_failed", None)
+    if fetch_failed is not None and fetch_failed(ref_site["lat"], ref_site["lon"], MSM_MODEL,
+                                                 MSM_MAX_FORECAST_DAYS, level_hourly_vars()):
+        raise ReferenceForecastUnavailable(
+            f"{REFERENCE_UNAVAILABLE_MESSAGE}(基準地点 {ref_site['name']} のMSMのセルの取得に失敗したため、"
+            "MSMの範囲内かを決められません)")
     if not levels:
         return "ECMWF"
     msm_count = sum(1 for l in levels if l.source == "MSM")
@@ -818,6 +835,12 @@ def _run(cache: GridCloudCache, args) -> int:
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}")
         print("  " + cache.summary().console_line())
+        return 2
+    except ReferenceForecastUnavailable as e:
+        print(f"\n[中止] {e}")
+        print("  " + cache.summary().console_line())
+        for f in cache.failures[:10]:
+            print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
         return 2
     summary = cache.summary()
     print(f"予報取得の集計: {summary.console_line()}")
