@@ -641,6 +641,12 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
 
     for night in nights:
         for site in sites:
+            # 光害の足切りを天文計算より先に行う(2026-11-12、処理時間の短縮)。光害で落ちる地点は
+            # 結果に入らず、ここまでの計算に副作用も無いため、残る候補・順位・表示は同じ。
+            lp_result = lp_store.get(site["lat"], site["lon"])
+            if lp_result.brightness_ratio > LP_INDEX_LIMIT:
+                continue
+
             w_start, w_end, moon_free_hours = compute_site_night_window(ts, eph, site, night.night_date)
             if w_start is None:
                 continue
@@ -658,10 +664,6 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 v_start, v_end, peak_time, peak_az, peak_alt = compute_target_window(ts, eph, site, target, w_start, w_end, profile)
                 if v_start is None:
                     continue
-
-            lp_result = lp_store.get(site["lat"], site["lon"])
-            if lp_result.brightness_ratio > LP_INDEX_LIMIT:
-                continue
 
             # 雲量は参考値(晴天率)としてのみ計算し、足切りには使わない
             levels = get_level_cloud_forecast(site["lat"], site["lon"], v_start, v_end, cache=cache)
