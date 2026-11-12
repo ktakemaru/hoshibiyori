@@ -33,7 +33,7 @@ py -m venv .venv
 - 保存先の切り替え(任意): 環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、キャッシュ・天文暦・生成物(`report.html`・`out/`・`weather_map_commentary.json` など)の書き込み先がそのフォルダになる(リポジトリと同じ相対構成。`hb_paths.py` が決める)。**未設定または空なら従来どおりリポジトリ直下で、動作は変わらない。** 読み取り専用の静的データ(`areas.json`・`stargazing_spots.json`・horizon CSV など)は常にリポジトリ側。PowerShell の例: `$env:HOSHIBIYORI_DATA_DIR="C:\tmp\hb_data"`。`scripts/check_setup.py` が「データ領域」を表示する。
 
 ## 5. 実行(ユーザーが頼んだときだけ)
-- `py generate_report.py`(引数なし): **10〜30分・Open-Meteo API 約220回(加えて気象庁へ、ひまわりの時刻一覧1回と赤外タイル最大12枚[3コマ×2×2、basetimeごとにキャッシュ]、天気図1セッション)**(候補146件で実測約21分。候補数に比例して増える)。固定の `report.html`(git管理外、.gitignore 済み)を上書きする。終了コード: 0=出力済み、2=失敗セル率20%以上または HTTP 429(`report.html` は更新しない)。
+- `py generate_report.py`(引数なし): **10〜30分・Open-Meteo API 約220回(加えて気象庁へ、ひまわりの時刻一覧1回と赤外タイル最大12枚[3コマ×2×2、basetimeごとにキャッシュ]、天気図1セッション)**(候補146件で実測約21分。候補数に比例して増える)。固定の `report.html`(git管理外、.gitignore 済み)を上書きする。終了コード: 0=出力済み、2=失敗セル率20%以上・中止扱いの HTTP 429(下記)・基準地点(石廊崎)の MSM の予報が取得の失敗で空(`report.html` は更新しない)。429 は本文の `reason` で種類を分け、1分の上限(`minutely`)だけは65秒待って同じセルを取り直して続ける(1回の実行で合計5回まで。`grid_cache.MINUTELY_RETRY_WAIT_SEC`/`MINUTELY_RETRY_MAX`)。6回目と、`hourly`/`daily`/種類不明は中止して終了コード2。`explore_hoshibiyori.py` も同じ条件で終了コード2。
 - ひまわりの「雲域の割合」(表示名は「雲域」)は、赤外の明るさの閾値(`himawari_image.py` `HIGH_CLOUD_BRIGHTNESS_THRESHOLD`)から出す参考値で、**閾値は暫定値**(晴れた夜は未較正)。スコア・足切りには使わない。
 - 実行前に「所要時間・リクエスト数・書き込み先」を伝えて承認を得る。Open-Meteo の無料枠は同じ回線の他の利用と共有される。
 - 長時間コマンドのタイムアウト対策(Windows の Codex で成り立つ方法)は**未確認**。確認できるまで、実行はユーザーに依頼するか、バックグラウンド実行+出力ファイルで行う。
@@ -48,7 +48,7 @@ py -m venv .venv
 | スコア式 | `explore_hoshibiyori.py` の `FinalCandidate.score` / `OutlookCandidate.score` | 近日中と中期見込みで式が異なり絶対値は比較不可 |
 | 光害閾値 | `step3_light_pollution/lp_source.py` `BM_ALR_THRESHOLD`(と内部値の基準 `LP_INDEX_LIMIT`) | ALR 10.66(以前の判定で通った主軸の141件と同数が通る仮の値。日本未較正)。`LP_INDEX_LIMIT` 5.0 はスコアの光害減点の大きさを保つための規格化の基準 |
 | 雲量閾値・最小晴れ間 | `CLOUD_OBSTRUCTION_THRESHOLD` / `MIN_CLEAR_WINDOW_HOURS` | 30.0% / 1.0時間 |
-| 失敗セル率と終了コード | `step5_cloud_forecast/grid_cache.py` `FAILED_CELL_RATE_ABORT` | 0.20。0/2 の意味は上記 |
+| 失敗セル率と終了コード | `step5_cloud_forecast/grid_cache.py` `FAILED_CELL_RATE_ABORT` | 0.20。0/2 の意味は上記(第5節) |
 | 格子セルキャッシュとTTL | `grid_cache.py` `CACHE_TTL_SEC` | MSM 3時間 / ECMWF 6時間 |
 | 候補地点データ | `stargazing_spots.json`、`curated_spots.json` ほか | 一括編集の前に必ずバックアップ(`.bak_*`)を取る |
 | 重複削除30グループ | `step7_geocoding/pending_deletions_round2.json` | ユーザーの目視承認待ち。勝手に適用しない |
@@ -56,7 +56,7 @@ py -m venv .venv
 ## 7. 外部サイトへのアクセスの節度
 - タイル(DEM・ひまわり)・Black Marble の生データ・格子セルのディスクキャッシュを無効化しない。新規取得の小休止(`gsi_dem.py` `_POLITE_DELAY_SEC` など)を削らない。識別可能な User-Agent を維持する。
 - Nominatim は1秒1リクエスト以下(`reverse_geocode.py` `MIN_REQUEST_INTERVAL_SEC`)。
-- HTTP 429 が出たら即中止してユーザーに報告する。別経路・リトライの連打・キャッシュの手作りで回避しない。
+- HTTP 429 で中止したら(1分の上限の65秒待ちはコードが自動で行う。それ以外の429と、待ちの回数の上限を超えたとき)、そのままユーザーに報告する。手で再実行を重ねる・別経路・リトライの連打・キャッシュの手作りで回避しない。通信の間隔の調整(`cloud_forecast.PACING_LIMIT_PER_MINUTE`)を削らない。
 - 単体テストは通信しない(`requests.get` 等をモック)。テストのために実通信しない。
 
 ## 8. PowerShell の注意
