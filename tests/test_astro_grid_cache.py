@@ -313,6 +313,35 @@ class RealAstroTests(unittest.TestCase):
         again = ex.compute_site_night_window(self.ts, self.eph, site, d, ex.make_astro_cache("ecmwf", cache_dir=self.tmp))
         self.assertEqual(repr(again), repr(want))
 
+    def test_warm_command(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("warm_astro_cache", ROOT / "scripts" / "warm_astro_cache.py")
+        warm = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(warm)
+        sites = [{"name": "石廊崎", "lat": 34.60, "lon": 138.85}, {"name": "x", "lat": 34.62, "lon": 138.80},
+                 {"name": "y", "lat": 36.80, "lon": 139.42}]
+        lines = []
+
+        class Stop(Exception):
+            pass
+
+        def out_stop(s):
+            lines.append(s)
+            if "(1/2夜)" in s:
+                raise Stop  # 1夜目を書き出したあとで止める
+
+        with self.assertRaises(Stop):
+            warm.warm(2, start=date(2026, 11, 20), cache_dir=self.tmp, ts=self.ts, eph=self.eph, sites=sites, out=out_stop)
+        files = sorted(p.name for p in next(self.tmp.iterdir()).iterdir())
+        self.assertEqual(files, ["night_2026-11-20.json"])  # 止めても1夜目は保存済み
+        c, r = warm.warm(2, start=date(2026, 11, 20), cache_dir=self.tmp, ts=self.ts, eph=self.eph, sites=sites,
+                         out=lambda s: None)
+        self.assertEqual((c, r), (3, 3))  # 2セル+基準地点 × 1夜目は保存済み、2夜目は計算
+        astro = ex.make_astro_cache("ecmwf", cache_dir=self.tmp)
+        got = ex.compute_site_night_window(self.ts, self.eph, sites[2], date(2026, 11, 21), astro)
+        self.assertEqual(astro.computed, 0)
+        self.assertEqual(got, ex.compute_site_night_window(self.ts, self.eph, {"lat": 36.75, "lon": 139.5}, date(2026, 11, 21)))
+
     def test_reference_night_same_as_before(self):
         day = datetime(2026, 11, 20, tzinfo=JST)
         r = ex.reference_night(self.ts, self.eph, 34.60, 138.85, day)

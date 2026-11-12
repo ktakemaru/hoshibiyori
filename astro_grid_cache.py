@@ -283,6 +283,13 @@ class AstroNightCache:
         self._dirty.clear()
         return written
 
+    def forget(self, night_date: date) -> None:
+        """その夜の分をメモリから外す(書き出してから使う。次に問い合わせたときはファイルから読み直す)。"""
+        if night_date in self._dirty:
+            raise RuntimeError("書き出していない夜は外せない")
+        self._nights.pop(night_date, None)
+        self._loaded.discard(night_date)
+
     def prune_old(self) -> int:
         """今日より KEEP_PAST_DAYS 日より前の夜のファイルを消す(このキャッシュのフォルダの night_*.json に限る)。"""
         if not self.cache_dir.exists():
