@@ -59,5 +59,63 @@ class MoonFlagsTests(unittest.TestCase):
         self.assertEqual(ex.compute_site_night_window(self.ts, self.eph, SITE_A, date(2026, 11, 20)), a1)
 
 
+class ParsedCloudMemoTests(unittest.TestCase):
+    """_to_dict_by_time_cached: 同じ時系列オブジェクトなら同じ変換結果、違うセル・違うキャッシュで混ざらない。"""
+
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "step5_cloud_forecast"))
+        import elevation_cloud as ec
+        self.ec = ec
+
+    def _hourly(self, base):
+        times = [f"2026-11-20T{h:02d}:00" for h in range(24)]
+        h = {"time": times}
+        for var in self.ec.level_hourly_vars().split(","):
+            h[var] = [float(base + i) for i in range(24)]
+        return h
+
+    def test_same_object_same_value(self):
+        class C:
+            pass
+        cache, hourly = C(), self._hourly(1)
+        a = self.ec._to_dict_by_time_cached(cache, hourly)
+        b = self.ec._to_dict_by_time_cached(cache, hourly)
+        self.assertIs(a, b)
+        self.assertEqual(a.keys(), self.ec._to_dict_by_time(hourly).keys())
+        for k, v in self.ec._to_dict_by_time(hourly).items():
+            self.assertEqual(a[k], v)
+
+    def test_no_mixing_between_cells_and_caches(self):
+        class C:
+            pass
+        cache = C()
+        h1, h2 = self._hourly(1), self._hourly(50)
+        p1 = self.ec._to_dict_by_time_cached(cache, h1)
+        p2 = self.ec._to_dict_by_time_cached(cache, h2)
+        k = next(iter(p1))
+        self.assertNotEqual(p1[k].native, p2[k].native)
+        self.assertEqual(p2[k].native, self.ec._to_dict_by_time(h2)[k].native)
+        other = C()
+        self.assertIsNot(self.ec._to_dict_by_time_cached(other, h1), p1)
+        self.assertEqual(self.ec._to_dict_by_time_cached(cache, None), {})
+
+    def test_get_level_cloud_forecast_unchanged(self):
+        class FakeCache:
+            def __init__(self, hourly):
+                self.h = hourly
+
+            def get_hourly(self, lat, lon, model, days, variables):
+                return self.h if model == self.ec_msm else None
+        FakeCache.ec_msm = self.ec.MSM_MODEL
+        h = self._hourly(3)
+        start = datetime(2026, 11, 20, 18, tzinfo=JST)
+        end = datetime(2026, 11, 20, 23, tzinfo=JST)
+        cache = FakeCache(h)
+        first = self.ec.get_level_cloud_forecast(35.0, 139.0, start, end, cache=cache)
+        second = self.ec.get_level_cloud_forecast(35.0, 139.0, start, end, cache=cache)
+        self.assertEqual(first, second)
+        self.assertEqual([x.cloud_total for x in first], [21.0, 22.0, 23.0, 24.0, 25.0, 26.0])
+
+
 if __name__ == "__main__":
     unittest.main()

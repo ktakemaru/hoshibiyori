@@ -142,6 +142,29 @@ def _to_dict_by_time(hourly: dict[str, list] | None) -> dict[datetime, _HourRaw]
     return result
 
 
+def _to_dict_by_time_cached(cache, hourly: dict[str, list] | None) -> dict[datetime, _HourRaw]:
+    """_to_dict_by_time の結果を、キャッシュ(GridCloudCache)の持つ同じ時系列オブジェクトごとに使い回す(2026-11-12)。
+
+    探索では同じ格子セルの時系列(MSM約96時間・ECMWF約360時間)を地点×夜ごとに辞書へ直し直していた。
+    GridCloudCache は同じセルに同じオブジェクトを返すので、そのオブジェクトをキーにして変換結果を
+    キャッシュの寿命の間だけ覚える(キャッシュのキー・有効期限・中身は変えない)。変換結果は読むだけで書き換えない。
+    """
+    if hourly is None:
+        return {}
+    memo = getattr(cache, "_by_time_memo", None)
+    if memo is None:
+        try:
+            memo = cache._by_time_memo = {}
+        except AttributeError:
+            return _to_dict_by_time(hourly)
+    entry = memo.get(id(hourly))
+    if entry is not None and entry[0] is hourly:
+        return entry[1]
+    parsed = _to_dict_by_time(hourly)
+    memo[id(hourly)] = (hourly, parsed)  # hourly 自体も持ち、id の再利用で別の時系列と取り違えないようにする
+    return parsed
+
+
 def _merge_hour(msm: _HourRaw | None, ecmwf: _HourRaw | None, dt_local: datetime) -> HourlyLevelCloud:
     """ある時刻について、面・変数ごとに「MSMの値があればMSM、なければECMWF」で埋める。
 
@@ -196,8 +219,8 @@ def get_level_cloud_forecast(lat: float, lon: float, start_dt_local: datetime, e
         cache = GridCloudCache()
 
     variables = level_hourly_vars()
-    msm_by_time = _to_dict_by_time(cache.get_hourly(lat, lon, MSM_MODEL, MSM_MAX_FORECAST_DAYS, variables))
-    ecmwf_by_time = _to_dict_by_time(cache.get_hourly(lat, lon, ECMWF_MODEL, ECMWF_MAX_FORECAST_DAYS, variables))
+    msm_by_time = _to_dict_by_time_cached(cache, cache.get_hourly(lat, lon, MSM_MODEL, MSM_MAX_FORECAST_DAYS, variables))
+    ecmwf_by_time = _to_dict_by_time_cached(cache, cache.get_hourly(lat, lon, ECMWF_MODEL, ECMWF_MAX_FORECAST_DAYS, variables))
 
     results = []
     t = start_dt_local.replace(minute=0, second=0, microsecond=0)
