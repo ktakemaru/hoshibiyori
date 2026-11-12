@@ -47,7 +47,7 @@ from sky_engine import altaz_at_time  # noqa: E402
 from lp_source import LP_INDEX_LIMIT, BmLightPollutionStore, describe_alr  # noqa: E402
 from moon_position import compute_moon_position  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
-from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache  # noqa: E402
+from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache, timing_line  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
 from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
@@ -781,7 +781,16 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     """終了コード: 0=完了(取得失敗があれば警告を表示)、2=取得失敗が多すぎる/429。"""
     args = parse_args(argv)
+    t0 = time.perf_counter()
     cache = GridCloudCache()
+    try:
+        return _run(cache, args)
+    finally:
+        # 全体の秒数と通信以外の秒数(画面表示のみ。終了コード2の経路でも出す)
+        print(timing_line(time.perf_counter() - t0, cache.summary()))
+
+
+def _run(cache: GridCloudCache, args) -> int:
     try:
         _explore(cache, args.target)
     except OpenMeteoDailyLimitError as e:

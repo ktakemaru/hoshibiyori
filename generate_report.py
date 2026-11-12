@@ -29,6 +29,7 @@ from __future__ import annotations
 import html
 import json
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -41,7 +42,7 @@ from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 from catalog import get_target  # noqa: E402
 from sky_engine import altaz_at_datetime  # noqa: E402
-from grid_cache import FAILED_CELL_RATE_ABORT, FetchSummary, GridCloudCache  # noqa: E402
+from grid_cache import FAILED_CELL_RATE_ABORT, FetchSummary, GridCloudCache, timing_line  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
 
@@ -402,6 +403,7 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     """終了コード: 0=出力済み(取得失敗があれば警告バナー付き)、2=取得失敗が多すぎる/429のためreport.htmlを更新せず中止。"""
     args = parse_args(argv)
+    t0 = time.perf_counter()
     cache = GridCloudCache()
     out_path = OUTPUT_PATH_STARS if args.target == "stars" else OUTPUT_PATH
     try:
@@ -410,6 +412,9 @@ def main(argv=None) -> int:
         print(f"\n[中止] {e}。{out_path.name}は更新していません。")
         print("  " + cache.summary().console_line())
         return 2
+    finally:
+        # 全体の秒数と通信以外の秒数(画面表示のみ。レポートのHTMLには出さない)
+        print(timing_line(time.perf_counter() - t0, cache.summary()))
 
 
 def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out_path: Path = OUTPUT_PATH) -> int:

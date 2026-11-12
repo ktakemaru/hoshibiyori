@@ -1,4 +1,4 @@
-"""ひまわり3コマ表示と「雲域の割合」の単体テスト。通信しない(requests.get をモック)。
+"""ひまわり3コマ表示と「雲域の割合」の単体テスト。通信しない(requests.Session.get をモック)。
 
 閾値は決め打ちにせず、合成画像で純関数の振る舞いを検査する。
 """
@@ -33,7 +33,7 @@ def bts(*stamps):
 
 class RecentBasetimesTest(unittest.TestCase):
     def call(self, payload, **kw):
-        with mock.patch("himawari_image.requests.get", return_value=resp(payload)) as g:
+        with mock.patch("requests.Session.get", return_value=resp(payload)) as g:
             out = hi.recent_basetimes(**kw)
         self.assertEqual(g.call_count, 1)  # 時刻一覧は1回だけ
         return out

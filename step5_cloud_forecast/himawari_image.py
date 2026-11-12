@@ -150,13 +150,27 @@ def basetime_to_jst(basetime: str) -> datetime:
 
 # --- HTTP -----------------------------------------------------------------------------
 
+# プロセスの中で使い回す接続(2026-11-12)。cloud_forecast.py と同じ考え方で、相手のホストが違うので別のSession。
+# 最初の通信のときに作る。切れた接続の張り直しは requests に任せる(アダプタや独自の再試行は付けない)。
+_SESSION: requests.Session | None = None
+
+
+def _http_session() -> requests.Session:
+    global _SESSION
+    if _SESSION is None:
+        session = requests.Session()
+        session.headers.update({"User-Agent": _USER_AGENT})
+        _SESSION = session
+    return _SESSION
+
+
 def _http_get(url: str) -> requests.Response:
     """GET。429は即 HimawariRateLimitError、429以外の4xxは即 HimawariFetchError(リトライしない)。
     408・5xx・接続エラーは数回リトライする(cloud_forecast._fetch_hourly_detailed と同じ方針)。"""
     last: Exception | None = None
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            resp = requests.get(url, timeout=20, headers={"User-Agent": _USER_AGENT})
+            resp = _http_session().get(url, timeout=20, headers={"User-Agent": _USER_AGENT})
             status = resp.status_code
             if status == 429:
                 raise HimawariRateLimitError(f"HTTP 429 (rate limit): {url}", status)
