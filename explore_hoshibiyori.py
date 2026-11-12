@@ -195,15 +195,35 @@ def find_astro_dark_events(ts, eph, lat: float, lon: float, day_start_local: dat
     return dark_start, dark_end
 
 
+def _moon_negligible_flags(ts, eph, lat: float, lon: float, times_local: list[datetime]) -> list[bool]:
+    """各時刻について「月が地平線下、または新月に近く影響が小さい」か(compute_moon_position(標高0m)と同じ式)。
+
+    時刻の配列を1回でSkyfieldに渡す。式は moon_position.compute_moon_position と同じ
+    (高度<=0、または 位相角=180-月と太陽の離角 >= MOON_PHASE_NEGLIGIBLE_DEG)。
+    """
+    if not times_local:
+        return []
+    t = ts.from_datetimes([x.astimezone(timezone.utc) for x in times_local])
+    observer = eph["earth"] + wgs84.latlon(lat, lon, elevation_m=0.0)
+    at = observer.at(t)
+    moon = at.observe(eph["moon"]).apparent()
+    alt, _az, _ = moon.altaz()
+    sun = at.observe(eph["sun"]).apparent()
+    phase_angle = 180.0 - moon.separation_from(sun).degrees
+    return [bool(a <= 0 or p >= MOON_PHASE_NEGLIGIBLE_DEG) for a, p in zip(alt.degrees, phase_angle)]
+
+
 def longest_negligible_window(ts, eph, ref_lat: float, ref_lon: float, sunset: datetime, sunrise: datetime,
                                sample_interval_min: int = 15) -> tuple[datetime | None, datetime | None, float]:
-    samples = []
+    sample_times = []
     t = sunset
     while t <= sunrise:
-        moon = compute_moon_position(ts, eph, ref_lat, ref_lon, 0.0, t)
-        negligible = moon.alt_deg <= 0 or moon.phase_angle_deg >= MOON_PHASE_NEGLIGIBLE_DEG
-        samples.append((t, negligible))
+        sample_times.append(t)
         t += timedelta(minutes=sample_interval_min)
+    # 月の高度・位相角は、compute_moon_position と同じ計算を時刻の配列でまとめて行う(2026-11-12、処理時間の短縮。
+    # 1時刻ずつ呼ぶと地点×夜ごとに数十回のSkyfield呼び出しになっていた)。判定の式・サンプル間隔は同じ。
+    flags = _moon_negligible_flags(ts, eph, ref_lat, ref_lon, sample_times)
+    samples = list(zip(sample_times, flags))
 
     best_start, best_end, best_len = None, None, 0.0
     cur_start = None
