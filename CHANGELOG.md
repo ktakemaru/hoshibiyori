@@ -11,6 +11,7 @@
 ### Changed
 - **Open-Meteo とひまわりの取得で接続を使い回す**: `step5_cloud_forecast/cloud_forecast.py` の `_fetch_hourly_detailed` と `himawari_image.py` の `_http_get` が、毎回新しい接続を張る `requests.get` から、プロセス内で1つずつ持つ `requests.Session`(最初の通信のときに作る)に変わった。理由: ビヨリコンシェルの実測で、GitHub のマシンから api.open-meteo.com へ新しい接続を張ると60回中11回が TLS の途中で止まり(20秒の打ち切り)、1本の接続を使い回すと60回中0回だったため(ヤマビヨリ v1.9.1 と同じ考え方)。URL・パラメータ・User-Agent・キャッシュ・再試行・打ち切り・429/4xxの扱い・終了コード・レポートの中身は変えていない
 - **通信時間の表示**: 実行の最後の「予報取得の集計」の行の後ろに、Open-Meteo の通信にかかった秒数(再試行と再試行の間の待ちを含む)・失敗した試行にかかった秒数・再試行の回数を足した(例: `… / 通信 132.4 秒(うち失敗の待ち 40.2 秒・再試行 2 回)`)。`explore_hoshibiyori.py` と `generate_report.py` は最後に、全体の秒数と通信以外の秒数(全体 − 通信)を1行で出す。画面の表示だけで、レポート(HTML)には出さない
+- **通信以外の処理時間の短縮(探索)**: 出力(画面の文・候補・順位)を変えずに、`explore_hoshibiyori.py` の天文計算と雲量の集計を速くした。①月の影響の判定(`longest_negligible_window`)で、15分刻みの時刻を1つずつ `compute_moon_position` に渡していたのを、同じ式で時刻の配列を1回で Skyfield に渡す ②同じ格子セルの雲量の時系列を、地点×夜ごとに時刻の辞書へ直し直さない(`elevation_cloud.get_level_cloud_forecast`。キャッシュのキー・有効期限は同じ) ③見込み(`stage_outlook`)で、光害の足切りを天文計算より先に行う。実測(固定した雲量キャッシュ・通信なし、2026-11-12、`--target stars`): 主要146件で 690.2 秒 → 107〜144 秒、全地点から10件おき+石廊崎の91地点で 541.5 秒 → 62〜90 秒(ぶれは同じ PC のメモリの逼迫などによる)。全897地点での前後比較は、実行がメモリ不足で止められたため行っていない。計測用に `scripts/measure_explore.py` を追加(既定の動きは変えない)。詳細は `docs/astro-speedup-report.md`
 
 ## [1.0.0] - 2026-10-24
 
