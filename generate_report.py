@@ -55,6 +55,7 @@ from explore_hoshibiyori import (  # noqa: E402
     stage2_cloud_filter, stage3_direction_filter, stage_outlook,
     compute_site_night_window, make_lp_store, lp_limit_text,
     ReferenceForecastUnavailable,
+    add_astro_grid_argument, make_astro_cache, finish_astro_cache,
 )
 from lp_source import (  # noqa: E402
     BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, describe_alr,
@@ -262,7 +263,7 @@ def project(lat: float, lon: float, width: float, height: float) -> tuple[float,
 
 
 def build_casual_weather_note(ts, eph, casual_eligible_sites: list[dict], msm_nights: list[NightCandidate],
-                               cache: GridCloudCache) -> str:
+                               cache: GridCloudCache, astro=None) -> str:
     """気軽コース圏内(距離・離島・登山・リフト等を除いた候補地)の、MSM圏内の夜における
     視界遮蔽雲量の地域傾向を1〜2文で要約する。
 
@@ -282,7 +283,7 @@ def build_casual_weather_note(ts, eph, casual_eligible_sites: list[dict], msm_ni
     total_count = 0
     for night in msm_nights:
         for site in casual_eligible_sites:
-            w_start, w_end, _ = compute_site_night_window(ts, eph, site, night.night_date)
+            w_start, w_end, _ = compute_site_night_window(ts, eph, site, night.night_date, astro)
             if w_start is None:
                 continue
             levels = get_level_cloud_forecast(site["lat"], site["lon"], w_start, w_end, cache=cache)
@@ -398,6 +399,7 @@ def parse_args(argv=None):
     ap.add_argument("--target", choices=TARGET_MODES, default=DEFAULT_TARGET_MODE,
                     help="milkyway=天の川(既定。report.htmlに出力) / "
                          "stars=星空・星座(銀河中心の条件を使わない。天の川は対象外。report_stars.htmlに出力)")
+    add_astro_grid_argument(ap)
     return ap.parse_args(argv)
 
 
@@ -406,9 +408,10 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     t0 = time.perf_counter()
     cache = GridCloudCache()
+    astro = make_astro_cache(args.astro_grid)
     out_path = OUTPUT_PATH_STARS if args.target == "stars" else OUTPUT_PATH
     try:
-        return _generate(cache, args.target, out_path)
+        return _generate(cache, args.target, out_path, astro)
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}。{out_path.name}は更新していません。")
         print("  " + cache.summary().console_line())
@@ -420,11 +423,13 @@ def main(argv=None) -> int:
             print(f"  失敗セル: {f.model} lat={f.lat} lon={f.lon} 理由={f.reason}")
         return 2
     finally:
+        finish_astro_cache(astro)
         # 全体の秒数と通信以外の秒数(画面表示のみ。レポートのHTMLには出さない)
         print(timing_line(time.perf_counter() - t0, cache.summary()))
 
 
-def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out_path: Path = OUTPUT_PATH) -> int:
+def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out_path: Path = OUTPUT_PATH,
+              astro=None) -> int:
     t_start = datetime.now(JST)
     ts = load.timescale()
     eph_path = DATA_ROOT / "step1_astronomy" / "de421.bsp"
@@ -445,8 +450,10 @@ def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out
     print(f"[光害] Black Marble由来のALR(相対指数)。仮閾値 {lp_limit_text(lp_store)}。出力先: {out_path.name}")
 
     print(f"候補地点: {len(sites)}件を読み込み(curated由来のみ、viewpoint参考データ{len(all_sites)-len(sites)}件は対象外)")
+    if astro is not None:
+        print(astro.start_line(sites))
 
-    all_nights = all_nights_timeline(ts, eph, ref_site["lat"], ref_site["lon"], NUM_NIGHTS_TO_SCAN)
+    all_nights = all_nights_timeline(ts, eph, ref_site["lat"], ref_site["lon"], NUM_NIGHTS_TO_SCAN, astro)
     print(f"[概況] 直近{len(all_nights)}夜を評価")
 
     # 各夜の月相アイコン(概況・カレンダー共通)
@@ -468,7 +475,7 @@ def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out
     finals: list[FinalCandidate] = []
     night_view_items: list[dict] = []
     if msm_nights:
-        survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache)
+        survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache, astro)
         finals = stage3_direction_filter(ts, eph, survivors, lp_store, target_mode)
         # 「星空観賞向き」枠(2026-09-07追加): stage3の光害の足切りで気軽/硬派コースから
         # 除外される夜景系地点(site_type=="night_view")も、天気(晴れ間)条件さえ満たせば
@@ -492,7 +499,7 @@ def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out
 
     outlooks: list[OutlookCandidate] = []
     if ecmwf_nights:
-        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode)
+        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode, astro)
 
     # MSM圏内に入るまでの残り日数
     msm_index = next((i for i, n in enumerate(all_nights) if regimes.get(n.night_date) == "MSM"), None)
@@ -503,7 +510,7 @@ def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out
 
     casual_eligible_sites = [s for s in sites
                               if is_casual_site(s["name"], s["municipality"], s["lat"], s["lon"], s["requires_lift_access"])]
-    casual_weather_note = build_casual_weather_note(ts, eph, casual_eligible_sites, msm_nights, cache)
+    casual_weather_note = build_casual_weather_note(ts, eph, casual_eligible_sites, msm_nights, cache, astro)
 
     sky_guide = build_sky_guide(ts, eph, ref_site["lat"], ref_site["lon"], all_nights[0], t_start.month,
                             include_core=target_mode != "stars")

@@ -50,6 +50,7 @@ from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and
 from grid_cache import FAILED_CELL_RATE_ABORT, GridCloudCache, timing_line  # noqa: E402
 from cloud_forecast import MSM_MAX_FORECAST_DAYS, MSM_MODEL, OpenMeteoDailyLimitError  # noqa: E402
 from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
+from astro_grid_cache import ASTRO_GRID_MODES, DEFAULT_ASTRO_GRID, AstroNightCache, make_conditions  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 
@@ -59,6 +60,8 @@ NUM_CANDIDATE_NIGHTS = 6
 CLOUD_OBSTRUCTION_THRESHOLD = 30.0
 MIN_CLEAR_WINDOW_HOURS = 1.0  # これ未満の晴れ間は「見頃」として採用しない(2026-09-07追加)
 MOON_PHASE_NEGLIGIBLE_DEG = 150.0
+MOON_SAMPLE_INTERVAL_MIN = 15  # longest_negligible_window の既定のサンプル間隔(保存の鍵に入れる)
+EPHEMERIS_FILE = "de421.bsp"
 TARGET_ID = "galactic_center"
 # 探索の目的。"milkyway"=天の川(銀河中心の高度・方角・地形を条件にする、既定)、
 # "stars"=星空・星座(銀河中心の条件を使わず、雲・月・光害・暗い時間帯だけで選ぶ)
@@ -214,7 +217,7 @@ def _moon_negligible_flags(ts, eph, lat: float, lon: float, times_local: list[da
 
 
 def longest_negligible_window(ts, eph, ref_lat: float, ref_lon: float, sunset: datetime, sunrise: datetime,
-                               sample_interval_min: int = 15) -> tuple[datetime | None, datetime | None, float]:
+                               sample_interval_min: int = MOON_SAMPLE_INTERVAL_MIN) -> tuple[datetime | None, datetime | None, float]:
     sample_times = []
     t = sunset
     while t <= sunrise:
@@ -243,14 +246,21 @@ def longest_negligible_window(ts, eph, ref_lat: float, ref_lon: float, sunset: d
     return best_start, best_end, best_len
 
 
-def compute_site_night_window(ts, eph, site: dict, night_date: date) -> tuple[datetime | None, datetime | None, float]:
-    """指定地点・指定夜について、その地点自身の座標を基準に天文薄明・無月時間帯を計算する。
+def compute_site_night_window(ts, eph, site: dict, night_date: date,
+                              astro: AstroNightCache | None = None) -> tuple[datetime | None, datetime | None, float]:
+    """指定地点・指定夜について、天文薄明・無月時間帯を計算する。
 
     石廊崎1地点の座標を全候補地点で使い回すと、経度差による薄明・月の出没時刻のずれ
     (石廊崎〜佐渡・立山で数分〜十数分程度)が無視されるため、地点ごとに計算し直す
     (2026-09-07追加。night_dateの選定自体は引き続き石廊崎基準で行うが、実際の
     「見頃」区間・雲量取得範囲はこの関数の結果を使う)。
+
+    2026-11-13(本人の決定): astro(AstroNightCache)を渡すと、地点ではなく0.25度格子(ECMWFと同じ切り方)の
+    代表点で計算し、同じセルの地点で結果を使い回す(保存済みがあれば読むだけ)。astro=None は従来どおり
+    地点自身の座標で計算する(`--astro-grid site`)。
     """
+    if astro is not None:
+        return astro.site_night_window(ts, eph, site, night_date)
     day_start_local = datetime(night_date.year, night_date.month, night_date.day, tzinfo=JST)
     dark_start, dark_end = find_astro_dark_events(ts, eph, site["lat"], site["lon"], day_start_local)
     if dark_start is None or dark_end is None:
@@ -404,18 +414,45 @@ def compute_target_window(ts, eph, site: dict, target, window_start: datetime, w
     return best_start, best_end, peak_time, peak_az, peak_alt
 
 
-def stage1_moon_filter(ts, eph, ref_lat: float, ref_lon: float) -> list[NightCandidate]:
+def reference_night(ts, eph, lat: float, lon: float, day: datetime) -> dict:
+    """基準地点の1夜分(日没・日の出・天文薄明・無月時間帯)。stage1_moon_filter と all_nights_timeline が使う。
+
+    日没・日の出が無い夜は他の値も None、暗い区間が無い夜は無月時間帯を None・0.0 にする
+    (2026-11-13、保存の仕組みに入れるため1つにまとめた。計算の順と中身は従来と同じ)。
+    """
+    sunset, sunrise = find_sun_events(ts, eph, lat, lon, day)
+    out = {"sunset": sunset, "sunrise": sunrise, "dark_start": None, "dark_end": None,
+           "window_start": None, "window_end": None, "hours": 0.0}
+    if sunset is None or sunrise is None:
+        return out
+    dark_start, dark_end = find_astro_dark_events(ts, eph, lat, lon, day)
+    out["dark_start"], out["dark_end"] = dark_start, dark_end
+    if dark_start is not None and dark_end is not None:
+        w_start, w_end, hours = longest_negligible_window(ts, eph, lat, lon, dark_start, dark_end)
+        out["window_start"], out["window_end"], out["hours"] = w_start, w_end, hours
+    return out
+
+
+def _reference_night(ts, eph, lat: float, lon: float, day: datetime, astro: AstroNightCache | None) -> dict:
+    if astro is not None:
+        return astro.reference_night(ts, eph, lat, lon, day)
+    return reference_night(ts, eph, lat, lon, day)
+
+
+def stage1_moon_filter(ts, eph, ref_lat: float, ref_lon: float,
+                       astro: AstroNightCache | None = None) -> list[NightCandidate]:
     today = datetime.now(JST).replace(hour=0, minute=0, second=0, microsecond=0)
     candidates = []
     for i in range(NUM_NIGHTS_TO_SCAN):
         day = today + timedelta(days=i)
-        sunset, sunrise = find_sun_events(ts, eph, ref_lat, ref_lon, day)
+        r = _reference_night(ts, eph, ref_lat, ref_lon, day, astro)
+        sunset, sunrise = r["sunset"], r["sunrise"]
         if sunset is None or sunrise is None:
             continue
-        dark_start, dark_end = find_astro_dark_events(ts, eph, ref_lat, ref_lon, day)
+        dark_start, dark_end = r["dark_start"], r["dark_end"]
         if dark_start is None or dark_end is None:
             continue
-        w_start, w_end, hours = longest_negligible_window(ts, eph, ref_lat, ref_lon, dark_start, dark_end)
+        w_start, w_end, hours = r["window_start"], r["window_end"], r["hours"]
         if w_start is None:
             continue
         candidates.append(NightCandidate(
@@ -437,7 +474,8 @@ def stage1_moon_filter(ts, eph, ref_lat: float, ref_lon: float) -> list[NightCan
 
 
 def all_nights_timeline(ts, eph, ref_lat: float, ref_lon: float,
-                         num_nights: int = NUM_NIGHTS_TO_SCAN) -> list[NightCandidate]:
+                         num_nights: int = NUM_NIGHTS_TO_SCAN,
+                         astro: AstroNightCache | None = None) -> list[NightCandidate]:
     """直近num_nights夜すべてを日付順(トップNに絞らない)で評価する。
 
     HTMLレポートの概況タイムライン・計画用カレンダー向け。無月時間帯が全く
@@ -449,14 +487,12 @@ def all_nights_timeline(ts, eph, ref_lat: float, ref_lon: float,
     timeline = []
     for i in range(num_nights):
         day = today + timedelta(days=i)
-        sunset, sunrise = find_sun_events(ts, eph, ref_lat, ref_lon, day)
+        r = _reference_night(ts, eph, ref_lat, ref_lon, day, astro)
+        sunset, sunrise = r["sunset"], r["sunrise"]
         if sunset is None or sunrise is None:
             continue
-        dark_start, dark_end = find_astro_dark_events(ts, eph, ref_lat, ref_lon, day)
-        if dark_start is not None and dark_end is not None:
-            w_start, w_end, hours = longest_negligible_window(ts, eph, ref_lat, ref_lon, dark_start, dark_end)
-        else:
-            w_start, w_end, hours = None, None, 0.0
+        dark_start, dark_end = r["dark_start"], r["dark_end"]
+        w_start, w_end, hours = r["window_start"], r["window_end"], r["hours"]
         timeline.append(NightCandidate(
             night_date=day.date(), sunset=sunset, sunrise=sunrise,
             dark_start=dark_start, dark_end=dark_end,
@@ -506,13 +542,14 @@ def find_longest_clear_window(rows: list[dict], threshold: float, window_start: 
     return start, end, mean_obstruction
 
 
-def stage2_cloud_filter(ts, eph, nights: list[NightCandidate], sites: list[dict], cache: GridCloudCache) -> list[dict]:
+def stage2_cloud_filter(ts, eph, nights: list[NightCandidate], sites: list[dict], cache: GridCloudCache,
+                        astro: AstroNightCache | None = None) -> list[dict]:
     survivors = []
     total_pairs = 0
     for night in nights:
         for i, site in enumerate(sites):
             total_pairs += 1
-            w_start, w_end, hours = compute_site_night_window(ts, eph, site, night.night_date)
+            w_start, w_end, hours = compute_site_night_window(ts, eph, site, night.night_date, astro)
             if w_start is None:
                 continue
             levels = get_level_cloud_forecast(site["lat"], site["lon"], w_start, w_end, cache=cache)
@@ -647,7 +684,8 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
 
 def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                    lp_store: BmLightPollutionStore, cache: GridCloudCache,
-                   target_mode: str = DEFAULT_TARGET_MODE) -> list[OutlookCandidate]:
+                   target_mode: str = DEFAULT_TARGET_MODE,
+                   astro: AstroNightCache | None = None) -> list[OutlookCandidate]:
     """ECMWF圏内(長期見込み)の夜を処理する。雲量は数値スコア・足切りに使わず、
     月・地形・光害という決定論的要素だけでランキングし、雲は「晴天率」の参考値として添える。
     """
@@ -664,7 +702,7 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
             if lp_result.brightness_ratio > LP_INDEX_LIMIT:
                 continue
 
-            w_start, w_end, moon_free_hours = compute_site_night_window(ts, eph, site, night.night_date)
+            w_start, w_end, moon_free_hours = compute_site_night_window(ts, eph, site, night.night_date, astro)
             if w_start is None:
                 continue
 
@@ -814,7 +852,47 @@ def parse_args(argv=None):
     ap.add_argument("--target", choices=TARGET_MODES, default=DEFAULT_TARGET_MODE,
                     help="milkyway=天の川(既定。銀河中心の高度・方角・地形を条件にする) / "
                          "stars=星空・星座(銀河中心の条件を使わず、雲・月・光害・暗い時間帯で選ぶ。天の川は対象外)")
+    add_astro_grid_argument(ap)
     return ap.parse_args(argv)
+
+
+def add_astro_grid_argument(ap) -> None:
+    """--astro-grid(explore と generate_report で共通)。"""
+    ap.add_argument("--astro-grid", choices=ASTRO_GRID_MODES, default=DEFAULT_ASTRO_GRID,
+                    help="ecmwf=薄明・月の時刻を0.25度格子の代表点で計算し、結果を保存して使い回す(既定。地点との差は"
+                         "数分程度) / site=従来どおり地点ごとに計算する(保存は読まない・書かない)")
+
+
+# 天文計算の保存先(None なら astro_grid_cache.DEFAULT_CACHE_DIR。計測・テストで差し替える)
+ASTRO_CACHE_DIR: Path | None = None
+
+
+def astro_conditions() -> dict:
+    """保存の鍵に入れる計算の条件(格子の刻み・月の判定の閾値・サンプルの間隔・天体暦・保存の形式の版)。"""
+    return make_conditions(moon_phase_negligible_deg=MOON_PHASE_NEGLIGIBLE_DEG,
+                           sample_interval_min=MOON_SAMPLE_INTERVAL_MIN, ephemeris=EPHEMERIS_FILE)
+
+
+def make_astro_cache(mode: str, cache_dir: Path | None = None, disk_cache: bool = True) -> AstroNightCache | None:
+    """`--astro-grid` の値から、天文計算の格子とキャッシュを作る。site なら None(従来の地点ごとの計算)。"""
+    if mode == "site":
+        return None
+    if mode != "ecmwf":
+        raise ValueError(f"--astro-grid の値が不正: {mode!r}")
+    return AstroNightCache(dark_fn=find_astro_dark_events, moon_fn=longest_negligible_window, ref_fn=reference_night,
+                           conditions=astro_conditions(),
+                           cache_dir=cache_dir if cache_dir is not None else ASTRO_CACHE_DIR, disk_cache=disk_cache)
+
+
+def finish_astro_cache(astro: AstroNightCache | None) -> None:
+    """保存して、集計の1行を出す(site のときは何もしない)。"""
+    if astro is None:
+        return
+    try:
+        astro.flush()
+    except OSError as e:
+        print(f"[注意] 天文計算の結果を保存できませんでした: {e}")
+    print(astro.summary_line())
 
 
 def main(argv=None) -> int:
@@ -822,16 +900,18 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     t0 = time.perf_counter()
     cache = GridCloudCache()
+    astro = make_astro_cache(args.astro_grid)
     try:
-        return _run(cache, args)
+        return _run(cache, args, astro)
     finally:
+        finish_astro_cache(astro)
         # 全体の秒数と通信以外の秒数(画面表示のみ。終了コード2の経路でも出す)
         print(timing_line(time.perf_counter() - t0, cache.summary()))
 
 
-def _run(cache: GridCloudCache, args) -> int:
+def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None) -> int:
     try:
-        _explore(cache, args.target)
+        _explore(cache, args.target, astro)
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}")
         print("  " + cache.summary().console_line())
@@ -854,7 +934,8 @@ def _run(cache: GridCloudCache, args) -> int:
     return 0
 
 
-def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE) -> None:
+def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
+             astro: AstroNightCache | None = None) -> None:
     t_start = time.time()
 
     ts = load.timescale()
@@ -867,12 +948,14 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE) -> N
     print(f"候補地点(stargazing_spots.json): 主要候補(星空撮影名所ベース) {len(primary_sites)}件"
           f" + 参考候補(OSM展望データ) {len(reference_sites)}件 = 計{len(sites)}件を読み込み"
           f"(うち地形地平線データあり: {sum(1 for s in sites if s['horizon_csv'])}件)\n")
+    if astro is not None:
+        print(astro.start_line(sites) + "\n")
 
     lp_store = make_lp_store()
     print(f"[光害] Black Marble由来のALR(相対指数。空の明るさの等級・ボートル値は表示しない)。仮閾値 {lp_limit_text(lp_store)}\n")
 
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
-    nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"])
+    nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"], astro)
 
     msm_nights = [n for n in nights if forecast_regime_for_night(cache, ref_site, n) == "MSM"]
     ecmwf_nights = [n for n in nights if n not in msm_nights]
@@ -887,7 +970,7 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE) -> N
 
     t_stage2_start = time.time()
     if msm_nights:
-        survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache)
+        survivors = stage2_cloud_filter(ts, eph, msm_nights, sites, cache, astro)
         finals = stage3_direction_filter(ts, eph, survivors, lp_store, target_mode)
         print_final_report(finals, target_mode=target_mode)
     else:
@@ -896,7 +979,7 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE) -> N
     t_stage2_end = time.time()
 
     if ecmwf_nights:
-        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode)
+        outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode, astro)
         print_outlook_report(outlooks, target_mode=target_mode)
     else:
         outlooks = []
