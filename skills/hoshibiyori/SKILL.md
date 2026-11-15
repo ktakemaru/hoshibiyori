@@ -16,7 +16,7 @@ allowed-tools:
 
 ## 0. 最初にやること
 
-1. **`${CLAUDE_PLUGIN_ROOT}/AGENTS.md` を Read する。** プラグイン直下の `AGENTS.md`・`CLAUDE.md` は自動では読み込まれません。設計の経緯は `${CLAUDE_PLUGIN_ROOT}/CLAUDE.md`(約64KB)にあり、必要な節だけ読みます(どの節かは AGENTS.md §2 の表が案内します)。
+1. **`${CLAUDE_PLUGIN_ROOT}/AGENTS.md` を Read する。** プラグイン直下の `AGENTS.md`・`CLAUDE.md` は自動では読み込まれません。設計の経緯は `${CLAUDE_PLUGIN_ROOT}/CLAUDE.md`(約84KB)にあり、必要な節だけ読みます(どの節かは AGENTS.md §2 の表が案内します)。
 2. `${CLAUDE_PLUGIN_ROOT}` や `${CLAUDE_PLUGIN_DATA}` が**展開されずそのまま見えている**、またはファイルが見つからないとき:
    - カレントに `hb_paths.py` と `AGENTS.md` があれば、そのフォルダをルートとして使う。
    - 無ければ Glob で `~/.claude/plugins` 配下から `hb_paths.py` を探し、見つかったフォルダを使ってよいかを**ユーザーに確認する**(黙って決めない)。
@@ -49,13 +49,15 @@ allowed-tools:
 | 月の条件だけ知りたい | `scripts/moon_nights.py`(通信なし。AGENTS.md §11 の1) |
 | 天気図の解説を更新したい | AGENTS.md **§12** |
 
+「天の川にこだわらない」「星座」「冬」「明るい星・惑星を見たい」と言われたら `--target stars`(星空・星座モード。出力は `report_stars.html`)を使う(AGENTS.md §5)。
+
 ## 4. 通信・長時間の前の承認
 
 次の前に、**所要時間・通信先・回数・書き込み先(データ領域の絶対パス)**を伝えて承認を得る(AGENTS.md §5・§7)。
 
-- `generate_report.py`(10〜30分・Open-Meteo 約220回ほか。詳細は §5)。`allowed-tools` には含めていない。
+- `generate_report.py`(Open-Meteo 約220回ほか。所要時間の実測は §5。雲量のキャッシュが無い状態は未実測)。`allowed-tools` には含めていない。
 - `--cloud fetch --allow-network`(§10。先に `--estimate`)、天気図の取得(§12、気象庁)、PyPI、JPL。
-- **HTTP 429 は即中止してユーザーに報告する。**別経路・リトライの連打・キャッシュの手作りで回避しない(§7)。
+- **HTTP 429 で中止したら、そのままユーザーに報告する。**1分の上限(`minutely`)はコードが65秒待って取り直す(1回の実行で5回まで)。それ以外の429と回数の上限を超えたときは中止(終了コード2)。別経路・リトライの連打・キャッシュの手作りで回避しない(§7)。
 
 ## 5. 守ること
 
