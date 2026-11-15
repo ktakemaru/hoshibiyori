@@ -17,6 +17,7 @@
 - --profile   : cProfile をかけ、累積時間の上位40件を <label>.profile.txt に、生データを <label>.prof に出す。
 - --site-stride N : 全地点(主要+参考)から N 件おきに選んだ地点と石廊崎(第1段階の基準点)だけで実行する(全897地点の代わりの抜き取り)。
 - --astro-grid ecmwf|site : explore に --astro-grid を渡す(省略時は渡さない)。--astro-cache-dir : 天文計算の保存先(2026-11-13)。
+- --json-out : explore に --json-out をそのまま渡す(省略時は渡さない。2026-11-16)。
 - --code-root : explore_hoshibiyori.py を読むリポジトリ(既定はこのスクリプトの親)。変更前のコードの写しを測るのに使う。
 - --max-minutes : この分数を超えたら出力を書き出して強制終了する(既定60分、終了コード9)。
 - 秒数のJSONには、全体(壁時計)・通信・通信以外に加えて、このプロセスのCPU時間(cpu_sec、time.process_time)も入れる
@@ -221,6 +222,8 @@ def run(args) -> int:
                 main_args = ["--target", args.target]
                 if args.astro_grid:  # 指定したときだけ渡す(引数の無い変更前のコードの写しも測れるように)
                     main_args += ["--astro-grid", args.astro_grid]
+                if args.json_out:  # 指定したときだけ渡す(2026-11-16)
+                    main_args += ["--json-out", args.json_out]
                 code = ex.main(main_args)
             finally:
                 if prof:
@@ -281,6 +284,8 @@ def main(argv=None) -> int:
                    help="explore に --astro-grid を渡す(省略時は渡さない=explore の既定)")
     r.add_argument("--astro-cache-dir", default=None,
                    help="天文計算の保存先(explore_hoshibiyori.ASTRO_CACHE_DIR を差し替える)。ecmwf で測るときは必ず指定する")
+    r.add_argument("--json-out", default=None,
+                   help="explore に --json-out をそのまま渡す(省略時は渡さない)")
     r.add_argument("--site-stride", type=int, default=0,
                    help="全地点(主要+参考)のうち N 件おき(先頭から)と石廊崎だけで実行する(全体の確かめの代わりの抜き取り)")
     c = sub.add_parser("compare")

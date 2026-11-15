@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hoshibiyori-explore/1",
+  "title": "hoshibiyori 探索結果(explore_hoshibiyori.py --json-out)",
+  "description": "時刻は ISO 8601・オフセットつき。欠損は null。数値は丸めていない。スコアは finals と outlooks で式が違い、絶対値を比べられない(score_kind で区別する)。",
+  "type": "object",
+  "required": ["schema", "generated_at", "version", "commit", "dirty", "target", "astro_grid", "thresholds",
+               "reference_site", "sites", "nights", "finals", "outlooks", "fetch", "notes"],
+  "properties": {
+    "schema": {"const": "hoshibiyori-explore/1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "version": {"type": ["string", "null"]},
+    "commit": {"type": ["string", "null"]},
+    "dirty": {"type": ["boolean", "null"], "description": "追跡しているファイルに commit していない変更があるか(追跡していないファイルは数えない)"},
+    "target": {"enum": ["milkyway", "stars"]},
+    "astro_grid": {"enum": ["ecmwf", "site"]},
+    "thresholds": {
+      "type": "object",
+      "required": ["cloud_obstruction_threshold_pct", "min_clear_window_hours", "lp_alr_threshold", "lp_index_limit",
+                   "moon_phase_negligible_deg", "num_nights_to_scan", "num_candidate_nights", "milkyway_few_results",
+                   "failed_cell_rate_abort"],
+      "properties": {
+        "cloud_obstruction_threshold_pct": {"type": "number"},
+        "min_clear_window_hours": {"type": "number"},
+        "lp_alr_threshold": {"type": ["number", "null"]},
+        "lp_index_limit": {"type": "number"},
+        "moon_phase_negligible_deg": {"type": "number"},
+        "num_nights_to_scan": {"type": "integer"},
+        "num_candidate_nights": {"type": "integer"},
+        "milkyway_few_results": {"type": "integer"},
+        "failed_cell_rate_abort": {"type": "number"}
+      }
+    },
+    "reference_site": {
+      "type": ["object", "null"],
+      "required": ["name", "lat", "lon"],
+      "properties": {
+        "name": {"type": "string"},
+        "lat": {"type": "number"},
+        "lon": {"type": "number"}
+      }
+    },
+    "sites": {
+      "type": "object",
+      "required": ["primary", "reference", "total", "with_horizon"],
+      "properties": {
+        "primary": {"type": "integer"},
+        "reference": {"type": "integer"},
+        "total": {"type": "integer"},
+        "with_horizon": {"type": "integer"}
+      }
+    },
+    "nights": {"type": "array", "items": {"$ref": "#/$defs/night"}},
+    "finals": {"type": "array", "items": {"$ref": "#/$defs/final"}},
+    "outlooks": {"type": "array", "items": {"$ref": "#/$defs/outlook"}},
+    "fetch": {
+      "type": "object",
+      "required": ["status", "total_cells", "failed_cells", "failed_rate", "cache_hits", "api_calls", "rate_limited",
+                   "retries", "failure_reasons"],
+      "properties": {
+        "status": {"enum": ["ok", "partial"], "description": "abort(終了コード2)のときは JSON を書かない"},
+        "total_cells": {"type": "integer"},
+        "failed_cells": {"type": "integer"},
+        "failed_rate": {"type": "number"},
+        "cache_hits": {"type": "integer"},
+        "api_calls": {"type": "integer"},
+        "rate_limited": {"type": "boolean"},
+        "retries": {"type": "integer"},
+        "failure_reasons": {"type": "object", "additionalProperties": {"type": "integer"},
+                            "description": "失敗の理由の種類ごとの件数(座標は入れない)"}
+      }
+    },
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "datetime_or_null": {"type": ["string", "null"], "format": "date-time"},
+    "night": {
+      "type": "object",
+      "required": ["night_date", "sunset", "sunrise", "dark_start", "dark_end", "window_start", "window_end",
+                   "moon_free_hours", "regime"],
+      "properties": {
+        "night_date": {"type": "string", "format": "date"},
+        "sunset": {"$ref": "#/$defs/datetime_or_null"},
+        "sunrise": {"$ref": "#/$defs/datetime_or_null"},
+        "dark_start": {"$ref": "#/$defs/datetime_or_null"},
+        "dark_end": {"$ref": "#/$defs/datetime_or_null"},
+        "window_start": {"$ref": "#/$defs/datetime_or_null"},
+        "window_end": {"$ref": "#/$defs/datetime_or_null"},
+        "moon_free_hours": {"type": ["number", "null"]},
+        "regime": {"enum": ["MSM", "ECMWF"]}
+      }
+    },
+    "candidate_common": {
+      "type": "object",
+      "required": ["night_date", "site_name", "municipality", "origin", "site_lat", "site_lon", "requires_lift_access",
+                   "target_az", "target_alt", "horizon_alt", "terrain_available", "lp_index", "moon_free_hours",
+                   "score", "alr", "alr_rank_pct", "score_kind", "is_primary", "group", "rank"],
+      "properties": {
+        "night_date": {"type": "string", "format": "date"},
+        "site_name": {"type": "string"},
+        "municipality": {"type": "string"},
+        "origin": {"type": "string"},
+        "site_lat": {"type": "number"},
+        "site_lon": {"type": "number"},
+        "requires_lift_access": {"type": "boolean"},
+        "target_az": {"type": ["number", "null"], "description": "stars モードでは null(銀河中心を評価しない)"},
+        "target_alt": {"type": ["number", "null"]},
+        "horizon_alt": {"type": ["number", "null"]},
+        "terrain_available": {"type": "boolean"},
+        "lp_index": {"type": ["number", "null"], "description": "光害の内部値(表示用ではない)"},
+        "moon_free_hours": {"type": ["number", "null"]},
+        "score": {"type": ["number", "null"], "description": "stars モードでは null(このモードは score を順位に使わない。順位は rank)。milkyway モードでは数値"},
+        "alr": {"type": ["number", "null"], "description": "光害 ALR(日本で未較正の相対指数)"},
+        "alr_rank_pct": {"type": ["number", "null"]},
+        "is_primary": {"type": "boolean"},
+        "group": {"enum": ["primary", "reference"]},
+        "rank": {"type": "integer", "minimum": 1, "description": "group の中での順位(画面の「[N位]」と同じ)"}
+      }
+    },
+    "final": {
+      "allOf": [{"$ref": "#/$defs/candidate_common"}],
+      "type": "object",
+      "required": ["window_start", "window_end", "best_time", "mean_obstruction", "clear_hours"],
+      "properties": {
+        "score_kind": {"const": "final"},
+        "window_start": {"$ref": "#/$defs/datetime_or_null"},
+        "window_end": {"$ref": "#/$defs/datetime_or_null"},
+        "best_time": {"$ref": "#/$defs/datetime_or_null"},
+        "mean_obstruction": {"type": ["number", "null"]},
+        "clear_hours": {"type": ["number", "null"]}
+      }
+    },
+    "outlook": {
+      "allOf": [{"$ref": "#/$defs/candidate_common"}],
+      "type": "object",
+      "required": ["visible_start", "visible_end", "clear_sky_pct"],
+      "properties": {
+        "score_kind": {"const": "outlook"},
+        "visible_start": {"$ref": "#/$defs/datetime_or_null"},
+        "visible_end": {"$ref": "#/$defs/datetime_or_null"},
+        "clear_sky_pct": {"type": ["number", "null"], "description": "参考値。スコアには使っていない"}
+      }
+    }
+  }
+}
