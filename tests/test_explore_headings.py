@@ -26,10 +26,12 @@ MW_OUTLOOK_REFERENCE = "見込み一覧・参考候補(対象: 天の川銀河�
 
 ST_FINAL_PRIMARY = ("探索モード 最終候補一覧・主要候補(対象: 星空・星座モード・天の川は対象外、星空撮影名所ベース、"
                     "晴れ時間が長い→平均雲量が低い→光害(ALR)が小さい→月の影響が小さい時間が長い順、上位20件)")
-ST_FINAL_REFERENCE = "探索モード 最終候補一覧・参考候補(対象: 星空・星座モード・天の川は対象外、OSM展望データ由来・星空適性は未検証、上位10件)"
+ST_FINAL_REFERENCE = ("探索モード 最終候補一覧・参考候補(対象: 星空・星座モード・天の川は対象外、OSM展望データ由来・星空適性は未検証、"
+                      "晴れ時間が長い→平均雲量が低い→光害(ALR)が小さい→月の影響が小さい時間が長い順、上位10件)")
 ST_OUTLOOK_PRIMARY = ("見込み一覧・主要候補(対象: 星空・星座モード・天の川は対象外、星空撮影名所ベース、"
                       "光害(ALR)が小さい→月の影響が小さい時間が長い順、上位20件)")
-ST_OUTLOOK_REFERENCE = "見込み一覧・参考候補(対象: 星空・星座モード・天の川は対象外、OSM展望データ由来・星空適性は未検証、上位10件)"
+ST_OUTLOOK_REFERENCE = ("見込み一覧・参考候補(対象: 星空・星座モード・天の川は対象外、OSM展望データ由来・星空適性は未検証、"
+                        "光害(ALR)が小さい→月の影響が小さい時間が長い順、上位10件)")
 
 
 def capture(fn, *args, **kw) -> list[str]:
@@ -92,6 +94,17 @@ class HeadingTests(unittest.TestCase):
         o3 = make_outlook("暗い・月長い", stars=True, alr=0.5, moon_free_hours=8.0)
         got = sorted([o1, o2, o3], key=lambda o: ex.outlook_rank_key(o, "stars"), reverse=True)
         self.assertEqual([o.site_name for o in got], ["暗い・月長い", "暗い", "明るい"])
+
+
+    def test_stars_reference_heading_has_same_order_text(self):
+        # 星空・星座モードの参考候補の見出しにも、主要候補と同じ並び順の説明が入る(2026-11-16)。並びも同じ順位キー
+        self.assertIn(ex.STARS_FINAL_ORDER, ST_FINAL_REFERENCE)
+        self.assertIn(ex.STARS_OUTLOOK_ORDER, ST_OUTLOOK_REFERENCE)
+        refs = [make_final("短い", origin="viewpoint", stars=True, clear_hours=2.0),
+                make_final("長い", origin="viewpoint", stars=True, clear_hours=6.0)]
+        lines = capture(ex.print_final_report, refs, target_mode="stars")
+        sites = [ln.split(":", 1)[1].strip().split("（")[0] for ln in lines if ln.startswith("  地点")]
+        self.assertEqual(sites, ["長い", "短い"])
 
 
 if __name__ == "__main__":

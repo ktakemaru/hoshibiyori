@@ -169,12 +169,23 @@ class BuildScannedTests(unittest.TestCase):
     def test_nights_unchanged_and_key_order(self):
         nights, _ = scan_fixture()
         with_scan = build_with_scan()
-        without = build(nights=nights)
-        self.assertEqual(with_scan["nights"], without["nights"])
-        self.assertNotIn("scanned_nights", without)
+        self.assertEqual(with_scan["nights"], build(nights=nights)["nights"])
         keys = list(with_scan)
         self.assertEqual(keys[keys.index("nights") + 1], "scanned_nights")
-        self.assertEqual([k for k in keys if k != "scanned_nights"], list(without))
+
+    def test_missing_is_refused(self):
+        # 必須(2026-11-16)。集めていないのに空の一覧(「0夜」)を書かない
+        nights, _ = scan_fixture()
+        kw = dict(generated_at=datetime(2026, 11, 16, 4, 38, tzinfo=JST), version="1.1.0", commit="0" * 40, dirty=False,
+                  target="milkyway", astro_grid="ecmwf", thresholds=ex.explore_thresholds(10.66),
+                  reference_site=None, nights=nights, msm_dates=[], finals=[], outlooks=[],
+                  final_rank_key=lambda f: 0, outlook_rank_key=lambda o: 0, is_primary=ex.is_primary_origin,
+                  fetch_summary=FakeCache().summary(), fetch_failures=[], sites={})
+        with self.assertRaises(ValueError):
+            ej.build_explore_json(**kw, scanned_nights=None)
+        with self.assertRaises(TypeError):
+            ej.build_explore_json(**kw)
+        self.assertEqual(ej.build_explore_json(**kw, scanned_nights=[])["scanned_nights"], [])
 
     def test_notes(self):
         self.assertEqual(build_with_scan()["notes"], ej.NOTES + [ej.SCANNED_NOTE])
@@ -186,6 +197,10 @@ class BuildScannedTests(unittest.TestCase):
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         doc = json.loads(ej.dumps(build_with_scan()))
         self.assertEqual(validate(doc, schema, schema), [])
+        # 必須(2026-11-16)。無ければ検査で見つかる
+        self.assertIn("scanned_nights", schema["required"])
+        missing = {k: v for k, v in doc.items() if k != "scanned_nights"}
+        self.assertIn("$: 必須の scanned_nights がない", validate(missing, schema, schema))
         broken = dict(doc, scanned_nights=[dict(doc["scanned_nights"][1], not_selected_reason="other")])
         self.assertTrue(any("not_selected_reason" in e for e in validate(broken, schema, schema)))
         # スキーマの理由コードの一覧がコードと同じ

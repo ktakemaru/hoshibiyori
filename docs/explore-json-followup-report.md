@@ -100,7 +100,7 @@ commit: `74dcb40`(A)、`0415714`(B)、文書、この報告書。
 - 「今週末は月が明るいので星空に向かない」と言うときの根拠は `no_moon_free_window`、または `not_in_top_n` で `moon_free_hours` が短い夜。`not_in_top_n` は、雲量を調べていない(候補の夜より月の条件が悪いだけ)という意味。
 - `nights` の中身・並び(月の影響が小さい時間が長い順)は変えていない。`scanned_nights` は日付順。
 - `notes` に `scanned_nights は走査した全部の夜です。…` が足される。星空・星座モードでは、その後ろに `STARS_NOTE` が続く。
-- `scanned_nights` が無い JSON(この変更の前の出力)もありうる。必須として扱わないこと。
+- (追記 2026-11-16)`scanned_nights` はスキーマの必須項目にした(「10. 追記」)。この項目が入る前の出力は、今のスキーマの検査を通らない。
 
 ## 7. 利用者がやること
 
@@ -122,6 +122,38 @@ commit: `74dcb40`(A)、`0415714`(B)、文書、この報告書。
 
 ## 8. 利用者に決めてほしいこと
 
-- スキーマの top-level の `required` に `scanned_nights` を入れるか(今は入れていない。入れると古い出力が検査で通らない)。
-- 参考候補の見出しにも並び順の説明を入れるか(今は天の川モードに合わせて入れていない)。
+- ~~スキーマの top-level の `required` に `scanned_nights` を入れるか~~ → 入れた(「10. 追記」)。
+- ~~参考候補の見出しにも並び順の説明を入れるか~~ → 星空・星座モードだけ入れた(「10. 追記」)。
 - リポジトリ直下の `dem_cache/` の扱い(今回は何もしていない)。
+
+## 10. 追記(2026-11-16、報告の確認後の利用者の指示)
+
+### (2) `scanned_nights` を必須にした
+
+- `schemas/hoshibiyori-explore.schema.json`: top-level の `required` に `scanned_nights` を足した(`nights` の後ろ)。`description` の「required には入れていない」を直した。スキーマ名 `hoshibiyori-explore/1` と `plugin.json` の版は変えていない。
+- `explore_json.py` `build_explore_json`: 引数 `scanned_nights` を必須にした(既定値を外した)。`None` なら `ValueError`(集めていないのに空の一覧=「0夜」と書かないため)。キーは `nights` の直後にいつも入り、`notes` にはいつも `SCANNED_NOTE` が入る(使わなくなった `_insert_after` は消した)。
+- 実際の `--json-out` では `_run` が `collect_scan=True` で `_explore` を呼ぶので、いつも入る(既存のテスト `test_with_json_out_collects_and_writes` で確かめている)。
+- これより前の出力(`scanned_nights` が無いもの)は、今のスキーマの検査を通らない(利用者が承知のうえ)。
+
+### (3) 星空・星座モードの参考候補の見出し
+
+- 参考候補の見出し2行に、主要候補と同じ並び順の説明(`STARS_FINAL_ORDER` / `STARS_OUTLOOK_ORDER`)を入れた。参考候補も主要候補と同じ順位キー(`final_rank_key` / `outlook_rank_key`)で並んでいることをコードで確かめた。天の川モードの見出しは変えていない(`MW_*` の4つの文字列のテストがそのまま通る)。
+
+### 期待値を直したテスト
+
+| テスト | 直したこと | 元 |
+|---|---|---|
+| `tests/test_explore_json.py` `BuildTests.test_top_level_items` | `notes` が `NOTES` → `NOTES + [SCANNED_NOTE]`、件数 3 → 4 | main からある既存のテスト |
+| `tests/test_explore_json.py` `BuildTests.test_stars_mode_rank_and_nulls` | `notes` が `NOTES + [STARS_NOTE]` → `NOTES + [SCANNED_NOTE, STARS_NOTE]` | main からある既存のテスト |
+| `tests/test_explore_json.py` の補助関数 `build()`・`fake_result()` | 期待値ではなく入力。`scanned_nights`(各夜を選ばれた夜として)を渡すようにした | main からある既存のテスト |
+| `tests/test_explore_scanned_nights.py` `test_nights_unchanged_and_key_order` | 「渡さなければキーが無い」の確かめを消した(必須にしたため)。代わりに `test_missing_is_refused` を足した | 第1部でこのブランチに足したテスト |
+| `tests/test_explore_headings.py` `ST_FINAL_REFERENCE`・`ST_OUTLOOK_REFERENCE` | 並び順の説明が入った文に直した | 第1部でこのブランチに足したテスト |
+
+足したテスト: `test_missing_is_refused`(`None` は `ValueError`、渡さなければ `TypeError`)、`test_schema` に「無ければ `必須の scanned_nights がない`」の確かめ、`test_stars_reference_heading_has_same_order_text`。
+
+### 通しの確かめ(固定キャッシュ・通信 0 回・`--primary-only`、2026-11-16 06:19〜06:20 JST)
+
+- 天の川・星空・星座の両モードとも終了コード 0、`api_calls: 0`。
+- 画面: 第1部の `afterjson_*` と比べて、星空・星座モードの見込みの参考候補の見出し1行だけが違った(並び順の説明が入った)。天の川モードは JSON の書き先の1行だけ(書き先のフォルダを変えたため)。近日中の見出しは、固定キャッシュに近日中の夜が無いため通しでは出ない(単体テストで確かめた)。
+- JSON: 両モードとも新しいスキーマ(`scanned_nights` 必須)の検査で誤り 0。`scanned_nights` は 14 件。`generated_at`・`commit`・`dirty` を除き、第1部の JSON と同じ中身・同じキーの順。
+- 結果: `Ran 554 tests` / `OK (skipped=3)`(552 + 2。`test_missing_is_refused`・`test_stars_reference_heading_has_same_order_text`)。

@@ -5,7 +5,7 @@
   "description": "時刻は ISO 8601・オフセットつき。欠損は null。数値は丸めていない。スコアは finals と outlooks で式が違い、絶対値を比べられない(score_kind で区別する)。",
   "type": "object",
   "required": ["schema", "generated_at", "version", "commit", "dirty", "target", "astro_grid", "thresholds",
-               "reference_site", "sites", "nights", "finals", "outlooks", "fetch", "notes"],
+               "reference_site", "sites", "nights", "scanned_nights", "finals", "outlooks", "fetch", "notes"],
   "properties": {
     "schema": {"const": "hoshibiyori-explore/1"},
     "generated_at": {"type": "string", "format": "date-time"},
@@ -52,7 +52,7 @@
     },
     "nights": {"type": "array", "items": {"$ref": "#/$defs/night"}},
     "scanned_nights": {"type": "array", "items": {"$ref": "#/$defs/scanned_night"},
-                       "description": "走査した全部の夜(日付順)。--json-out の出力には必ず入る(2026-11-16 追加。古い出力には無いため required には入れていない)"},
+                       "description": "走査した全部の夜(日付順)。必須(2026-11-16 追加。これより前の出力には無く、このスキーマの検査を通らない)"},
     "finals": {"type": "array", "items": {"$ref": "#/$defs/final"}},
     "outlooks": {"type": "array", "items": {"$ref": "#/$defs/outlook"}},
     "fetch": {

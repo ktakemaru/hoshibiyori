@@ -839,7 +839,8 @@ def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_
 
     print(f"\n{'-'*78}")
     if stars_mode:
-        print(f"見込み一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+        print(f"見込み一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、"
+              f"{STARS_OUTLOOK_ORDER}、上位{top_n_reference}件)")
     else:
         print(f"見込み一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'-'*78}")
@@ -891,7 +892,8 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
 
     print(f"\n{'='*78}")
     if stars_mode:
-        print(f"探索モード 最終候補一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+        print(f"探索モード 最終候補一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、"
+              f"{STARS_FINAL_ORDER}、上位{top_n_reference}件)")
     else:
         print(f"探索モード 最終候補一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'='*78}")
