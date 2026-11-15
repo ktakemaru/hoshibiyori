@@ -8,7 +8,7 @@
 
 [![tests](https://github.com/ktakemaru/hoshibiyori/actions/workflows/ci.yml/badge.svg)](https://github.com/ktakemaru/hoshibiyori/actions/workflows/ci.yml) ライセンス: [MIT](LICENSE)
 
-> **Claude Code プラグインとして使う(最短)** — 1.0.0(個人利用向けの数値予報の整理ツール)です。
+> **Claude Code プラグインとして使う(最短)** — 1.1.0(個人利用向けの数値予報の整理ツール)です。
 >
 > ```bash
 > claude plugin marketplace add ktakemaru/hoshibiyori
@@ -17,15 +17,17 @@
 >
 > 詳細・注意・未確認事項は[「Claude Code プラグインとして使う」](#claude-code-プラグインとして使う)を参照。
 
-## できること(1.0.0、2026-10-24時点)
+## できること(1.1.0、2026-11-15時点)
 
 - **探索モード**(`explore_hoshibiyori.py`) — 直近14夜 × 候補地点146件を「月 → 雲 → 方角」の3段階漏斗で絞り込み、天の川銀河中心が狙える組み合わせをスコア順に出す。
+  - 天の川にこだわらない星空・星座モード(`--target stars`)もある。銀河中心の高度・方角・地形を条件にせず、雲・月・光害・暗い時間帯で選ぶ(詳しくは[「探索の目的を切り替える」](#探索の目的を切り替える--target))。
   - 月フィルタ: 天文薄明終了〜開始(太陽高度−18°)のうち月が沈んでいる、または新月に近い時間帯を、0.25度の格子(ECMWFと同じ)の代表点で計算し、同じ格子の地点で使い回す(下の「薄明・月の時刻の計算と保存」)。
   - 雲フィルタ: 時間別の**視界遮蔽雲量**(観測者より上の雲)が30%以下で連続1時間以上続く「晴れ間」があるものだけ残し、その晴れ間を「見頃」として表示。直近約3日は気象庁MSM(約5km格子)、それ以降はECMWF IFS(0.25°)を時刻ごとに自動結合。
   - 方角フィルタ: 対象天体の方位・高度を計算し、地形地平線(国土地理院DEM)を上回り、光害(Black Marble由来のスカイグロー指数ALR。日本で未較正の相対指数)が仮閾値以下の地点だけ残す。
 - **レポート生成**(`generate_report.py`) — 探索結果を`report.html`に出力。「気軽コース」(東京から直線250km圏内で、離島・本格登山・リフト要の地点を除く)と「硬派コース」(距離・アクセスを問わず条件のみ)のTOP10(「星空撮影に適した日と場所は?」と聞くと両コースを示す。`scripts/report_courses.py`を使う)、夜景系スポットの別枠、2週間先までの中期見込み(ECMWF、雲量は晴天率の参考表示のみ)、気象庁天気図のスクリーンショット、気象衛星ひまわり赤外画像(「現況の雲の様子(参考)」)を含む。ひまわり画像は実況の参考表示のみで、スコア・順位・足切りには使わない。
 - **光害の指数について(相対指数であること)** — 光害は、NASA Black Marble(VNP46A4、2025年)から Duriscoe et al. 2018 の手法で求めたスカイグロー指数 **ALR** です。**日本では較正していない相対指数で、空の明るさの絶対値(mag/arcsec²)やボートルスケールではありません**(全天平均で、標高・地形遮蔽は扱いません)。このため画面には ALR と順位だけを出し、足切りには仮閾値(ALR 10.66。以前の判定と同じ件数が通る値で、論文の目安値ではありません)を使います。以前の光害データと比べた上位の順位差は小さく(見込みの上位10件のうち6件が共通、上位2件は同じ。入れ替わりは光害の減点が2点前後違うだけで動く範囲)、最終的な判断は実地の経験に基づいて行ってください。
-- **取得失敗の扱い** — Open-Meteoが429(利用上限)を返したら即中止する。失敗セル率(要求したユニークセルのうち取得に失敗した割合)が20%未満なら、`report.html`冒頭に警告バナーを出して続行する(終了コード0)。20%以上、または429の場合は`report.html`を更新せず終了コード2で終わる(閾値は`grid_cache.py`の`FAILED_CELL_RATE_ABORT`)。
+- **取得失敗の扱い** — Open-Meteoが429(利用上限)を返したら、本文の理由で種類を分ける。1分の上限(`minutely`)は65秒待って同じセルを取り直す(1回の実行で5回まで)。1時間・1日の上限と、理由が分からないもの(6回目の1分の上限も)は中止し、`report.html`を更新せず終了コード2で終わる。別経路やリトライの連打で回避はしない。失敗セル率(要求したユニークセルのうち取得に失敗した割合)が20%未満なら、`report.html`冒頭に警告バナーを出して続行する(終了コード0)。20%以上の場合も`report.html`を更新せず終了コード2(閾値は`grid_cache.py`の`FAILED_CELL_RATE_ABORT`)。MSMの範囲内かを決める基準地点(石廊崎)の予報が取得の失敗で取れないときも、中止して終了コード2。
+  - 通信の間隔の調整: 直近60秒の通信の重さの合計を、1分あたり300回分(`cloud_forecast.PACING_LIMIT_PER_MINUTE`、1分の上限600の半分)までに抑えるよう、通信の前に待つ。
 - **候補地点マスター**(`stargazing_spots.json`) — 星空撮影の専門家・愛好家サイトのWeb調査と外部リスト取り込みによる主軸146件(`spots`)と、OSM `tourism=viewpoint`由来の参考データ751件(`viewpoint_reference`)。各地点に`site_type`(暗い空/夜景系。ALRの仮閾値で分類)を付与。
 
 ## 見上げ型ハイブリッド雲量判定
@@ -75,9 +77,9 @@
 | `AGENTS.md` | AIエージェント(Codex / Claude Code)共通の運用ルール(短い) |
 | `requirements.txt` | 必須の第三者パッケージ |
 | `skyguide/` | 星空ガイドのライブラリ(数値計算・数値JSON・テンプレート・描画と検査) |
-| `docs/` | `sky_guide_style.md`(解説JSONの書き方)、`examples/`(星空ガイドの見本、読み取り専用) |
+| `docs/` | `sky_guide_style.md`(解説JSONの書き方)、`examples/`(星空ガイドの解説JSONの訂正例、読み取り専用)、`*-report.md`(作業の報告書: 接続の使い回し・通信の間隔の調整・天文計算の短縮・格子化と保存・1.1.0 リリース準備)、`*-instructions.md`(作業の指示書) |
 | `out/` | 星空ガイドなどの生成物の出力先(git管理外) |
-| `scripts/` | `check_setup.py`(通信しない環境確認)、`make_sky_guide.py`・`render_sky_guide.py`(星空ガイド)、`warm_astro_cache.py`(薄明・月の時刻を先に計算して保存) |
+| `scripts/` | `check_setup.py`(通信しない環境確認)、`make_sky_guide.py`・`render_sky_guide.py`(星空ガイド)、`sky_lookup.py`(解説に書く数値を数値JSONから引く)、`check_sky_guide_text.py`(解説の時刻の言い回しの照合)、`report_courses.py`(`report.html` から気軽・硬派コースの上位を取り出す)、`weekend_page.py`(今週末の星空撮影ページ)、`moon_nights.py`(月の条件だけで夜を絞る)、`warm_astro_cache.py`(薄明・月の時刻を先に計算して保存)、`measure_explore.py`(探索の実行時間の計測)、`measure_peak_memory.py`(子プロセスのピークメモリの計測、Windows用) |
 | `astro_grid_cache.py` | 薄明・月の時刻を0.25度格子の代表点で計算し、結果を保存して使い回す(`--astro-grid`) |
 | `CLAUDE.md` | 設計方針・経緯・既知の制約の記録(開発ログ兼仕様書) |
 | `CHANGELOG.md` | 変更履歴(Keep a Changelog 形式。実際にmainにマージされた変更のみ) |
@@ -93,7 +95,7 @@ Python 3.13以降を想定(開発・動作確認は3.15 RC。3.13は依存の導
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -X utf8 scripts\check_setup.py   # 通信しない環境確認(--network で Open-Meteo に1リクエスト)
-.\.venv\Scripts\python.exe -X utf8 generate_report.py       # report.html を生成(初回はAPI取得のため10〜30分)
+.\.venv\Scripts\python.exe -X utf8 generate_report.py       # report.html を生成(所要時間は「通信を伴う処理」の実測を参照)
 ```
 
 ### 探索の目的を切り替える(`--target`)
@@ -124,7 +126,7 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests
 ```
 
-Skyfieldの暦ファイル(`de421.bsp`)は無い場合、初回実行時に自動ダウンロードされる(単体テストには不要)。キャッシュ・暦・生成物の書き込み先は、環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、そのフォルダに切り替えられる(未設定または空なら従来どおりリポジトリ直下。詳細は`AGENTS.md`第4節)。外部データ(DEMタイル・光害タイル・雲量予報・天気図)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
+Skyfieldの暦ファイル(`de421.bsp`)は無い場合、初回実行時に自動ダウンロードされる(単体テストには不要)。キャッシュ・暦・生成物の書き込み先は、環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、そのフォルダに切り替えられる(未設定または空なら従来どおりリポジトリ直下。詳細は`AGENTS.md`第4節)。外部データ(DEMタイル・雲量予報・天気図・ひまわり画像)はすべてディスクキャッシュされ、同一データの重複取得を避ける設計になっている。
 
 ## Codexで試す
 
@@ -136,17 +138,17 @@ ChatGPTアプリのCodexで、コマンドを自分で打たずに試せます�
 
 > https://github.com/ktakemaru/hoshibiyori.git をこのフォルダに clone して、AGENTS.md の手順どおりにセットアップし、通信しない確認(check_setup と単体テスト)まで実行してください。
 
-通信や承認を求められたら、内容を確認してから許可してください。`generate_report.py` は重い(10〜30分・Open-Meteo 約220回)ので、最初の確認には使わないでください。
+通信や承認を求められたら、内容を確認してから許可してください。`generate_report.py` は重い(Open-Meteo 約220回。所要時間の実測は[「通信を伴う処理」](#通信を伴う処理))ので、最初の確認には使わないでください。
 
-共通のルールは `AGENTS.md` にまとまっています(Codexは `AGENTS.md` を読みます。設計の経緯を書いた `CLAUDE.md` は約64KBあり、Codexの既定の読み込み上限32KiBを超えるため、短い `AGENTS.md` に分けています)。
+共通のルールは `AGENTS.md` にまとまっています(Codexは `AGENTS.md` を読みます。設計の経緯を書いた `CLAUDE.md` は約84KBあり、Codexの既定の読み込み上限32KiBを超えるため、短い `AGENTS.md` に分けています)。
 
 「適した日と場所」を聞くときの流れ(探索 → 星空ガイド)は `AGENTS.md` 第11節にあります。月の条件だけで夜を絞るなら、通信なし・数秒の `py -X utf8 scripts\moon_nights.py` が使えます(雲量は未評価)。
 
-エージェントに守らせたいこと(`AGENTS.md`に詳細): 姉妹プロジェクトのコードを参照しない、星空撮影者の目線で評価する、スコア・閾値・雲量判定は指示なしに変えない、外部サイトのキャッシュ・間隔・User-Agentを維持する、429が出たら即中止する。
+エージェントに守らせたいこと(`AGENTS.md`に詳細): 姉妹プロジェクトのコードを参照しない、星空撮影者の目線で評価する、スコア・閾値・雲量判定は指示なしに変えない、外部サイトのキャッシュ・間隔・User-Agentを維持する、429は1分の上限だけ65秒待って取り直し(1回の実行で5回まで)、それ以外は中止する(別経路やリトライの連打で回避しない)。
 
 ## Claude Code プラグインとして使う
 
-**位置づけ**: `version` 1.0.0。個人利用向けのツールで、公開サービスではありません。動作確認の範囲は Windows、Python 3.13(CI の単体テスト)、Python 3.15 RC(手元)。**macOS・Linux は未確認**です。
+**位置づけ**: `version` 1.1.0。個人利用向けのツールで、公開サービスではありません。動作確認の範囲は Windows、Python 3.13(CI の単体テスト)、Python 3.15 RC(手元)。**macOS・Linux は未確認**です。
 
 ### インストール
 
@@ -177,10 +179,14 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 
 次の処理は、所要時間・通信先・回数・書き込み先を確認し、承認を得てから行います。
 
-- `generate_report.py`: 10〜30分、Open-Meteo API 約220回。加えて気象庁(ひまわり・天気図)へも通信します。光害は同梱の派生データを読むだけで通信しません。
+- `generate_report.py`: Open-Meteo API 約220回(主要146地点)。加えて気象庁(ひまわり・天気図)へも通信します。光害は同梱の派生データを読むだけで通信しません。
+- `explore_hoshibiyori.py`(全897地点): Open-Meteo API 約620回。
+- 所要時間の実測(2026-11-15、Windows、自宅回線):
+  - 探索(全897地点・星空モード): 雲量のキャッシュが無い初回は約6分(通信617回)、同じ日の2回目は約10秒(通信0回)。
+  - レポート生成(主要146地点・天の川モード): 雲量がキャッシュ済みで約2分。**雲量のキャッシュが無い状態のレポート生成は 1.1.0 では未実測**です。
 - 星空ガイドの雲量取得(`--cloud fetch --allow-network`。先に `--estimate`)。
 
-**HTTP 429 が出たら即中止**し、別経路やリトライの連打で回避しません(`AGENTS.md` 第7節)。
+**HTTP 429** は、1分の上限(`minutely`)なら65秒待って同じセルを取り直します(1回の実行で5回まで)。1時間・1日の上限と理由が分からないもの、6回目の1分の上限は中止します(終了コード2、`report.html` は更新しない)。別経路やリトライの連打で回避しません(`AGENTS.md` 第7節)。
 
 ### 更新
 
@@ -205,7 +211,7 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 | 光害(スカイグロー指数。**既定**) | [NASA Black Marble VNP46A4](https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A4/)(DOI [10.5067/VIIRS/VNP46A4.002](https://doi.org/10.5067/VIIRS/VNP46A4.002))。手法は Duriscoe et al. 2018(CC BY) | NASA主導ミッションのデータは CC0(制限なし)。[NASA Earthdata のデータ利用ガイダンス](https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance)(2026-10-21更新)で引用を強く推奨 | 製品ページの推奨引用: NASA VIIRS Land Science Investigator-led Processing System. (2025). VIIRS/NPP Lunar BRDF-Adjusted Nighttime Lights Yearly L3 Global 15 arc second Linear Lat Lon Grid [Dataset]. NASA Level 1 and Atmosphere Archive and Distribution System Distributed Active Archive Center. https://doi.org/10.5067/VIIRS/VNP46A4.002 。製品の論文: Román et al. (2018), Remote Sensing of Environment 210, 113–143, doi:10.1016/j.rse.2018.03.017。派生データ(`step3_light_pollution/data/`)のみ同梱し、実行時の通信・トークンは不要。日本では未較正の相対指数(`step3_light_pollution/METHOD.md`) | 2026-10-24(Duriscoe の CC BY は 2026-10-23) |
 | 地上天気図・予想天気図 | [気象庁ホームページ](https://www.jma.go.jp/bosai/weather_map/) | [気象庁ホームページについて(利用規約)](https://www.jma.go.jp/jma/kishou/info/coment.html)(公共データ利用規約 第1.0版に準拠)。一部のコンテンツは気象業務法(予報業務の許可・警報の制限)による制約あり。**プログラムでの自動取得についての記載は利用規約に見当たらない(未確認)** | 「出典：気象庁ホームページ(当該ページのURL)」と、加工した場合はその旨。フッターと図の下に表示 | 2026-10-24 |
 | 気象衛星ひまわり画像(現況の雲の様子・参考表示のみ) | [気象庁ホームページ](https://www.jma.go.jp/bosai/map.html) | 同上 | 「出典：気象庁ホームページ (https://www.jma.go.jp/bosai/map.html)」。画像は実況で予報ではなく、スコアには使わない。Pillowが必要 | 2026-10-24 |
-| 候補地点(OSM展望データ)・地名・座標(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | データは [ODbL 1.0](https://opendatacommons.org/licenses/odbl/)(改変・組み込んだデータを配布する場合は同じライセンス)。Nominatim は[利用方針](https://operations.osmfoundation.org/policies/nominatim/)(最大1リクエスト/秒、識別可能なUser-Agent、結果のキャッシュ必須、大量のジオコーディングは推奨されない、格子状の逆ジオコーディングなどの系統的な問い合わせは禁止) | 「© OpenStreetMap contributors」と ODbL へのリンク。データとして配布する場合は、データ内か利用者が見る場所(README等)に表示([帰属表示ガイドライン](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines))。下の「データファイルのライセンス」 | 2026-10-24 |
+| 候補地点(OSM展望データ)・地名・座標(ジオコーディング) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)(Overpass API・Nominatim) | データは [ODbL 1.0](https://opendatacommons.org/licenses/odbl/)(改変・組み込んだデータを配布する場合は同じライセンス)。Nominatim は[利用方針](https://operations.osmfoundation.org/policies/nominatim/)(最大1リクエスト/秒、識別可能なUser-Agent、結果のキャッシュ必須、大量のジオコーディングは推奨されない、格子状の逆ジオコーディングなどの系統的な問い合わせは禁止)。本プロジェクトでは 2026-09 に、候補地点DB(757件)を逆ジオコーディングで構築し、星空撮影名所99件を順ジオコーディングした(2026-09-06)。どちらも1秒1リクエスト以下のレートリミッタを使った。外部リストの62件(2026-09-07)も逆ジオコーディングした(`CLAUDE.md` の記録。一括の問い合わせが利用方針に沿っていたかは**未確認**) | 「© OpenStreetMap contributors」と ODbL へのリンク。データとして配布する場合は、データ内か利用者が見る場所(README等)に表示([帰属表示ガイドライン](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines))。下の「データファイルのライセンス」 | 2026-10-24 |
 | 天体位置 | JPL DE421 暦([Skyfield](https://rhodesmill.org/skyfield/)経由で自動取得) | Skyfield は MIT License。DE421 の利用条件は、JPL の一次情報を確認できていない(**未確認**。パブリックドメインとして扱われているという二次情報のみ) | 出典として「JPL DE421 暦(Skyfield経由)」を表示 | 2026-10-24 |
 | 星空撮影名所(curated) | 星空撮影の専門家・愛好家サイト、自治体観光サイト等のWeb調査 | 地名・座標(Nominatim)のみを収録し、説明文は独自に要約。調査先の各サイトの利用条件は個別には確認していない(**未確認**) | — | — |
 | 星空撮影名所(外部リスト、`curated_external` 62件) | `external_spots_20260907.csv`(場所名と座標の100件) | ChatGPT に星空の有名スポットを列挙させた場所名と座標のみのリスト(2026-09-07、本人が取得)。座標は個別に検証しておらず参考値 | — | — |
@@ -214,9 +220,17 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 
 **免責**: 本プロジェクトは数値予報データを個人の星景撮影計画のために整理・表示するツールであり、気象庁その他の機関による予報・警報ではない。予報の的中を保証せず、現地での判断は利用者自身の責任で行うこと。気象業務法上の「予報業務」として第三者に提供するものではない。
 
+## 既知の制約(1.1.0)
+
+次の版以降で直します。
+
+- 星空・星座モード(`--target stars`)でも、探索(`explore_hoshibiyori.py`)の一覧の見出しが「対象: 天の川銀河中心」のままになっている(表示だけの不具合)。
+- `scripts/report_courses.py` と `scripts/weekend_page.py` は `report_stars.html` に対応していない(気軽・硬派コースの取り出しと週末ページは天の川モードのみ)。
+- 画面の出力で、「第3段階: 方角フィルタ」の通過件数より「うち地形データなし」の件数のほうが大きく出る日がある(地形データの無い地点を光害の足切りの前に数えているため。数え方の問題で、候補そのものには影響しない)。
+
 ## ステータス
 
-1.0.0。ステップ1〜7まで実装・検証済み。**個人の星景撮影計画のために数値予報を整理するツールで、公開サービスではない**(上の免責を参照)。光害は日本で未較正の相対指数で、実地の経験と合わせて使う前提。今後の課題は`CLAUDE.md`「今後の課題」参照。変更履歴は[`CHANGELOG.md`](CHANGELOG.md)。
+1.1.0。ステップ1〜7まで実装・検証済み。**個人の星景撮影計画のために数値予報を整理するツールで、公開サービスではない**(上の免責を参照)。光害は日本で未較正の相対指数で、実地の経験と合わせて使う前提。今後の課題は`CLAUDE.md`「今後の課題」参照。変更履歴は[`CHANGELOG.md`](CHANGELOG.md)。
 
 ## ライセンス
 
