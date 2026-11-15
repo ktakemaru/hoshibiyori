@@ -118,6 +118,10 @@ py -m venv .venv
 - 従来どおり地点ごとに計算するには `--astro-grid site`(`explore_hoshibiyori.py`・`generate_report.py` 共通。保存は読まない・書かない)。
 - 先に計算しておく(通信しない): `.\.venv\Scripts\python.exe -X utf8 scripts\warm_astro_cache.py --days 30`(登録済みの全地点の格子について、今日から30夜分。1夜ごとに保存するので途中で止めても大丈夫です)。
 
+### 探索結果を JSON で書き出す(`--json-out`)
+
+`explore_hoshibiyori.py --json-out <ファイル>` で、探索結果をスキーマ `hoshibiyori-explore/1`(`schemas/hoshibiyori-explore.schema.json`)の JSON に書き出します(ほかのプログラム、たとえばビヨリコンシェルが読むための出力)。近日中の候補(`finals`)と見込み(`outlooks`)を画面の上位N件で切らずに全件入れ、使った閾値・走査した夜・取得の集計・版と commit も入ります。時刻はオフセットつき、欠損は `null`。`--target`・`--astro-grid` と併用でき、通信の量は変わりません。終了コード0のときだけ書き(一部の予報が取れなかった回は `fetch.status` が `partial`)、終了コード2のときは書かず、既にあるファイルにも触れません。例: `.\.venv\Scripts\python.exe -X utf8 explore_hoshibiyori.py --target stars --json-out C:\temp\hoshi-stars.json`。スコアは `finals` と `outlooks` で式が違い、絶対値を比べられません(各候補の `score_kind`)。
+
 依存パッケージは `requirements.txt` を参照: `skyfield`・`requests`・`numpy`(標高・光害タイルの配列処理)・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(任意。未導入なら天気図セクションは省略される)。
 
 テスト(ネットワーク不使用、標準ライブラリのunittest):
