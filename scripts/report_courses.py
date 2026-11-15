@@ -11,6 +11,11 @@ report.html を目視で読み写さず、このスクリプトの出力を使�
 終了コード: 0=出力した / 2=report.html が無い・生成日時が今日(JST)でない(--allow-stale で出力) /
             3=想定の構造でないため解析できなかった(推測で埋めない)。
 
+星空・星座モードのレポート(generate_report.py --target stars が出す report_stars.html)も読める(2026-11-16)。
+`--report report_stars.html` か `--target stars`(既定の入力を report_stars.html にする)で指定する。モードはヘッダーの
+「星空・星座モード」で見分ける。このモードのカードにはスコアのバッジと「狙い目」が無いため、score・best_time は null
+(0 や推測で埋めない)とし、代わりにカードの「晴れ間 N時間」を clear_hours に入れる。天の川モードの出力は変えていない。
+
 HTMLの構造は generate_report.py の render_candidate_group / render_tier2 に合わせてある
 (div.cand-group > h3.group-title / p.group-note / p.weather-note / p.empty-note / div.cand-card)。
 generate_report.py 側の構造が変わると、このスクリプトは推測せず終了コード3で止まる
@@ -34,6 +39,12 @@ from hb_paths import resolve_data_root  # noqa: E402
 JST = timezone(timedelta(hours=9))
 SCHEMA = "hoshibiyori-course-report/1"
 COURSES = (("casual", "気軽コース"), ("hardcore", "硬派コース"))
+TARGET_MODES = ("milkyway", "stars")
+# generate_report.render_html が星空・星座モードのヘッダー(p.target-line)の先頭に書く語
+STARS_TARGET_PREFIX = "星空・星座モード"
+# 星空・星座モードであることを画面に出すときの語(generate_report.render_html の target_line の先頭と同じ)
+STARS_MODE_LABEL = "星空・星座モード ・ 天の川は対象外"
+DEFAULT_REPORT_NAMES = {"milkyway": "report.html", "stars": "report_stars.html"}
 EXIT_OK, EXIT_STALE, EXIT_PARSE = 0, 2, 3
 
 _VOID = {"meta", "link", "img", "br", "hr", "input", "source", "area", "base", "col", "embed", "wbr"}
@@ -131,6 +142,12 @@ def parse_generated_at(root: Node) -> datetime:
     return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M").replace(tzinfo=JST)
 
 
+def parse_target_mode(root: Node) -> str:
+    """ヘッダーから、天の川モード("milkyway")か星空・星座モード("stars")かを返す。"""
+    line = _norm(_one(root, "p", "target-line", "ヘッダー").text())
+    return "stars" if line.startswith(STARS_TARGET_PREFIX) else "milkyway"
+
+
 def _match(pattern: str, s: str, where: str) -> re.Match:
     m = re.fullmatch(pattern, s)
     if not m:
@@ -144,7 +161,7 @@ BM_STAT_KEY = "光害(相対指数)"
 BM_NOTE = "光害はBlack Marble由来の相対指数です(日本で未較正で、空の明るさの絶対値ではありません)。"
 
 
-def parse_card(card: Node, where: str) -> dict:
+def parse_card(card: Node, where: str, stars: bool = False) -> dict:
     rank = int(_match(r"\d+", _norm(_one(card, "div", "cand-rank", where).text()), f"{where} 順位").group())
     body = _one(card, "div", "cand-body", where)
     h3 = _find_all(body, "h3")
@@ -157,10 +174,12 @@ def parse_card(card: Node, where: str) -> dict:
         raise ParseError(f"{where}: 地点名が空")
 
     badges = {c: n for n in _find_all(body, "span", "badge") for c in n.classes if c != "badge"}
-    for key in ("score", "dist", "origin"):
+    for key in (("dist", "origin") if stars else ("score", "dist", "origin")):
         if key not in badges:
             raise ParseError(f"{where}: バッジ「{key}」が無い")
-    score = int(_match(r"スコア (-?\d+)", _norm(badges["score"].text()), f"{where} スコア").group(1))
+    if stars and "score" in badges:
+        raise ParseError(f"{where}: 星空・星座モードのレポートにスコアのバッジがある(想定外)")
+    score = None if stars else int(_match(r"スコア (-?\d+)", _norm(badges["score"].text()), f"{where} スコア").group(1))
     dist = int(_match(r"東京から直線(\d+)km", _norm(badges["dist"].text()), f"{where} 距離").group(1))
 
     stats = {}
@@ -175,7 +194,10 @@ def parse_card(card: Node, where: str) -> dict:
                     if key == BM_STAT_KEY and "実効的な空の明るさ" in stats else "")
             raise ParseError(f"{where}: cand-stats に「{key}」が無い{hint}")
 
-    mw = _match(r"(\d{2}:\d{2}〜\d{2}:\d{2}(?:\(翌\))?)\(狙い目 (\d{2}:\d{2})\)", stats["見頃"], f"{where} 見頃")
+    if stars:
+        mw = _match(r"(\d{2}:\d{2}〜\d{2}:\d{2}(?:\(翌\))?)\(晴れ間 (\d+(?:\.\d+)?)時間\)", stats["見頃"], f"{where} 見頃")
+    else:
+        mw = _match(r"(\d{2}:\d{2}〜\d{2}:\d{2}(?:\(翌\))?)\(狙い目 (\d{2}:\d{2})\)", stats["見頃"], f"{where} 見頃")
     date = _match(r"\d{4}-\d{2}-\d{2}", stats["日付"], f"{where} 日付").group()
     obstruction = int(_match(r"平均(\d+)%", stats["視界遮蔽雲量"], f"{where} 視界遮蔽雲量").group(1))
     maps = _one(body, "a", "btn-maps", where).attrs.get("href")
@@ -183,6 +205,13 @@ def parse_card(card: Node, where: str) -> dict:
         raise ParseError(f"{where}: Googleマップのリンクが無い")
     m = _match(r"ALR (\d+(?:\.\d+)?)(?:[（(]主軸の地点のうち暗い方から(\d+)%[）)])?", stats[BM_STAT_KEY], f"{where} 光害(相対指数)")
     lp = {"alr": float(m.group(1)), "alr_rank_pct": int(m.group(2)) if m.group(2) is not None else None}
+    if stars:
+        # 星空・星座モード: スコアと狙い目はレポートに無い(null)。見頃の括弧の「晴れ間 N時間」を clear_hours に入れる
+        return {
+            "rank": rank, "name": name, "municipality": muni, "score": None, "distance_km": dist,
+            "origin": _norm(badges["origin"].text()), "date": date, "window": mw.group(1), "best_time": None,
+            "clear_hours": float(mw.group(2)), "obstruction_pct": obstruction, **lp, "maps_url": maps,
+        }
     return {
         "rank": rank, "name": name, "municipality": muni, "score": score, "distance_km": dist,
         "origin": _norm(badges["origin"].text()), "date": date, "window": mw.group(1), "best_time": mw.group(2),
@@ -190,7 +219,7 @@ def parse_card(card: Node, where: str) -> dict:
     }
 
 
-def parse_courses(root: Node) -> list[dict]:
+def parse_courses(root: Node, stars: bool = False) -> list[dict]:
     """気軽・硬派の2コースを(この順で)返す。どちらかが無い・構造が違えば ParseError。"""
     groups = _find_all(root, "div", "cand-group")
     out = []
@@ -207,7 +236,7 @@ def parse_courses(root: Node) -> list[dict]:
         cards = _find_all(g, "div", "cand-card")
         if not cards and empty is None:
             raise ParseError(f"{where}: 候補も「候補なし」の理由(empty-note)も無い")
-        candidates = [parse_card(c, f"{where} {i}件目") for i, c in enumerate(cards, 1)]
+        candidates = [parse_card(c, f"{where} {i}件目", stars) for i, c in enumerate(cards, 1)]
         out.append({
             "id": cid, "title": title, "condition_note": note,
             # 先頭の装飾絵文字(🌤)だけ除き、本文はそのまま
@@ -223,12 +252,16 @@ def parse_courses(root: Node) -> list[dict]:
 def build_result(html_text: str, report_path: Path, top: int, stale: bool) -> dict:
     root = parse_html(html_text)
     generated = parse_generated_at(root)
-    courses = parse_courses(root)
+    stars = parse_target_mode(root) == "stars"
+    courses = parse_courses(root, stars)
     for c in courses:
         c["total_candidates"] = len(c["candidates"])
         c["candidates"] = c["candidates"][:top]
     result = {"schema": SCHEMA, "generated_at": generated.isoformat(timespec="minutes"), "stale": stale,
               "report_path": str(report_path), "top": top, "lp_note": BM_NOTE, "courses": courses}
+    if stars:
+        # 天の川モードの出力は従来のまま(target を足さない)。星空・星座モードのときだけ足す
+        result["target"] = "stars"
     return result
 
 
@@ -239,6 +272,9 @@ def format_text(result: dict, today_label: str) -> str:
         lines.append(f"【古いレポートです】生成日時 {gen} JST は今日({today_label})ではありません。"
                      "近日分の予報は更新されている可能性があり、答えの根拠にしないでください。")
     lines.append(f"レポート生成日時: {gen} JST")
+    stars = result.get("target") == "stars"
+    if stars:
+        lines.append(f"モード: {STARS_MODE_LABEL}(スコアと狙い目はレポートにありません)")
     lines.append(f"注意: {result['lp_note']}")
     for c in result["courses"]:
         lines += ["", f"■ {c['title']}(上位{len(c['candidates'])}件 / レポート内{c['total_candidates']}件)",
@@ -249,17 +285,24 @@ def format_text(result: dict, today_label: str) -> str:
             lines.append(f"候補なし: {c['empty_note']}")
             continue
         for k in c["candidates"]:
-            lines.append(f"{k['rank']}. {k['name']}({k['municipality']}) スコア{k['score']} / 東京から直線{k['distance_km']}km")
+            if stars:
+                lines.append(f"{k['rank']}. {k['name']}({k['municipality']}) 東京から直線{k['distance_km']}km")
+            else:
+                lines.append(f"{k['rank']}. {k['name']}({k['municipality']}) スコア{k['score']} / 東京から直線{k['distance_km']}km")
             rank = f"(主軸の地点のうち暗い方から{k['alr_rank_pct']}%)" if k["alr_rank_pct"] is not None else ""
             lp_text = f"光害(相対指数) ALR {k['alr']:.2f}{rank}"
-            lines.append(f"   日付 {k['date']} / 見頃 {k['window']}(狙い目 {k['best_time']}) / "
+            when = f"(晴れ間 {k['clear_hours']:.1f}時間)" if stars else f"(狙い目 {k['best_time']})"
+            lines.append(f"   日付 {k['date']} / 見頃 {k['window']}{when} / "
                          f"視界遮蔽雲量 平均{k['obstruction_pct']}% / {lp_text}")
     return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="report.html から気軽・硬派コースの上位候補を表示する(通信しない)")
-    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html")
+    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html(--target stars なら report_stars.html)")
+    ap.add_argument("--target", choices=TARGET_MODES, default=None,
+                    help="レポートのモード。stars なら既定の入力を report_stars.html にする。指定したモードとレポートのモードが"
+                         "違えば終了コード3(省略時はレポートのヘッダーから見分ける)")
     ap.add_argument("--top", type=int, default=3)
     ap.add_argument("--allow-stale", action="store_true", help="生成日時が今日でなくても、古い旨を明記して出力する")
     ap.add_argument("--json-out", type=Path)
@@ -275,23 +318,32 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
     if args.report is None:
-        args.report = resolve_data_root(ROOT) / "report.html"
+        args.report = resolve_data_root(ROOT) / DEFAULT_REPORT_NAMES[args.target or "milkyway"]
+    gen_cmd = "py -X utf8 generate_report.py" + (" --target stars" if args.target == "stars" else "")
     if not args.report.is_file():
-        print(f"[中止] {args.report} がありません。py -X utf8 generate_report.py で生成してください"
+        print(f"[中止] {args.report} がありません。{gen_cmd} で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)
         return EXIT_STALE
+    # メッセージの中のファイルの呼び名(天の川モードは従来どおり「report.html」)
+    name = DEFAULT_REPORT_NAMES[args.target or "milkyway"]
     try:
         text = args.report.read_text(encoding="utf-8")
-        generated = parse_generated_at(parse_html(text))
+        root = parse_html(text)
+        generated = parse_generated_at(root)
+        mode = parse_target_mode(root)
+        name = DEFAULT_REPORT_NAMES[mode] if args.target is None else name
+        if args.target is not None and mode != args.target:
+            raise ParseError(f"--target {args.target} が指定されましたが、レポートは"
+                             f"{'星空・星座モード(stars)' if mode == 'stars' else '天の川モード(milkyway)'}です")
         stale = generated.date() != today
         if stale and not args.allow_stale:
-            print(f"[中止] report.html の生成日時 {generated:%Y-%m-%d %H:%M} JST は今日({today})ではないため、"
+            print(f"[中止] {name} の生成日時 {generated:%Y-%m-%d %H:%M} JST は今日({today})ではないため、"
                   "答えに使いません。再生成する(ユーザーの承認が必要)か、--allow-stale で古い旨つきの出力にしてください。",
                   file=sys.stderr)
             return EXIT_STALE
         result = build_result(text, args.report, args.top, stale)
     except ParseError as e:
-        print(f"[解析失敗] report.html が想定の構造ではありません: {e}\n"
+        print(f"[解析失敗] {name} が想定の構造ではありません: {e}\n"
               "(generate_report.py の render_candidate_group / render_tier2 の構造が変わった可能性があります。"
               "推測では埋めません。)", file=sys.stderr)
         return EXIT_PARSE
