@@ -4,7 +4,7 @@
 
 ## 1. 結果
 
-**完了**(A1〜A4 を満たした)。ただし、星空・星座モードの見出しの4行のうち、通しで確かめられたのは見込み一覧の2行だけ。近日中の2行は単体テストで確かめた(4 章)。
+**完了**(A1〜A4 を満たした)。ただし、星空・星座モードの見出しの4行のうち、通しで確かめられたのは見込み一覧の2行だけ。近日中の2行は、単体テストと、手で作った候補での前後比較で確かめた(4 章)。
 
 準備(3 章): 作業フォルダ `C:\hoshibiyori`。`git status --porcelain --untracked-files=no` は空だった。`git fetch origin` を1回実行し、`git merge --ff-only origin/main` は「Already up to date」。`git log --oneline -1` は `6e4139a Feature/report courses stars (#35)`。
 
@@ -34,7 +34,7 @@ commit: `74dcb40`(A)、`0415714`(B)、文書、この報告書。
 ## 3. テストの結果
 
 - 変更前: `Ran 537 tests` / `OK (skipped=3)`
-- 変更後: `Ran 552 tests` / `OK (skipped=3)`(537 + 新規 15。skip の件数は同じ)
+- 変更後: `Ran 552 tests` / `OK (skipped=3)`(537 + 新規 15。skip の件数は同じ。このブランチの最後の commit の状態で流した)
 - 期待値を直した既存のテスト: **なし**。直してよい既存のテストを探したが、見出しの語で探しても `tests/` に探索の画面の見出しを確かめるものは無かった。`天の川銀河中心` が出てくる4ファイルは、`generate_report.render_html` に渡す対象の名前としての使い方だった。
 - A3: `git diff main --stat` に出るのは上の表のファイルだけ。保護領域(`elevation_cloud.py`・`lp_source.py`・`grid_cache.py`・スコア式・閾値・候補地点データ)は変わっていない。A4: `requirements.txt`・`.gitignore`・`plugin.json` は変わっていない。
 
@@ -63,7 +63,7 @@ commit: `74dcb40`(A)、`0415714`(B)、文書、この報告書。
 +見込み一覧・参考候補(対象: 星空・星座モード・天の川は対象外、OSM展望データ由来・星空適性は未検証、上位10件)
 ```
 
-**近日中の一覧の見出し2行は、通しでは出ない。** 固定キャッシュの夜が6夜とも見込み(ECMWF)側で、`print_final_report` が呼ばれないため。この2行は `tests/test_explore_headings.py` で確かめた。
+**近日中の一覧の見出し2行は、通しでは出ない。** 固定キャッシュの夜が6夜とも見込み(ECMWF)側で、`print_final_report` が呼ばれないため。この2行は `tests/test_explore_headings.py` で確かめた。加えて、手で作った候補3件(主要2・参考1)を星空・星座モードでmain の写しとこのブランチの `print_final_report` に渡し、出力(29行)を比べた。違いは見出しの2行だけで、ほかの行は同じだった(通信なし)。
 
 `scanned_nights` の中身(この固定キャッシュの実行。両モードで同じ):
 
