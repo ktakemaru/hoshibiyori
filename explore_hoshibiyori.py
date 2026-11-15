@@ -375,7 +375,7 @@ def compute_target_window(ts, eph, site: dict, target, window_start: datetime, w
     """月・地形から決まる、その夜・その地点での対象天体の「見頃時間帯」を求める(決定論的)。
 
     window_start/window_endはその地点自身の座標で計算した無月時間帯(compute_site_night_window参照)。
-    地形地平線を上回っている(profileが無ければ常に可視とみなす)連続区間のうち
+    地形地平線を上回っている(profileが無ければ高度0°を上回っている)連続区間のうち
     最長のものを返す。戻り値: (見頃開始, 見頃終了, 見頃内で最も高度が高い時刻とその高度・方位角)。
     """
     samples = []
@@ -386,7 +386,10 @@ def compute_target_window(ts, eph, site: dict, target, window_start: datetime, w
         if profile is not None:
             visible = alt > horizon_alt_at(profile, az)
         else:
-            visible = True
+            # 2026-11-16(利用者の承認): 地形データが無い地点は、地平線を水平(高度0°)として判定する。
+            # 地形があれば稜線は0°より高いので、0°は「これより下では見えない」下限。以前は高度を見ずに
+            # 常に見える扱いで、銀河中心が地平線の下の時期でも候補になっていた。新しい閾値は作らない(0°だけ)。
+            visible = alt > 0.0
         samples.append((t, az, alt, visible))
         t += timedelta(minutes=sample_interval_min)
 
@@ -686,9 +689,12 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
             terrain_available = True
         else:
             h_alt = None
-            clears_horizon = True  # 地形データが無いため判定をスキップ(暫定): 通過扱いとし、結果に明示する
+            # 2026-11-16(利用者の承認): 地形データが無い地点は、地平線を水平(高度0°)として判定する
+            # (以前は判定をスキップして通過扱い)。horizon_alt は従来どおり None のまま(0 を入れない)。
+            clears_horizon = best_alt > 0.0
             terrain_available = False
-            no_terrain_count += 1
+            if clears_horizon:
+                no_terrain_count += 1   # 地形データが無く、0°の判定を通った件数(光害の判定は問わない)
 
         if clears_horizon and clears_light_pollution:
             score = (
@@ -716,7 +722,7 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
     print(f"\n[第3段階: 方角フィルタ] {len(survivors)}組のうち、"
           f"「{target.name}が地形地平線を上回り(地形データ有りの場合)、かつ{lp_limit_text(lp_store)}」を満たすのは"
           f" {len(finals)}件")
-    print(f"    うち地形データなし(viewpoint由来、地形チェック未実施・暫定通過): {no_terrain_count}件")
+    print(f"    うち地形データなし(地平線を高度0°として判定して通過): {no_terrain_count}件")
     return finals
 
 
@@ -795,12 +801,17 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
     return results
 
 
+# 天の川モードの各候補の行で、地形データの無い地点に付ける注記(2026-11-16。地平線を高度0°として判定している。
+# 以前は「地形データなし(未評価)」)。星空・星座モードでは表示しない。
+NO_TERRAIN_NOTE = "地形データなし(地平線を高度0°として判定)"
+
+
 def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int,
                          target_mode: str = DEFAULT_TARGET_MODE) -> None:
     stars_mode = target_mode == "stars"
     for i, o in enumerate(outlooks[:top_n], 1):
         terrain_note = (f"地形地平線{o.horizon_alt:.1f}°を{o.target_alt - o.horizon_alt:.1f}°上回る"
-                         if o.terrain_available and o.horizon_alt is not None else "地形データなし(未評価)")
+                         if o.terrain_available and o.horizon_alt is not None else NO_TERRAIN_NOTE)
         clear_note = f"参考: この時間帯の晴天率 約{o.clear_sky_pct:.0f}%" if o.clear_sky_pct is not None else "参考: 晴天率データなし"
         print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {o.score:.1f}"))
         print(f"  日付      : {o.night_date}")
@@ -855,7 +866,7 @@ def _print_final_items(finals: list[FinalCandidate], target, top_n: int,
     stars_mode = target_mode == "stars"
     for i, f in enumerate(finals[:top_n], 1):
         terrain_note = (f"地形地平線 {f.horizon_alt:.1f}°を{f.target_alt - f.horizon_alt:.1f}°上回る"
-                         if f.terrain_available and f.horizon_alt is not None else "地形データなし(未評価)")
+                         if f.terrain_available and f.horizon_alt is not None else NO_TERRAIN_NOTE)
         print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {f.score:.1f}"))
         print(f"  日付      : {f.night_date}")
         print(f"  地点      : {f.site_name}（{f.municipality}）")

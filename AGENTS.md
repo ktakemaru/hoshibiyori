@@ -55,6 +55,7 @@ py -m venv .venv
 | 格子セルキャッシュとTTL | `grid_cache.py` `CACHE_TTL_SEC` | MSM 3時間 / ECMWF 6時間 |
 | 候補地点データ | `stargazing_spots.json`、`curated_spots.json` ほか | 一括編集の前に必ずバックアップ(`.bak_*`)を取る |
 | 重複削除30グループ | `step7_geocoding/pending_deletions_round2.json` | ユーザーの目視承認待ち。勝手に適用しない |
+| 地形データの無い地点の地平線の判定 | `explore_hoshibiyori.py` の `compute_target_window`・`stage3_direction_filter` | 天の川モードで、地形地平線のデータが無い地点は地平線を高度0°として判定する(0°より上のときだけ見える。新しい閾値は作らない)。2026-11-16 利用者承認 |
 
 ## 7. 外部サイトへのアクセスの節度
 - タイル(DEM・ひまわり)・Black Marble の生データ・格子セルのディスクキャッシュを無効化しない。新規取得の小休止(`gsi_dem.py` `_POLITE_DELAY_SEC` など)を削らない。識別可能な User-Agent を維持する。
