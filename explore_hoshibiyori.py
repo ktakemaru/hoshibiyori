@@ -853,6 +853,9 @@ def parse_args(argv=None):
                     help="milkyway=天の川(既定。銀河中心の高度・方角・地形を条件にする) / "
                          "stars=星空・星座(銀河中心の条件を使わず、雲・月・光害・暗い時間帯で選ぶ。天の川は対象外)")
     add_astro_grid_argument(ap)
+    ap.add_argument("--json-out", default=None, metavar="ファイル",
+                    help="探索結果をJSON(スキーマ hoshibiyori-explore/1、候補は全件)で書き出す。"
+                         "終了コード0のときだけ書く(2のときは書かず、既存のファイルにも触れない)。通信の量は変わらない")
     return ap.parse_args(argv)
 
 
@@ -901,17 +904,64 @@ def main(argv=None) -> int:
     t0 = time.perf_counter()
     cache = GridCloudCache()
     astro = make_astro_cache(args.astro_grid)
+    sink: dict = {}
     try:
-        return _run(cache, args, astro)
+        code = _run(cache, args, astro, sink)
     finally:
         finish_astro_cache(astro)
         # 全体の秒数と通信以外の秒数(画面表示のみ。終了コード2の経路でも出す)
         print(timing_line(time.perf_counter() - t0, cache.summary()))
+    json_out = getattr(args, "json_out", None)
+    if code == 0 and json_out:
+        # 2026-11-16: 終了コード0の経路だけ書く(2のときは書かず、既存のファイルにも触れない)
+        path = write_explore_json(json_out, sink.get("result"), cache, args)
+        print(f"探索結果の JSON を書きました: {path}")
+    return code
 
 
-def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None) -> int:
+def explore_thresholds(alr_threshold: float) -> dict:
+    """JSON に入れる閾値(コードの定数から。alr_threshold は探索で使った lp_store.alr_threshold)。"""
+    return {
+        "cloud_obstruction_threshold_pct": CLOUD_OBSTRUCTION_THRESHOLD,
+        "min_clear_window_hours": MIN_CLEAR_WINDOW_HOURS,
+        "lp_alr_threshold": alr_threshold,
+        "lp_index_limit": LP_INDEX_LIMIT,
+        "moon_phase_negligible_deg": MOON_PHASE_NEGLIGIBLE_DEG,
+        "num_nights_to_scan": NUM_NIGHTS_TO_SCAN,
+        "num_candidate_nights": NUM_CANDIDATE_NIGHTS,
+        "milkyway_few_results": MILKYWAY_FEW_RESULTS,
+        "failed_cell_rate_abort": FAILED_CELL_RATE_ABORT,
+    }
+
+
+def write_explore_json(path, result: dict | None, cache, args) -> Path:
+    """探索の結果(_explore の戻り値)から JSON を組み立てて書く。"""
+    import explore_json as ej
+    result = result or {}
+    target_mode = getattr(args, "target", DEFAULT_TARGET_MODE)
+    commit, dirty = ej.git_state(ROOT)
+    doc = ej.build_explore_json(
+        generated_at=datetime.now(JST).replace(microsecond=0),
+        version=ej.plugin_version(), commit=commit, dirty=dirty,
+        target=target_mode, astro_grid=getattr(args, "astro_grid", DEFAULT_ASTRO_GRID),
+        thresholds=explore_thresholds(result.get("alr_threshold")),
+        reference_site=result.get("reference_site"),
+        nights=result.get("nights", []), msm_dates=result.get("msm_dates", []),
+        finals=result.get("finals", []), outlooks=result.get("outlooks", []),
+        final_rank_key=lambda f: final_rank_key(f, target_mode),
+        outlook_rank_key=lambda o: outlook_rank_key(o, target_mode),
+        is_primary=is_primary_origin,
+        fetch_summary=cache.summary(), fetch_failures=list(getattr(cache, "failures", [])),
+        sites=result.get("sites", {}),
+    )
+    return ej.write_json_atomic(path, doc)
+
+
+def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink: dict | None = None) -> int:
     try:
-        _explore(cache, args.target, astro)
+        result = _explore(cache, args.target, astro)
+        if sink is not None:
+            sink["result"] = result
     except OpenMeteoDailyLimitError as e:
         print(f"\n[中止] {e}")
         print("  " + cache.summary().console_line())
@@ -935,7 +985,8 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None) -> i
 
 
 def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
-             astro: AstroNightCache | None = None) -> None:
+             astro: AstroNightCache | None = None) -> dict:
+    """探索して結果を画面に出す。戻り値は --json-out 用の材料(2026-11-16。画面の出力は変えていない)。"""
     t_start = time.time()
 
     ts = load.timescale()
@@ -993,6 +1044,12 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
     print(f"実行時間: 全体 {(t_end - t_start)/60:.1f}分"
           f"(うち雲量取得 {(t_stage2_end - t_stage2_start)/60:.1f}分)")
     print(f"格子セルキャッシュ最終統計: API呼び出し{cache.call_count}回 / キャッシュヒット{cache.cache_hit_count}回")
+    return {
+        "sites": {"primary": len(primary_sites), "reference": len(reference_sites), "total": len(sites),
+                  "with_horizon": sum(1 for s in sites if s["horizon_csv"])},
+        "reference_site": ref_site, "nights": nights, "msm_dates": [n.night_date for n in msm_nights],
+        "finals": finals, "outlooks": outlooks, "alr_threshold": lp_store.alr_threshold,
+    }
 
 
 if __name__ == "__main__":
