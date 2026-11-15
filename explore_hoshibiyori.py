@@ -439,30 +439,61 @@ def _reference_night(ts, eph, lat: float, lon: float, day: datetime, astro: Astr
     return reference_night(ts, eph, lat, lon, day)
 
 
+# 走査した夜が候補の夜に選ばれなかった理由のコード(--json-out の scanned_nights 用、2026-11-16)。
+# stage1_moon_filter の分かれ方(continue の3か所と、上位N夜の切り捨て)にそのまま対応する。
+NOT_SELECTED_NO_SUN_EVENTS = "no_sunset_or_sunrise"        # 日没・日の出が求まらない
+NOT_SELECTED_NO_DARKNESS = "no_astronomical_darkness"      # 天文薄明の終わり・始まりが求まらない
+NOT_SELECTED_NO_MOON_FREE = "no_moon_free_window"          # 月の影響が小さい時間帯が無い
+NOT_SELECTED_NOT_IN_TOP_N = "not_in_top_n"                 # 時間帯はあるが、長さの順で上位N夜に入らなかった
+NOT_SELECTED_REASONS = (NOT_SELECTED_NO_SUN_EVENTS, NOT_SELECTED_NO_DARKNESS,
+                        NOT_SELECTED_NO_MOON_FREE, NOT_SELECTED_NOT_IN_TOP_N)
+
+
 def stage1_moon_filter(ts, eph, ref_lat: float, ref_lon: float,
-                       astro: AstroNightCache | None = None) -> list[NightCandidate]:
+                       astro: AstroNightCache | None = None,
+                       scan_out: list | None = None) -> list[NightCandidate]:
+    """scan_out にリストを渡すと、走査した全部の夜を日付順に (NightCandidate, 選ばれなかった理由 or None) で足す
+    (2026-11-16、--json-out の scanned_nights 用)。計算は増えず(ループで既に求めた値を写すだけ)、
+    選び方・並び・表示は渡さないときと同じ。"""
     today = datetime.now(JST).replace(hour=0, minute=0, second=0, microsecond=0)
     candidates = []
+    scanned: list[tuple[NightCandidate, str | None]] = []
     for i in range(NUM_NIGHTS_TO_SCAN):
         day = today + timedelta(days=i)
         r = _reference_night(ts, eph, ref_lat, ref_lon, day, astro)
         sunset, sunrise = r["sunset"], r["sunrise"]
         if sunset is None or sunrise is None:
+            if scan_out is not None:
+                scanned.append((NightCandidate(day.date(), sunset, sunrise, None, None, None, None, None),
+                                NOT_SELECTED_NO_SUN_EVENTS))
             continue
         dark_start, dark_end = r["dark_start"], r["dark_end"]
         if dark_start is None or dark_end is None:
+            if scan_out is not None:
+                scanned.append((NightCandidate(day.date(), sunset, sunrise, dark_start, dark_end, None, None, None),
+                                NOT_SELECTED_NO_DARKNESS))
             continue
         w_start, w_end, hours = r["window_start"], r["window_end"], r["hours"]
         if w_start is None:
+            if scan_out is not None:
+                # 時間帯が無い夜の長さは 0.0(reference_night の値をそのまま。時刻は null)
+                scanned.append((NightCandidate(day.date(), sunset, sunrise, dark_start, dark_end, None, None, hours),
+                                NOT_SELECTED_NO_MOON_FREE))
             continue
         candidates.append(NightCandidate(
             night_date=day.date(), sunset=sunset, sunrise=sunrise,
             dark_start=dark_start, dark_end=dark_end,
             window_start=w_start, window_end=w_end, moon_free_hours=hours,
         ))
+        if scan_out is not None:
+            scanned.append((candidates[-1], None))
 
     candidates.sort(key=lambda c: c.moon_free_hours, reverse=True)
     top = candidates[:NUM_CANDIDATE_NIGHTS]
+    if scan_out is not None:
+        top_ids = {id(c) for c in top}
+        scan_out.extend((n, reason if reason is not None or id(n) in top_ids else NOT_SELECTED_NOT_IN_TOP_N)
+                        for n, reason in scanned)
 
     print(f"[第1段階: 月フィルタ] 直近{NUM_NIGHTS_TO_SCAN}夜を評価 -> "
           f"月の影響が小さい時間帯が長い順に上位{len(top)}夜を候補日とする")
@@ -574,6 +605,13 @@ def stage2_cloud_filter(ts, eph, nights: list[NightCandidate], sites: list[dict]
           f"連続{MIN_CLEAR_WINDOW_HOURS:.0f}時間以上続く晴れ間があるのは {len(survivors)}組")
     print(f"    (格子セルキャッシュ: API呼び出し{cache.call_count}回 / キャッシュヒット{cache.cache_hit_count}回)")
     return survivors
+
+
+# 星空・星座モード(--target stars)の一覧の見出しの語(2026-11-16)。対象の語は generate_report.py の星空・星座モードに
+# 合わせ、並び順の説明は final_rank_key / outlook_rank_key の星空・星座モードの順に合わせる。
+STARS_HEADING_TARGET = "星空・星座モード・天の川は対象外"
+STARS_FINAL_ORDER = "晴れ時間が長い→平均雲量が低い→光害(ALR)が小さい→月の影響が小さい時間が長い順"
+STARS_OUTLOOK_ORDER = "光害(ALR)が小さい→月の影響が小さい時間が長い順"
 
 
 def final_rank_key(f: "FinalCandidate", target_mode: str = DEFAULT_TARGET_MODE):
@@ -784,9 +822,15 @@ def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_
     primary = sorted((o for o in outlooks if is_primary_origin(o.origin)), key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
     reference = sorted((o for o in outlooks if not is_primary_origin(o.origin)), key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
 
+    stars_mode = target_mode == "stars"
     print(f"\n{'-'*78}")
-    print(f"見込み一覧・主要候補(対象: {target.name}、星空撮影名所ベース、"
-          f"月・地形・光害による決定論的スコア順、上位{top_n}件)")
+    if stars_mode:
+        # 2026-11-16: 星空・星座モードは銀河中心もスコアも使わない。並びは outlook_rank_key の順
+        print(f"見込み一覧・主要候補(対象: {STARS_HEADING_TARGET}、星空撮影名所ベース、"
+              f"{STARS_OUTLOOK_ORDER}、上位{top_n}件)")
+    else:
+        print(f"見込み一覧・主要候補(対象: {target.name}、星空撮影名所ベース、"
+              f"月・地形・光害による決定論的スコア順、上位{top_n}件)")
     print(f"{'-'*78}")
     if primary:
         _print_outlook_items(primary, target, top_n, target_mode)
@@ -794,7 +838,11 @@ def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_
         print("\n  該当なし(主要候補=curated由来の地点で条件を満たすものがありませんでした)")
 
     print(f"\n{'-'*78}")
-    print(f"見込み一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+    if stars_mode:
+        print(f"見込み一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、"
+              f"{STARS_OUTLOOK_ORDER}、上位{top_n_reference}件)")
+    else:
+        print(f"見込み一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'-'*78}")
     if reference:
         _print_outlook_items(reference, target, top_n_reference, target_mode)
@@ -828,8 +876,14 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
     primary = sorted((f for f in finals if is_primary_origin(f.origin)), key=lambda f: final_rank_key(f, target_mode), reverse=True)
     reference = sorted((f for f in finals if not is_primary_origin(f.origin)), key=lambda f: final_rank_key(f, target_mode), reverse=True)
 
+    stars_mode = target_mode == "stars"
     print(f"\n{'='*78}")
-    print(f"探索モード 最終候補一覧・主要候補(対象: {target.name}、星空撮影名所ベース、スコア順、上位{top_n}件)")
+    if stars_mode:
+        # 2026-11-16: 星空・星座モードは銀河中心もスコアも使わない。並びは final_rank_key の順
+        print(f"探索モード 最終候補一覧・主要候補(対象: {STARS_HEADING_TARGET}、星空撮影名所ベース、"
+              f"{STARS_FINAL_ORDER}、上位{top_n}件)")
+    else:
+        print(f"探索モード 最終候補一覧・主要候補(対象: {target.name}、星空撮影名所ベース、スコア順、上位{top_n}件)")
     print(f"{'='*78}")
     if primary:
         _print_final_items(primary, target, top_n, target_mode)
@@ -837,7 +891,11 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
         print("\n  該当なし(主要候補=curated由来の地点で条件を満たすものがありませんでした)")
 
     print(f"\n{'='*78}")
-    print(f"探索モード 最終候補一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+    if stars_mode:
+        print(f"探索モード 最終候補一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、"
+              f"{STARS_FINAL_ORDER}、上位{top_n_reference}件)")
+    else:
+        print(f"探索モード 最終候補一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'='*78}")
     if reference:
         _print_final_items(reference, target, top_n_reference, target_mode)
@@ -947,6 +1005,7 @@ def write_explore_json(path, result: dict | None, cache, args) -> Path:
         thresholds=explore_thresholds(result.get("alr_threshold")),
         reference_site=result.get("reference_site"),
         nights=result.get("nights", []), msm_dates=result.get("msm_dates", []),
+        scanned_nights=result.get("scanned_nights"),
         finals=result.get("finals", []), outlooks=result.get("outlooks", []),
         final_rank_key=lambda f: final_rank_key(f, target_mode),
         outlook_rank_key=lambda o: outlook_rank_key(o, target_mode),
@@ -959,7 +1018,8 @@ def write_explore_json(path, result: dict | None, cache, args) -> Path:
 
 def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink: dict | None = None) -> int:
     try:
-        result = _explore(cache, args.target, astro)
+        # 走査した全部の夜(scanned_nights)は --json-out のときだけ集める
+        result = _explore(cache, args.target, astro, collect_scan=bool(getattr(args, "json_out", None)))
         if sink is not None:
             sink["result"] = result
     except OpenMeteoDailyLimitError as e:
@@ -985,8 +1045,9 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink
 
 
 def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
-             astro: AstroNightCache | None = None) -> dict:
-    """探索して結果を画面に出す。戻り値は --json-out 用の材料(2026-11-16。画面の出力は変えていない)。"""
+             astro: AstroNightCache | None = None, collect_scan: bool = False) -> dict:
+    """探索して結果を画面に出す。戻り値は --json-out 用の材料(2026-11-16。画面の出力は変えていない)。
+    collect_scan が真なら、第1段階で走査した全部の夜を scanned_nights として返す(計算は増えない)。"""
     t_start = time.time()
 
     ts = load.timescale()
@@ -1006,7 +1067,8 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
     print(f"[光害] Black Marble由来のALR(相対指数。空の明るさの等級・ボートル値は表示しない)。仮閾値 {lp_limit_text(lp_store)}\n")
 
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
-    nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"], astro)
+    scan: list | None = [] if collect_scan else None
+    nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"], astro, scan_out=scan)
 
     msm_nights = [n for n in nights if forecast_regime_for_night(cache, ref_site, n) == "MSM"]
     ecmwf_nights = [n for n in nights if n not in msm_nights]
@@ -1044,12 +1106,15 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
     print(f"実行時間: 全体 {(t_end - t_start)/60:.1f}分"
           f"(うち雲量取得 {(t_stage2_end - t_stage2_start)/60:.1f}分)")
     print(f"格子セルキャッシュ最終統計: API呼び出し{cache.call_count}回 / キャッシュヒット{cache.cache_hit_count}回")
-    return {
+    result = {
         "sites": {"primary": len(primary_sites), "reference": len(reference_sites), "total": len(sites),
                   "with_horizon": sum(1 for s in sites if s["horizon_csv"])},
         "reference_site": ref_site, "nights": nights, "msm_dates": [n.night_date for n in msm_nights],
         "finals": finals, "outlooks": outlooks, "alr_threshold": lp_store.alr_threshold,
     }
+    if scan is not None:
+        result["scanned_nights"] = scan
+    return result
 
 
 if __name__ == "__main__":

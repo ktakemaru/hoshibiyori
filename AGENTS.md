@@ -39,6 +39,7 @@ py -m venv .venv
 - 長時間コマンドのタイムアウト対策(Windows の Codex で成り立つ方法)は**未確認**。確認できるまで、実行はユーザーに依頼するか、バックグラウンド実行+出力ファイルで行う。
 - `explore_hoshibiyori.py` も引数なし(探索結果をコンソールに出す)。
 - `explore_hoshibiyori.py --json-out <ファイル>`: 探索結果を JSON(スキーマ `hoshibiyori-explore/1`、`schemas/hoshibiyori-explore.schema.json`)で書き出す。近日中(`finals`)・見込み(`outlooks`)の候補を全件、閾値・夜・取得の集計・版と commit とともに入れる。終了コード0のときだけ書き(`fetch.status` が `ok`/`partial`)、2のときは書かず既存のファイルにも触れない。通信の量は付けないときと同じ。`--target`・`--astro-grid` と併用できる。
+  - `scanned_nights`: 走査した全部の夜(日付順)。`selected`(候補の夜か)・`regime`(選ばれた夜だけ MSM/ECMWF)・`not_selected_reason`(`no_sunset_or_sunrise`/`no_astronomical_darkness`/`no_moon_free_window`/`not_in_top_n`)。スキーマの必須項目。
 - 薄明・月の時刻は既定で0.25度格子(ECMWFと同じ)の代表点で計算し、`<データ領域>/step1_astronomy/astro_cache/`(git管理外)に保存して次の実行から読むだけにする(本人の決定、2026-11-13。地点ごとの計算との差は薄明で1分未満)。地点ごとの従来の計算に戻すのは `--astro-grid site`(explore・generate_report 共通。保存は読まない・書かない)。先に計算しておくのは `py -X utf8 scripts/warm_astro_cache.py --days 30`(通信しない)。
 - ユーザーが「天の川にこだわらない」「星座」「冬」「明るい星・惑星を見たい」などと言ったら `--target stars`(星空・星座モード。銀河中心の高度・地形を条件にしない。出力は `report_stars.html` で `report.html` を上書きしない)を使う。天の川を撮るときは既定の `milkyway`。
 - `report.html` は追跡しない。生成日時が今日でなければ答えに使わない。

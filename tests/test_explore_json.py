@@ -75,11 +75,12 @@ def summary(failed=0, total=10, rate_limited=False):
 
 def build(finals=(), outlooks=(), target="milkyway", nights=None, msm_dates=(date(2026, 11, 17),),
           fetch=None, failures=(), generated_at=GEN):
+    nights = list(nights if nights is not None else [make_night(17), make_night(20)])
     return ej.build_explore_json(
         generated_at=generated_at, version="1.1.0", commit="0" * 40, dirty=False,
         target=target, astro_grid="ecmwf", thresholds=ex.explore_thresholds(10.66),
         reference_site={"name": "石廊崎", "lat": 34.6, "lon": 138.85, "elevation_m": 60.0},
-        nights=list(nights if nights is not None else [make_night(17), make_night(20)]),
+        nights=nights, scanned_nights=[(n, None) for n in nights],   # 2026-11-16: scanned_nights は必須
         msm_dates=msm_dates, finals=list(finals), outlooks=list(outlooks),
         final_rank_key=lambda f: ex.final_rank_key(f, target),
         outlook_rank_key=lambda o: ex.outlook_rank_key(o, target),
@@ -157,8 +158,8 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(doc["schema"], "hoshibiyori-explore/1")
         self.assertEqual(doc["generated_at"], "2026-11-16T04:38:00+09:00")
         self.assertEqual(doc["reference_site"], {"name": "石廊崎", "lat": 34.6, "lon": 138.85})
-        self.assertEqual(doc["notes"], ej.NOTES)
-        self.assertEqual(len(doc["notes"]), 3)
+        self.assertEqual(doc["notes"], ej.NOTES + [ej.SCANNED_NOTE])   # 2026-11-16: scanned_nights の注記がいつも入る
+        self.assertEqual(len(doc["notes"]), 4)
         self.assertNotIn(ej.STARS_NOTE, doc["notes"])  # milkyway モードでは足さない
         self.assertEqual(doc["finals"][0]["score"], 50.0)  # milkyway モードの score は数値のまま
         self.assertEqual(doc["outlooks"][0]["score"], 80.0)
@@ -249,7 +250,7 @@ class BuildTests(unittest.TestCase):
         for r in doc["finals"] + doc["outlooks"]:
             self.assertIn("score", r)
             self.assertIsNone(r["score"])
-        self.assertEqual(doc["notes"], ej.NOTES + [ej.STARS_NOTE])
+        self.assertEqual(doc["notes"], ej.NOTES + [ej.SCANNED_NOTE, ej.STARS_NOTE])   # 2026-11-16: scanned_nights の注記
         self.assertEqual(doc["notes"][-1], "星空・星座モードでは score を使いません(順位は rank を見てください)。")
         self.assertEqual(validate(doc, json.loads(SCHEMA_PATH.read_text(encoding="utf-8")),
                                   json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))), [])
@@ -342,7 +343,7 @@ class FakeCache:
 def fake_result():
     return {"sites": {"primary": 2, "reference": 1, "total": 3, "with_horizon": 1},
             "reference_site": {"name": "石廊崎", "lat": 34.6, "lon": 138.85},
-            "nights": [make_night(17)], "msm_dates": [date(2026, 11, 17)],
+            "nights": [make_night(17)], "scanned_nights": [(make_night(17), None)], "msm_dates": [date(2026, 11, 17)],
             "finals": [make_final("A"), make_final("B", origin="viewpoint")],
             "outlooks": [make_outlook("C")], "alr_threshold": 10.66}
 

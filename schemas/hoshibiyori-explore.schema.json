@@ -5,7 +5,7 @@
   "description": "時刻は ISO 8601・オフセットつき。欠損は null。数値は丸めていない。スコアは finals と outlooks で式が違い、絶対値を比べられない(score_kind で区別する)。",
   "type": "object",
   "required": ["schema", "generated_at", "version", "commit", "dirty", "target", "astro_grid", "thresholds",
-               "reference_site", "sites", "nights", "finals", "outlooks", "fetch", "notes"],
+               "reference_site", "sites", "nights", "scanned_nights", "finals", "outlooks", "fetch", "notes"],
   "properties": {
     "schema": {"const": "hoshibiyori-explore/1"},
     "generated_at": {"type": "string", "format": "date-time"},
@@ -51,6 +51,8 @@
       }
     },
     "nights": {"type": "array", "items": {"$ref": "#/$defs/night"}},
+    "scanned_nights": {"type": "array", "items": {"$ref": "#/$defs/scanned_night"},
+                       "description": "走査した全部の夜(日付順)。必須(2026-11-16 追加。これより前の出力には無く、このスキーマの検査を通らない)"},
     "finals": {"type": "array", "items": {"$ref": "#/$defs/final"}},
     "outlooks": {"type": "array", "items": {"$ref": "#/$defs/outlook"}},
     "fetch": {
@@ -88,6 +90,26 @@
         "window_end": {"$ref": "#/$defs/datetime_or_null"},
         "moon_free_hours": {"type": ["number", "null"]},
         "regime": {"enum": ["MSM", "ECMWF"]}
+      }
+    },
+    "scanned_night": {
+      "type": "object",
+      "required": ["night_date", "sunset", "sunrise", "dark_start", "dark_end", "window_start", "window_end",
+                   "moon_free_hours", "selected", "regime", "not_selected_reason"],
+      "properties": {
+        "night_date": {"type": "string", "format": "date"},
+        "sunset": {"$ref": "#/$defs/datetime_or_null"},
+        "sunrise": {"$ref": "#/$defs/datetime_or_null"},
+        "dark_start": {"$ref": "#/$defs/datetime_or_null"},
+        "dark_end": {"$ref": "#/$defs/datetime_or_null"},
+        "window_start": {"$ref": "#/$defs/datetime_or_null"},
+        "window_end": {"$ref": "#/$defs/datetime_or_null"},
+        "moon_free_hours": {"type": ["number", "null"]},
+        "selected": {"type": "boolean", "description": "候補の夜(nights)に選ばれたか"},
+        "regime": {"enum": ["MSM", "ECMWF", null], "description": "選ばれた夜だけ MSM / ECMWF。選ばれていない夜は null"},
+        "not_selected_reason": {"enum": ["no_sunset_or_sunrise", "no_astronomical_darkness", "no_moon_free_window",
+                                         "not_in_top_n", null],
+                                "description": "選ばれなかった理由のコード。選ばれた夜は null"}
       }
     },
     "candidate_common": {

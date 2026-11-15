@@ -33,6 +33,27 @@ NOTES = [
 ]
 # 星空・星座モード(--target stars)のときだけ NOTES の後ろに足す。このモードは score を順位に使わない(score は null で出す)。
 STARS_NOTE = "星空・星座モードでは score を使いません(順位は rank を見てください)。"
+# scanned_nights(走査した全部の夜)の注記。いつも NOTES の後ろ(STARS_NOTE の前)に足す。2026-11-16。
+SCANNED_NOTE = "scanned_nights は走査した全部の夜です。selected が false の夜は、not_selected_reason の理由で候補から外れています。"
+
+
+def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm_dates: Iterable[date]) -> list[dict]:
+    """走査した全部の夜((NightCandidate, 理由のコード or None) の並び、日付順)を JSON の値にする。
+
+    selected は「候補の夜(nights)に入ったか」で、nights の日付の集合から決める(並べ替えを繰り返さない)。
+    regime は選ばれた夜だけ MSM / ECMWF、選ばれていない夜は null。not_selected_reason は選ばれた夜では null。
+    理由が None なのに nights に入っていない夜は、上位N夜の切り捨て(not_in_top_n)として扱う。"""
+    chosen = set(selected_dates)
+    msm = set(msm_dates)
+    out = []
+    for n, reason in scanned:
+        rec = dataclass_record(n)
+        selected = n.night_date in chosen
+        rec["selected"] = selected
+        rec["regime"] = ("MSM" if n.night_date in msm else "ECMWF") if selected else None
+        rec["not_selected_reason"] = None if selected else (reason or "not_in_top_n")
+        out.append(rec)
+    return out
 
 
 def json_value(v):
@@ -118,11 +139,18 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
                        target: str, astro_grid: str, thresholds: dict, reference_site: dict | None,
                        nights: list, msm_dates: Iterable[date], finals: list, outlooks: list,
                        final_rank_key: Callable, outlook_rank_key: Callable, is_primary: Callable[[str], bool],
-                       fetch_summary, fetch_failures: Iterable, sites: dict) -> dict:
+                       fetch_summary, fetch_failures: Iterable, sites: dict,
+                       scanned_nights: Iterable) -> dict:
     """探索結果の JSON(dict)を組み立てる。通信・天文計算・ファイルの読み書きはしない。
 
     final_rank_key / outlook_rank_key は1引数の関数(target を束ねたもの)。msm_dates は精密予報(MSM)側の夜の日付。
+    scanned_nights(走査した全部の夜。stage1_moon_filter の scan_out)は必須(スキーマの required、2026-11-16)。
+    None なら ValueError(集めていないのに「0夜」と書かないため)。キー scanned_nights は nights の直後に置き、
+    注記 SCANNED_NOTE をいつも足す。
     """
+    if scanned_nights is None:
+        raise ValueError("scanned_nights は必須です(_explore を collect_scan=True で呼んでください)")
+    msm_dates = list(msm_dates)
     msm = set(msm_dates)
     stars = target == "stars"
     night_records = []
@@ -134,7 +162,7 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
     if reference_site is not None:
         ref = {"name": reference_site.get("name"), "lat": json_value(reference_site.get("lat")),
                "lon": json_value(reference_site.get("lon"))}
-    return {
+    doc = {
         "schema": SCHEMA,
         "generated_at": json_value(generated_at),
         "version": version,
@@ -146,11 +174,13 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
         "reference_site": ref,
         "sites": {k: json_value(v) for k, v in sites.items()},
         "nights": night_records,
+        "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates),
         "finals": ranked_records(finals, final_rank_key, is_primary, "final", score_unused=stars),
         "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook", score_unused=stars),
         "fetch": fetch_record(fetch_summary, fetch_failures),
-        "notes": list(NOTES) + ([STARS_NOTE] if stars else []),
+        "notes": list(NOTES) + [SCANNED_NOTE] + ([STARS_NOTE] if stars else []),
     }
+    return doc
 
 
 def dumps(doc: dict) -> str:
