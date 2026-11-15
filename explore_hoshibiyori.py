@@ -763,12 +763,17 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
     return results
 
 
+# 天の川モードの各候補の行で、地形データの無い地点に付ける注記(2026-11-16。地平線を高度0°として判定している。
+# 以前は「地形データなし(未評価)」)。星空・星座モードでは表示しない。
+NO_TERRAIN_NOTE = "地形データなし(地平線を高度0°として判定)"
+
+
 def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int,
                          target_mode: str = DEFAULT_TARGET_MODE) -> None:
     stars_mode = target_mode == "stars"
     for i, o in enumerate(outlooks[:top_n], 1):
         terrain_note = (f"地形地平線{o.horizon_alt:.1f}°を{o.target_alt - o.horizon_alt:.1f}°上回る"
-                         if o.terrain_available and o.horizon_alt is not None else "地形データなし(未評価)")
+                         if o.terrain_available and o.horizon_alt is not None else NO_TERRAIN_NOTE)
         clear_note = f"参考: この時間帯の晴天率 約{o.clear_sky_pct:.0f}%" if o.clear_sky_pct is not None else "参考: 晴天率データなし"
         print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {o.score:.1f}"))
         print(f"  日付      : {o.night_date}")
@@ -813,7 +818,7 @@ def _print_final_items(finals: list[FinalCandidate], target, top_n: int,
     stars_mode = target_mode == "stars"
     for i, f in enumerate(finals[:top_n], 1):
         terrain_note = (f"地形地平線 {f.horizon_alt:.1f}°を{f.target_alt - f.horizon_alt:.1f}°上回る"
-                         if f.terrain_available and f.horizon_alt is not None else "地形データなし(未評価)")
+                         if f.terrain_available and f.horizon_alt is not None else NO_TERRAIN_NOTE)
         print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {f.score:.1f}"))
         print(f"  日付      : {f.night_date}")
         print(f"  地点      : {f.site_name}（{f.municipality}）")

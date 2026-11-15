@@ -159,5 +159,49 @@ class OutlookNoTerrainTests(unittest.TestCase):
         self.assertEqual((res[0].visible_start, res[0].visible_end), (START, END))
 
 
+class CandidateLineNoteTests(unittest.TestCase):
+    """各候補の行の地形の注記(天の川モードだけ)。地形データが無ければ「地平線を高度0°として判定」と書く。"""
+    TARGET = SimpleNamespace(name="天の川銀河中心")
+
+    def final(self, terrain):
+        return ex.FinalCandidate(
+            night_date=START.date(), site_name="テスト高原", municipality="テスト村", origin="curated",
+            site_lat=35.5, site_lon=138.5, requires_lift_access=False, window_start=START, window_end=END,
+            best_time=START, target_az=180.0, target_alt=12.0, horizon_alt=(5.0 if terrain else None),
+            terrain_available=terrain, mean_obstruction=10.0, lp_index=1.0, moon_free_hours=4.0,
+            clear_hours=4.0, score=100.0)
+
+    def outlook(self, terrain):
+        return ex.OutlookCandidate(
+            night_date=START.date(), site_name="テスト高原", municipality="テスト村", origin="curated",
+            site_lat=35.5, site_lon=138.5, requires_lift_access=False, visible_start=START, visible_end=END,
+            target_az=180.0, target_alt=12.0, horizon_alt=(5.0 if terrain else None), terrain_available=terrain,
+            lp_index=1.0, clear_sky_pct=50.0, moon_free_hours=4.0, score=100.0)
+
+    def printed(self, fn, items, mode):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            fn(items, self.TARGET, 10, mode)
+        return out.getvalue()
+
+    def test_milkyway_no_terrain_note(self):
+        for fn, make in ((ex._print_final_items, self.final), (ex._print_outlook_items, self.outlook)):
+            out = self.printed(fn, [make(False)], "milkyway")
+            self.assertIn("地形データなし(地平線を高度0°として判定)", out)
+            self.assertNotIn("地形データなし(未評価)", out)
+
+    def test_milkyway_with_terrain_unchanged(self):
+        out = self.printed(ex._print_final_items, [self.final(True)], "milkyway")
+        self.assertIn("地形地平線 5.0°を7.0°上回る", out)
+        out = self.printed(ex._print_outlook_items, [self.outlook(True)], "milkyway")
+        self.assertIn("地形地平線5.0°を7.0°上回る", out)
+
+    def test_stars_mode_has_no_terrain_note(self):
+        for fn, make in ((ex._print_final_items, self.final), (ex._print_outlook_items, self.outlook)):
+            out = self.printed(fn, [make(False)], "stars")
+            self.assertNotIn("地形データなし", out)
+            self.assertNotIn("地形地平線", out)
+
+
 if __name__ == "__main__":
     unittest.main()
