@@ -8,6 +8,9 @@
 ### Added
 - **探索結果の JSON 出力(`explore_hoshibiyori.py --json-out <ファイル>`)**: ビヨリコンシェルなどが探索結果を機械的に読めるよう、スキーマ `hoshibiyori-explore/1`(`schemas/hoshibiyori-explore.schema.json`)の JSON を書き出す。近日中の候補(`FinalCandidate`)と見込み(`OutlookCandidate`)を全件(画面の上位N件で切らない)、データクラスの全項目に `score_kind`(`final`/`outlook`。式が違い絶対値を比べられない)・主要/参考・画面と同じ順位を付けて入れ、候補の夜(MSM/ECMWF の別つき)・使った閾値(コードの定数から)・基準地点・地点の件数・取得の集計(失敗セルは件数と理由の種類だけ)・版と commit も入れる。時刻はオフセットつき、欠損・NaN は `null`、数値は丸めない。終了コード0のときだけ一時ファイル経由で書き(2のときは書かず既存のファイルにも触れない)、最後に「探索結果の JSON を書きました: <パス>」を1行出す。付けないときの画面の出力・順位・終了コードは変わらない。`scripts/measure_explore.py` に `--json-out`(そのまま explore に渡す)。星空・星座モード(`--target stars`)では、このモードがスコアを順位に使わないため `finals`・`outlooks` の `score` を `null` で出し、`notes` に「星空・星座モードでは score を使いません(順位は rank を見てください)。」を足す(天の川モードは数値のまま)
 
+### Fixed
+- **`scripts/report_courses.py`・`scripts/weekend_page.py` が星空・星座モードのレポート(`report_stars.html`)を読めなかった**: 星空・星座モードのカードにはスコアのバッジと「狙い目」が無いため、「バッジ「score」が無い」で終了コード3になっていた。レポートのヘッダーの「星空・星座モード」でモードを見分け、このモードではスコアと狙い目を `null`(0 や推測で埋めない)、カードの「晴れ間 N時間」を `clear_hours` として読む。`report_courses.py` の出力(テキスト・JSON)は、このモードのときだけ「モード: 星空・星座モード ・ 天の川は対象外」の行と `"target": "stars"` を足し、スコアと狙い目の代わりに晴れ間を出す。`weekend_page.py` は、このモードではカードのスコアのタグと一覧表のスコアの列を出さず、見頃に晴れ間を出し、解説の照合で狙い目の代わりに晴れ間の時間を使う。両方に `--target {milkyway,stars}`(`stars` なら既定の入力を `report_stars.html` にする。レポートのモードと違えば終了コード3)を足した。天の川モードの出力・終了コード・今日のレポートかの確かめ・解説の数値の照合は変えていない
+
 ## [1.1.0] - 2026-11-15
 
 星空・星座モード(`--target stars`)を追加した版。

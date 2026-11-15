@@ -17,6 +17,10 @@
 唯一の情報源にし、検証は generate_report._valid_commentary を再利用する(無効・期限切れ・レポートの天気図と食い違うときは
 本文を出さず「未更新」の一行にする。終了コードは0)。
 
+星空・星座モードのレポート(report_stars.html)も読める(2026-11-16。`--report report_stars.html` か `--target stars`)。
+このモードのカードにはスコアと「狙い目」が無いため、カード・一覧表にスコアを出さず、見頃には「晴れ間 N時間」を出す
+(report_courses.py の解析結果の score・best_time が null)。天の川モードの出力は変えていない。
+
 既存のファイルは上書きしない(別セッションが同名のファイルを上書きして、先に作った版が消えた実例がある)。
 HTMLの構造は generate_report.py に合わせてあり、report_courses.py の解析関数を使う。標準ライブラリのみ
 (離島の判定に generate_report.CASUAL_EXCLUDED_MUNICIPALITIES を読むだけで、generate_report には手を入れない)。
@@ -131,8 +135,9 @@ def parse_weather_map(root: rc.Node) -> dict | None:
 def load_report(text: str) -> dict:
     root = rc.parse_html(text)
     generated = rc.parse_generated_at(root)
-    courses = rc.parse_courses(root)
-    return {"generated": generated, "courses": courses, "wmap": parse_weather_map(root),
+    target = rc.parse_target_mode(root)
+    courses = rc.parse_courses(root, target == "stars")
+    return {"generated": generated, "target": target, "courses": courses, "wmap": parse_weather_map(root),
             "moon": parse_moon_timeline(root, generated.date()), "footer": parse_footer(text)}
 
 
@@ -222,8 +227,10 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
 
     - 地点名(地点マスターの name と、その「・」区切りの部分): レポートの候補にある地点だけ書ける。
     - HH:MM: いずれかの候補の見頃の始端・終端・狙い目に一致する。文中の地点が1つに決まれば、その地点の時刻に限る。
+      (星空・星座モードには狙い目が無いので、見頃の始端・終端だけ)
     - N件/N地点: コースの件数・夜ごとの件数・全体の件数のどれか。
-    - N時間: 月齢タイムラインの無月時間か、見頃の長さ。N%: 候補の雲量かレポートの気象メモ中の%。
+    - N時間: 月齢タイムラインの無月時間か、見頃の長さ(星空・星座モードではカードの晴れ間の時間も)。
+      N%: 候補の雲量かレポートの気象メモ中の%。
     - Nkm: 候補の東京からの距離。ALR N.NN: 候補の光害(相対指数)。N.NN mag(空の明るさの等級)はレポートに無いので書けない。
     検査しないもの: 日付、地点名を含まない文での「どの地点の」時刻かの対応、extra_notes。
     """
@@ -236,7 +243,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
     times: dict[str, set[str]] = {n: set() for n in report_names}
     for c in cands:
         start, end = c["window"].split("〜")
-        times[c["name"]] |= {_hm(start), _hm(end[:5]), _hm(c["best_time"])}
+        times[c["name"]] |= {_hm(start), _hm(end[:5])} | ({_hm(c["best_time"])} if c["best_time"] is not None else set())
     all_times = set().union(*times.values()) if times else set()
     counts = {len(course["candidates"]) for course in report["courses"]}
     nights = {c["date"] for c in cands}
@@ -247,6 +254,7 @@ def check_verdict(commentary: dict, report: dict, vocabulary: list[str]) -> None
     hours = {float(re.match(r"(\d+(?:\.\d+)?)", m["detail"]).group(1)) for m in report["moon"].values()
              if re.match(r"\d", m["detail"])}
     hours |= {h for h in (_window_hours(c["window"]) for c in cands) if h is not None}
+    hours |= {c["clear_hours"] for c in cands if c.get("clear_hours") is not None}  # 星空・星座モードのカードの晴れ間
     pcts = {float(c["obstruction_pct"]) for c in cands}
     for course in report["courses"]:
         for x in _PCT_RE.finditer(course.get("weather_note") or ""):
@@ -348,7 +356,8 @@ def _island_municipalities() -> set[str]:
 
 
 def card_tags(c: dict, course_id: str, casual_names: set[str], islands: set[str], notes: dict[str, str]) -> list[tuple[str, str]]:
-    tags = [("", f"スコア {c['score']}"), ("", f"東京から直線{c['distance_km']}km")]
+    # 星空・星座モードはスコアが無い(None)ので、スコアのタグを出さない
+    tags = ([] if c["score"] is None else [("", f"スコア {c['score']}")]) + [("", f"東京から直線{c['distance_km']}km")]
     if course_id == "hardcore" and c["name"] not in casual_names:
         if c["distance_km"] > FAR_KM:
             tags.append(("far", f"遠征圏(東京から{FAR_KM}km超)"))
@@ -366,6 +375,13 @@ def _lp_row(c: dict) -> str:
             f"<small>({rank}小さいほど暗い・絶対値ではない)</small></dd></div>")
 
 
+def _when(c: dict) -> str:
+    """見頃の括弧。天の川モードは「狙い目」、星空・星座モード(狙い目が無い)はレポートと同じ「晴れ間 N時間」。"""
+    if c["best_time"] is None:
+        return esc(f"(晴れ間 {c['clear_hours']:.1f}時間)")
+    return f"(狙い目 {esc(c['best_time'])})"
+
+
 def render_card(c: dict, rank: int, course_id: str, casual_names, islands, notes) -> str:
     tags ="".join(f'<span class="tag {cls}">{esc(t)}</span>' for cls, t in card_tags(c, course_id, casual_names, islands, notes))
     check = f'<p class="check">{esc(notes[c["name"]])}</p>' if c["name"] in notes else ""
@@ -376,7 +392,7 @@ def render_card(c: dict, rank: int, course_id: str, casual_names, islands, notes
         <h4>{esc(c['name'])}<span class="muni">（{esc(c['municipality'])}）</span></h4>
         <div class="tags">{tags}</div>
         <dl>
-          <div><dt>見頃</dt><dd>{esc(c['window'])}(狙い目 {esc(c['best_time'])})</dd></div>
+          <div><dt>見頃</dt><dd>{esc(c['window'])}{_when(c)}</dd></div>
           <div><dt>雲量(全天平均)</dt><dd>{c['obstruction_pct']}%</dd></div>
           {_lp_row(c)}
         </dl>
@@ -416,6 +432,11 @@ def render_night(night: date, report: dict, top: int, casual_names, islands, not
 
 def render_table(report: dict) -> str:
     parts = []
+    stars = report.get("target") == "stars"  # 星空・星座モードはスコアが無いので、スコアの列を出さない
+    score_th = "" if stars else "<th>スコア</th>"
+
+    def score_td(k: dict) -> str:
+        return "" if stars else f"<td>{k['score']}</td>"
     for c in report["courses"]:
         label = "気軽コース" if c["id"] == "casual" else "硬派コース"
         if not c["candidates"]:
@@ -426,11 +447,11 @@ def render_table(report: dict) -> str:
             f"<td><a href=\"{esc(_safe_url(k['maps_url']))}\" target=\"_blank\" rel=\"noopener\">{esc(k['name'])}</a>"
             f"<small>{esc(k['municipality'])}</small></td>"
             f"<td>{esc(_short_date(k['date']))}</td><td>{esc(k['window'])}</td><td>{k['obstruction_pct']}%</td>"
-            f"<td>{k['alr']:.2f}</td><td>{k['distance_km']}km</td><td>{k['score']}</td></tr>"
+            f"<td>{k['alr']:.2f}</td><td>{k['distance_km']}km</td>{score_td(k)}</tr>"
             for k in c["candidates"])
         parts.append(f"""<h3>{esc(label)}(レポート内{len(c['candidates'])}件)</h3>
 <div class="tablewrap"><table>
-<thead><tr><th>順位</th><th>地点</th><th>日付</th><th>見頃</th><th>雲量</th><th>光害(相対指数)<br>ALR</th><th>東京から</th><th>スコア</th></tr></thead>
+<thead><tr><th>順位</th><th>地点</th><th>日付</th><th>見頃</th><th>雲量</th><th>光害(相対指数)<br>ALR</th><th>東京から</th>{score_th}</tr></thead>
 <tbody>{rows}</tbody></table></div>""")
     return ('<h2>全候補の一覧</h2><details open><summary>レポートに載った全件(夜を問わず・レポートの順位順)</summary>'
             + "".join(parts) + "</details>")
@@ -578,6 +599,9 @@ def render_page(report: dict, nights: list[date], top: int, commentary: dict | N
     has_notes = any(c["name"] in notes for crs in report["courses"] for c in crs["candidates"])
     footer = "".join(f"<p>{p}</p>" for p in report["footer"])
     lp_note = f'<p class="note">{esc(rc.BM_NOTE)}空の明るさ(mag/arcsec²)は表示していません。</p>'
+    if report.get("target") == "stars":
+        lp_note = (f'<p class="note">{esc(rc.STARS_MODE_LABEL)}(星空・星座モードのレポートから作成。'
+                   'スコアと狙い目はありません)。</p>') + lp_note
     return f"""<!doctype html>
 <html lang="ja">
 <head>
@@ -615,7 +639,10 @@ def _iso_date(s: str) -> date:
 
 def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     ap = argparse.ArgumentParser(description="今週末の星空撮影ページ(HTML)を report.html から生成する(通信しない)")
-    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html")
+    ap.add_argument("--report", type=Path, default=None, help="既定: データ領域の report.html(--target stars なら report_stars.html)")
+    ap.add_argument("--target", choices=rc.TARGET_MODES, default=None,
+                    help="レポートのモード。stars なら既定の入力を report_stars.html にする。指定したモードとレポートのモードが"
+                         "違えば終了コード3(省略時はレポートのヘッダーから見分ける)")
     ap.add_argument("--commentary", type=Path, help="解説JSON(hoshibiyori-weekend-commentary/2: verdict と extra_notes)。無ければ結論は出さない")
     ap.add_argument("--weather-commentary", type=Path, help="天気図の解説(既定: リポジトリ直下の weather_map_commentary.json、schema /2)")
     ap.add_argument("--spots", type=Path, default=ROOT / "stargazing_spots.json", help="verdict の地点名の照合に使う地点マスター")
@@ -636,22 +663,29 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
 
     today = (now or datetime.now(JST)).astimezone(JST).date()
     if args.report is None:
-        args.report = resolve_data_root(ROOT) / "report.html"
+        args.report = resolve_data_root(ROOT) / rc.DEFAULT_REPORT_NAMES[args.target or "milkyway"]
+    gen_cmd = "py -X utf8 generate_report.py" + (" --target stars" if args.target == "stars" else "")
     if not args.report.is_file():
-        print(f"[中止] {args.report} がありません。py -X utf8 generate_report.py で生成してください"
+        print(f"[中止] {args.report} がありません。{gen_cmd} で生成してください"
               "(10〜30分・Open-Meteo約220回。実行前にユーザーの承認を得ること)。", file=sys.stderr)
         return EXIT_STALE
+    # メッセージの中のファイルの呼び名(天の川モードは従来どおり「report.html」)
+    name = rc.DEFAULT_REPORT_NAMES[args.target or "milkyway"]
     try:
         text = args.report.read_text(encoding="utf-8")
         report = load_report(text)
+        name = rc.DEFAULT_REPORT_NAMES[report["target"]] if args.target is None else name
+        if args.target is not None and report["target"] != args.target:
+            raise rc.ParseError(f"--target {args.target} が指定されましたが、レポートは"
+                                f"{'星空・星座モード(stars)' if report['target'] == 'stars' else '天の川モード(milkyway)'}です")
     except rc.ParseError as e:
-        print(f"[解析失敗] report.html が想定の構造ではありません: {e}\n"
+        print(f"[解析失敗] {name} が想定の構造ではありません: {e}\n"
               "(generate_report.py の構造が変わった可能性があります。推測では埋めません。)", file=sys.stderr)
         return EXIT_PARSE
     gen_date = report["generated"].date()
     stale = gen_date != today
     if stale and not args.allow_stale:
-        print(f"[中止] report.html の生成日時 {report['generated']:%Y-%m-%d %H:%M} JST は今日({today})ではないため、"
+        print(f"[中止] {name} の生成日時 {report['generated']:%Y-%m-%d %H:%M} JST は今日({today})ではないため、"
               "出力しません。再生成する(ユーザーの承認が必要)か、--allow-stale で古い旨つきの出力にしてください。", file=sys.stderr)
         return EXIT_STALE
 
