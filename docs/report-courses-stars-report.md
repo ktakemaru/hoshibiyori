@@ -35,10 +35,13 @@
 - 変更前(main): `Ran 499 tests` / `OK (skipped=3)`
 - 変更後: `Ran 513 tests` / `OK (skipped=3)`(499 + 新規 14。既存のテストの期待値は変えていない)
 - 天の川モードの出力の前後比較: 既存のテストの見本(`tests/test_report_courses.py`・`tests/test_weekend_page.py` の `build_html()`)で、変更前と変更後に 2 つのスクリプトを実行し、テキスト・JSON・週末ページの HTML・終了コードを比べた。違いは JSON の `report_path`(出力先のフォルダを分けたため)だけで、ほかは 1 バイトも違わない(作業用のフォルダ `C:\temp\hoshibiyori-json-check\part2\`)。
+- 手元の実際のレポートでも確かめた(`--allow-stale`、通信なし、出力は `C:\temp\hoshibiyori-json-check\part2\real\`。変更前は `git archive main` の写しのスクリプト):
+  - `report.html`(2026-11-15 生成、天の川モード): 2 つのスクリプトとも、変更前と変更後でテキスト・JSON・週末ページ・エラー出力が 1 バイトも違わない。
+  - `report_stars.html`(2026-11-05 生成、星空・星座モード): 変更前は 2 つとも「気軽コース 1件目: バッジ「score」が無い」で終了コード 3。変更後は 2 つとも終了コード 0。両コース各 10 件を読み、`score`・`best_time` は `null`、`clear_hours`(例 石廊崎 10.5 時間)が入り、週末ページの一覧表にスコアの列が出ないことを確かめた。
 
 ## 5. 未確認のこと
 
-- 実際の `generate_report.py --target stars` の出力(実通信が要るため実行していない)で 2 つのスクリプトを動かすこと。見本は実際の描画関数で作ったが、データは手で作ったもの。
+- 今日生成した `report_stars.html` での確かめ(手元のものは 2026-11-05 生成で、`--allow-stale` でしか読めていない。生成には実通信が要るため実行していない)。
 - `weekend_page.py` の星空・星座モードのページの見た目(ブラウザで見ていない)。
 
 ## 6. 未対応
