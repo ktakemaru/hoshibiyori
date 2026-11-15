@@ -159,6 +159,9 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(doc["reference_site"], {"name": "石廊崎", "lat": 34.6, "lon": 138.85})
         self.assertEqual(doc["notes"], ej.NOTES)
         self.assertEqual(len(doc["notes"]), 3)
+        self.assertNotIn(ej.STARS_NOTE, doc["notes"])  # milkyway モードでは足さない
+        self.assertEqual(doc["finals"][0]["score"], 50.0)  # milkyway モードの score は数値のまま
+        self.assertEqual(doc["outlooks"][0]["score"], 80.0)
         # 閾値はコードの定数から
         th = doc["thresholds"]
         self.assertEqual(th["cloud_obstruction_threshold_pct"], ex.CLOUD_OBSTRUCTION_THRESHOLD)
@@ -242,6 +245,12 @@ class BuildTests(unittest.TestCase):
             self.assertIsNone(r["target_alt"])
             self.assertIsNone(r["horizon_alt"])
         self.assertEqual(doc["target"], "stars")
+        # stars モードは score を順位に使わないので null(元の候補の score 0.0 は出さない)
+        for r in doc["finals"] + doc["outlooks"]:
+            self.assertIn("score", r)
+            self.assertIsNone(r["score"])
+        self.assertEqual(doc["notes"], ej.NOTES + [ej.STARS_NOTE])
+        self.assertEqual(doc["notes"][-1], "星空・星座モードでは score を使いません(順位は rank を見てください)。")
         self.assertEqual(validate(doc, json.loads(SCHEMA_PATH.read_text(encoding="utf-8")),
                                   json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))), [])
 

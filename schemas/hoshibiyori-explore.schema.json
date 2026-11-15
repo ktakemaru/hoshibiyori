@@ -109,7 +109,7 @@
         "terrain_available": {"type": "boolean"},
         "lp_index": {"type": ["number", "null"], "description": "光害の内部値(表示用ではない)"},
         "moon_free_hours": {"type": ["number", "null"]},
-        "score": {"type": ["number", "null"], "description": "stars モードでは 0.0(並びは順位キーで決まる)"},
+        "score": {"type": ["number", "null"], "description": "stars モードでは null(このモードは score を順位に使わない。順位は rank)。milkyway モードでは数値"},
         "alr": {"type": ["number", "null"], "description": "光害 ALR(日本で未較正の相対指数)"},
         "alr_rank_pct": {"type": ["number", "null"]},
         "is_primary": {"type": "boolean"},

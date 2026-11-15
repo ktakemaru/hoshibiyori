@@ -31,6 +31,8 @@ NOTES = [
     "光害の ALR は日本で未較正の相対指数です。lp_index は内部値で、表示用ではありません。",
     "outlooks の雲量は数値スコアに使っていません(clear_sky_pct は参考値)。",
 ]
+# 星空・星座モード(--target stars)のときだけ NOTES の後ろに足す。このモードは score を順位に使わない(score は null で出す)。
+STARS_NOTE = "星空・星座モードでは score を使いません(順位は rank を見てください)。"
 
 
 def json_value(v):
@@ -65,15 +67,19 @@ def dataclass_record(obj) -> dict:
     return {f.name: json_value(getattr(obj, f.name)) for f in dataclasses.fields(obj)}
 
 
-def ranked_records(items: Iterable, rank_key: Callable, is_primary: Callable[[str], bool], score_kind: str) -> list[dict]:
+def ranked_records(items: Iterable, rank_key: Callable, is_primary: Callable[[str], bool], score_kind: str,
+                   score_unused: bool = False) -> list[dict]:
     """画面(print_final_report / print_outlook_report)と同じ並び: 主要候補を順位キーの降順、続いて参考候補を同じく降順。
-    順位(rank)は各グループの中で1から(画面の「[N位]」と同じ)。"""
+    順位(rank)は各グループの中で1から(画面の「[N位]」と同じ)。
+    score_unused が真(星空・星座モード)なら score を null にする(並び・順位は変えない)。"""
     items = list(items)
     out: list[dict] = []
     for group, primary in (("primary", True), ("reference", False)):
         members = sorted((x for x in items if bool(is_primary(x.origin)) == primary), key=rank_key, reverse=True)
         for i, x in enumerate(members, 1):
             rec = dataclass_record(x)
+            if score_unused:
+                rec["score"] = None
             rec["score_kind"] = score_kind
             rec["is_primary"] = primary
             rec["group"] = group
@@ -118,6 +124,7 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
     final_rank_key / outlook_rank_key は1引数の関数(target を束ねたもの)。msm_dates は精密予報(MSM)側の夜の日付。
     """
     msm = set(msm_dates)
+    stars = target == "stars"
     night_records = []
     for n in nights:
         rec = dataclass_record(n)
@@ -139,10 +146,10 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
         "reference_site": ref,
         "sites": {k: json_value(v) for k, v in sites.items()},
         "nights": night_records,
-        "finals": ranked_records(finals, final_rank_key, is_primary, "final"),
-        "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook"),
+        "finals": ranked_records(finals, final_rank_key, is_primary, "final", score_unused=stars),
+        "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook", score_unused=stars),
         "fetch": fetch_record(fetch_summary, fetch_failures),
-        "notes": list(NOTES),
+        "notes": list(NOTES) + ([STARS_NOTE] if stars else []),
     }
 
 
