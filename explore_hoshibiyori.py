@@ -607,6 +607,13 @@ def stage2_cloud_filter(ts, eph, nights: list[NightCandidate], sites: list[dict]
     return survivors
 
 
+# 星空・星座モード(--target stars)の一覧の見出しの語(2026-11-16)。対象の語は generate_report.py の星空・星座モードに
+# 合わせ、並び順の説明は final_rank_key / outlook_rank_key の星空・星座モードの順に合わせる。
+STARS_HEADING_TARGET = "星空・星座モード・天の川は対象外"
+STARS_FINAL_ORDER = "晴れ時間が長い→平均雲量が低い→光害(ALR)が小さい→月の影響が小さい時間が長い順"
+STARS_OUTLOOK_ORDER = "光害(ALR)が小さい→月の影響が小さい時間が長い順"
+
+
 def final_rank_key(f: "FinalCandidate", target_mode: str = DEFAULT_TARGET_MODE):
     """降順ソート用のキー(大きいほど上位)。milkywayは従来のスコア。
     starsは、晴れ時間が長い → 平均雲量が低い → ALRが小さい → 月の影響が小さい時間が長い、の辞書式順序。"""
@@ -815,9 +822,15 @@ def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_
     primary = sorted((o for o in outlooks if is_primary_origin(o.origin)), key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
     reference = sorted((o for o in outlooks if not is_primary_origin(o.origin)), key=lambda o: outlook_rank_key(o, target_mode), reverse=True)
 
+    stars_mode = target_mode == "stars"
     print(f"\n{'-'*78}")
-    print(f"見込み一覧・主要候補(対象: {target.name}、星空撮影名所ベース、"
-          f"月・地形・光害による決定論的スコア順、上位{top_n}件)")
+    if stars_mode:
+        # 2026-11-16: 星空・星座モードは銀河中心もスコアも使わない。並びは outlook_rank_key の順
+        print(f"見込み一覧・主要候補(対象: {STARS_HEADING_TARGET}、星空撮影名所ベース、"
+              f"{STARS_OUTLOOK_ORDER}、上位{top_n}件)")
+    else:
+        print(f"見込み一覧・主要候補(対象: {target.name}、星空撮影名所ベース、"
+              f"月・地形・光害による決定論的スコア順、上位{top_n}件)")
     print(f"{'-'*78}")
     if primary:
         _print_outlook_items(primary, target, top_n, target_mode)
@@ -825,7 +838,10 @@ def print_outlook_report(outlooks: list[OutlookCandidate], top_n: int = 20, top_
         print("\n  該当なし(主要候補=curated由来の地点で条件を満たすものがありませんでした)")
 
     print(f"\n{'-'*78}")
-    print(f"見込み一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+    if stars_mode:
+        print(f"見込み一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+    else:
+        print(f"見込み一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'-'*78}")
     if reference:
         _print_outlook_items(reference, target, top_n_reference, target_mode)
@@ -859,8 +875,14 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
     primary = sorted((f for f in finals if is_primary_origin(f.origin)), key=lambda f: final_rank_key(f, target_mode), reverse=True)
     reference = sorted((f for f in finals if not is_primary_origin(f.origin)), key=lambda f: final_rank_key(f, target_mode), reverse=True)
 
+    stars_mode = target_mode == "stars"
     print(f"\n{'='*78}")
-    print(f"探索モード 最終候補一覧・主要候補(対象: {target.name}、星空撮影名所ベース、スコア順、上位{top_n}件)")
+    if stars_mode:
+        # 2026-11-16: 星空・星座モードは銀河中心もスコアも使わない。並びは final_rank_key の順
+        print(f"探索モード 最終候補一覧・主要候補(対象: {STARS_HEADING_TARGET}、星空撮影名所ベース、"
+              f"{STARS_FINAL_ORDER}、上位{top_n}件)")
+    else:
+        print(f"探索モード 最終候補一覧・主要候補(対象: {target.name}、星空撮影名所ベース、スコア順、上位{top_n}件)")
     print(f"{'='*78}")
     if primary:
         _print_final_items(primary, target, top_n, target_mode)
@@ -868,7 +890,10 @@ def print_final_report(finals: list[FinalCandidate], top_n: int = 20, top_n_refe
         print("\n  該当なし(主要候補=curated由来の地点で条件を満たすものがありませんでした)")
 
     print(f"\n{'='*78}")
-    print(f"探索モード 最終候補一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+    if stars_mode:
+        print(f"探索モード 最終候補一覧・参考候補(対象: {STARS_HEADING_TARGET}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
+    else:
+        print(f"探索モード 最終候補一覧・参考候補(対象: {target.name}、OSM展望データ由来・星空適性は未検証、上位{top_n_reference}件)")
     print(f"{'='*78}")
     if reference:
         _print_final_items(reference, target, top_n_reference, target_mode)
