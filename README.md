@@ -120,7 +120,7 @@ py -m venv .venv
 
 ### 探索結果を JSON で書き出す(`--json-out`)
 
-`explore_hoshibiyori.py --json-out <ファイル>` で、探索結果をスキーマ `hoshibiyori-explore/1`(`schemas/hoshibiyori-explore.schema.json`)の JSON に書き出します(ほかのプログラム、たとえばビヨリコンシェルが読むための出力)。近日中の候補(`finals`)と見込み(`outlooks`)を画面の上位N件で切らずに全件入れ、使った閾値・候補の夜・取得の集計・版と commit も入ります。時刻はオフセットつき、欠損は `null`。`--target`・`--astro-grid` と併用でき、通信の量は変わりません。終了コード0のときだけ書き(一部の予報が取れなかった回は `fetch.status` が `partial`)、終了コード2のときは書かず、既にあるファイルにも触れません。例: `.\.venv\Scripts\python.exe -X utf8 explore_hoshibiyori.py --target stars --json-out C:\temp\hoshi-stars.json`。スコアは `finals` と `outlooks` で式が違い、絶対値を比べられません(各候補の `score_kind`)。
+`explore_hoshibiyori.py --json-out <ファイル>` で、探索結果をスキーマ `hoshibiyori-explore/1`(`schemas/hoshibiyori-explore.schema.json`)の JSON に書き出します(ほかのプログラム、たとえばビヨリコンシェルが読むための出力)。近日中の候補(`finals`)と見込み(`outlooks`)を画面の上位N件で切らずに全件入れ、使った閾値・候補の夜・取得の集計・版と commit も入ります。時刻はオフセットつき、欠損は `null`。`--target`・`--astro-grid` と併用でき、通信の量は変わりません。終了コード0のときだけ書き(一部の予報が取れなかった回は `fetch.status` が `partial`)、終了コード2のときは書かず、既にあるファイルにも触れません。例: `.\.venv\Scripts\python.exe -X utf8 explore_hoshibiyori.py --target stars --json-out C:\temp\hoshi-stars.json`。スコアは `finals` と `outlooks` で式が違い、絶対値を比べられません(各候補の `score_kind`)。星空・星座モード(`--target stars`)はスコアを順位に使わないため、`score` は `null` です(順位は `rank` を見てください)。`nights` は候補の夜(月の条件で上位の夜)だけですが、`scanned_nights` には走査した全部の夜が日付順に入り、候補に選ばれたか(`selected`)と、選ばれなかった理由のコード(`not_selected_reason`: `no_sunset_or_sunrise`・`no_astronomical_darkness`・`no_moon_free_window`・`not_in_top_n`)が付きます。
 
 依存パッケージは `requirements.txt` を参照: `skyfield`・`requests`・`numpy`(標高・光害タイルの配列処理)・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(任意。未導入なら天気図セクションは省略される)。
 
