@@ -99,21 +99,9 @@ def moon_info(ex, ts, eph, ref_site: dict, dark_start: datetime | None, dark_end
     """基準地点の暗い時間帯の月(出ている時間・出ている区間・輝面比)。15分刻み。"""
     if dark_start is None or dark_end is None:
         return None
-    step = timedelta(minutes=ex.MOON_SAMPLE_INTERVAL_MIN)
-    times, t = [], dark_start
-    while t <= dark_end:
-        times.append(t)
-        t += step
-    alts = [ex.compute_moon_position(ts, eph, ref_site["lat"], ref_site["lon"], 0.0, x).alt_deg for x in times]
-    intervals, start = [], None
-    for x, alt in zip(times, alts):
-        if alt > 0 and start is None:
-            start = x
-        elif alt <= 0 and start is not None:
-            intervals.append((start, x))
-            start = None
-    if start is not None:
-        intervals.append((start, dark_end))
+    import winter_milkyway as wm
+    intervals = wm.moon_up_intervals(ts, eph, ref_site["lat"], ref_site["lon"], dark_start, dark_end,
+                                     ex.MOON_SAMPLE_INTERVAL_MIN)
     mid = ex.compute_moon_position(ts, eph, ref_site["lat"], ref_site["lon"], 0.0, dark_start + (dark_end - dark_start) / 2)
     return {
         "up_hours": sum((b - a).total_seconds() for a, b in intervals) / 3600.0,

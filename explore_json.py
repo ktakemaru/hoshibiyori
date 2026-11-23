@@ -62,12 +62,14 @@ def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool])
     return out
 
 
-def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm_dates: Iterable[date]) -> list[dict]:
+def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm_dates: Iterable[date],
+                          winter_bands: dict | None = None) -> list[dict]:
     """走査した全部の夜((NightCandidate, 理由のコード or None) の並び、日付順)を JSON の値にする。
 
     selected は「候補の夜(nights)に入ったか」で、nights の日付の集合から決める(並べ替えを繰り返さない)。
     regime は選ばれた夜だけ MSM / ECMWF、選ばれていない夜は null。not_selected_reason は選ばれた夜では null。
-    理由が None なのに nights に入っていない夜は、上位N夜の切り捨て(not_in_top_n)として扱う。"""
+    理由が None なのに nights に入っていない夜は、上位N夜の切り捨て(not_in_top_n)として扱う。
+    winter_bands(日付 → winter_milkyway.night_band の値)があれば winter_milky_way を足す(暗い時間帯が無い夜は null)。"""
     chosen = set(selected_dates)
     msm = set(msm_dates)
     out = []
@@ -77,6 +79,8 @@ def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm
         rec["selected"] = selected
         rec["regime"] = ("MSM" if n.night_date in msm else "ECMWF") if selected else None
         rec["not_selected_reason"] = None if selected else (reason or "not_in_top_n")
+        if winter_bands is not None:
+            rec["winter_milky_way"] = json_value(winter_bands.get(n.night_date))
         out.append(rec)
     return out
 
@@ -166,7 +170,7 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
                        final_rank_key: Callable, outlook_rank_key: Callable, is_primary: Callable[[str], bool],
                        fetch_summary, fetch_failures: Iterable, sites: dict,
                        scanned_nights: Iterable, site_index: Iterable[dict] = (),
-                       requested_nights: list[dict] | None = None) -> dict:
+                       requested_nights: list[dict] | None = None, winter_bands: dict | None = None) -> dict:
     """探索結果の JSON(dict)を組み立てる。通信・天文計算・ファイルの読み書きはしない。
 
     final_rank_key / outlook_rank_key は1引数の関数(target を束ねたもの)。msm_dates は精密予報(MSM)側の夜の日付。
@@ -202,7 +206,7 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
         "sites": {k: json_value(v) for k, v in sites.items()},
         "site_index": site_index_records(site_index, is_primary),
         "nights": night_records,
-        "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates),
+        "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates, winter_bands),
         "finals": ranked_records(finals, final_rank_key, is_primary, "final", score_unused=stars),
         "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook", score_unused=stars),
         "fetch": fetch_record(fetch_summary, fetch_failures),

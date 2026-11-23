@@ -113,7 +113,23 @@
         "regime": {"enum": ["MSM", "ECMWF", null], "description": "選ばれた夜だけ MSM / ECMWF。選ばれていない夜は null"},
         "not_selected_reason": {"enum": ["no_sunset_or_sunrise", "no_astronomical_darkness", "no_moon_free_window",
                                          "not_in_top_n", null],
-                                "description": "選ばれなかった理由のコード。選ばれた夜は null"}
+                                "description": "選ばれなかった理由のコード。選ばれた夜は null"},
+        "winter_milky_way": {
+          "type": ["object", "null"],
+          "description": "冬の天の川の帯(銀経120〜220°・銀緯0°を10°ごと)。基準地点・平らな地平線の目安で、候補の選び方には使っていない。暗い時間帯が無い夜は null。2026-11-24 追加",
+          "required": ["high_start", "high_end", "peak_time", "peak_point_alt_deg", "peak_point_az_deg", "peak_mean_alt_deg",
+                       "moon_up_intervals"],
+          "properties": {
+            "high_start": {"$ref": "#/$defs/datetime_or_null"},
+            "high_end": {"$ref": "#/$defs/datetime_or_null"},
+            "peak_time": {"$ref": "#/$defs/datetime_or_null"},
+            "peak_point_alt_deg": {"type": ["number", "null"], "description": "帯の平均の高度が最大の時刻の、帯のいちばん高い点の高度"},
+            "peak_point_az_deg": {"type": ["number", "null"]},
+            "peak_mean_alt_deg": {"type": ["number", "null"]},
+            "moon_up_intervals": {"type": "array", "items": {"type": "object", "required": ["start", "end"], "properties": {
+              "start": {"$ref": "#/$defs/datetime_or_null"}, "end": {"$ref": "#/$defs/datetime_or_null"}}}}
+          }
+        }
       }
     },
     "site": {
@@ -225,7 +241,7 @@
       "type": "object",
       "required": ["night_date", "site_name", "municipality", "origin", "site_lat", "site_lon", "requires_lift_access",
                    "target_az", "target_alt", "horizon_alt", "terrain_available", "lp_index", "moon_free_hours",
-                   "score", "alr", "alr_rank_pct", "site_id", "score_kind", "is_primary", "group", "rank"],
+                   "score", "alr", "alr_rank_pct", "site_id", "sky_openness", "score_kind", "is_primary", "group", "rank"],
       "properties": {
         "site_id": {"type": ["string", "null"], "description": "地点の変わらない ID(site_index の site_id と同じ)"},
         "night_date": {"type": "string", "format": "date"},
@@ -244,6 +260,17 @@
         "score": {"type": ["number", "null"], "description": "stars モードでは null(このモードは score を順位に使わない。順位は rank)。milkyway モードでは数値"},
         "alr": {"type": ["number", "null"], "description": "光害 ALR(日本で未較正の相対指数)"},
         "alr_rank_pct": {"type": ["number", "null"]},
+        "sky_openness": {
+          "type": ["object", "null"],
+          "description": "空の開け具合(地形の地平線のデータがある地点だけ)。順位・足切りには使っていない。2026-11-24 追加",
+          "required": ["ridge_mean_deg", "ridge_max_deg", "open_fraction", "open_alt_deg"],
+          "properties": {
+            "ridge_mean_deg": {"type": "number", "description": "全方位の稜線の高度の平均"},
+            "ridge_max_deg": {"type": "number", "description": "全方位の稜線の高度の最大"},
+            "open_fraction": {"type": "number", "description": "稜線が open_alt_deg 以下の方位の割合(0〜1)"},
+            "open_alt_deg": {"type": "number", "description": "20°(仮の値)"}
+          }
+        },
         "is_primary": {"type": "boolean"},
         "group": {"enum": ["primary", "reference"]},
         "rank": {"type": "integer", "minimum": 1, "description": "group の中での順位(画面の「[N位]」と同じ)"}

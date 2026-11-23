@@ -76,6 +76,7 @@ py -m venv .venv
 - `explore_hoshibiyori.py --nights 2026-11-28,2026-11-29`(夜の始まりの日付): 候補の上位6夜に入らない夜も雲量を調べ、`--json-out` の `requested_nights[]` と画面の数行に出す(候補の一覧・順位・`finals`・`outlooks` は変わらない。スコアは出さない)。**通信は増えない**(その回の通常の探索が取ったセルと期限内の保存だけを読む。取っていないセルの地点は `not_examined`)。「調べていない」(`window_kind: none`・`status: not_examined`)と「条件を通らなかった」(`status: failed`)を混ぜて答えない。`window_kind: dark` の夜は月が出ている(`moon` を添える)。`forecast_regime: ECMWF` の雲量は目安。
 - 薄明・月の時刻は既定で0.25度格子(ECMWFと同じ)の代表点で計算し、`<データ領域>/step1_astronomy/astro_cache/`(git管理外)に保存して次の実行から読むだけにする(本人の決定、2026-11-13。地点ごとの計算との差は薄明で1分未満)。地点ごとの従来の計算に戻すのは `--astro-grid site`(explore・generate_report 共通。保存は読まない・書かない)。先に計算しておくのは `py -X utf8 scripts/warm_astro_cache.py --days 30`(通信しない)。
 - ユーザーが「天の川にこだわらない」「星座」「冬」「明るい星・惑星を見たい」などと言ったら `--target stars`(星空・星座モード。銀河中心の高度・地形を条件にしない。出力は `report_stars.html` で `report.html` を上書きしない)を使う。天の川を撮るときは既定の `milkyway`。
+- 「空の開け具合」(`sky_openness`)と「冬の天の川の帯」(`winter_milky_way`)は参考の情報で、順位・足切りには使っていない。「ECMWFだけの予報(目安)」の印の付いた夜は、雲量で足切りしていない。
 - `report.html` は追跡しない。生成日時が今日でなければ答えに使わない。
 
 ## 6. 保護領域(ユーザーの明示的な指示と承認なしに変えない)
