@@ -33,6 +33,38 @@ py -m venv .venv
 - 保存先の切り替え(任意): 環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、キャッシュ・天文暦・生成物(`report.html`・`out/`・`weather_map_commentary.json` など)の書き込み先がそのフォルダになる(リポジトリと同じ相対構成。`hb_paths.py` が決める)。**未設定または空なら従来どおりリポジトリ直下で、動作は変わらない。** 読み取り専用の静的データ(`areas.json`・`stargazing_spots.json`・horizon CSV など)は常にリポジトリ側。PowerShell の例: `$env:HOSHIBIYORI_DATA_DIR="C:\tmp\hb_data"`。`scripts/check_setup.py` が「データ領域」を表示する。
 
 ## 5. 実行(ユーザーが頼んだときだけ)
+
+### 長い作業の前に伝える
+- 30 秒以上かかる見込みの作業の前に、何をするかと時間の目安を 1 行で利用者に伝える。例: 「全 897 地点の星空の条件を調べます。6 分ほどかかります。」
+- 伝えるのは、最初の長いコマンドを呼ぶ直前に 1 回だけ。途中の実況はしない。短い作業(30 秒未満)には出さない。
+- 時間の目安は、下の表から引く。自分で見積もらない。表に無い作業・「未実測」の作業は「時間の目安はまだ測っていません」と言う。
+- 条件で時間が大きく変わる作業(探索・レポートの生成)は、先に見積もりのコマンド(`--estimate`。通信しない)を実行して、その結果の時間を伝える。
+- 終わったあとに「○分かかりました」と報告する必要はない。
+- **選択肢を出すとき**(天の川モードか星空・星座モードか、など)は、選択肢ごとに時間の目安を添える。
+- 30 秒は仮の値。
+
+見積もり: `py -X utf8 explore_hoshibiyori.py --estimate`(`--target`・`--astro-grid` と併用可)、`py -X utf8 generate_report.py --estimate`。探索も計算もせず、天文計算の保存と雲量の保存(期限内)を読んで、4行を出して終了コード0で終わる。探索・レポートの生成は、始まりに同じ目安を標準エラーへ1行出す。
+
+時間の目安の表(値は実測だけ。正本は `time_estimates.py` の `ESTIMATES` で、食い違うとテストが落ちる):
+
+| 作業 | コマンド | 目安 | 出どころ |
+|---|---|---|---|
+| 探索・星空・星座モード・全897地点(保存が足りない) | `explore_hoshibiyori.py` `--target stars` | 約6分 | 2026-11-15、Windows・自宅回線、利用者の実測(360.9秒、通信あり・失敗0) |
+| 探索・星空・星座モード・全897地点(保存がそろっている) | `explore_hoshibiyori.py` `--target stars` | 約10秒 | 2026-11-15、Windows・自宅回線、利用者の実測(10.1秒、通信0回) |
+| 探索・星空・星座モード・全897地点・JSON つき | `explore_hoshibiyori.py` `--target stars --json-out …` | 約5分 | 2026-11-16、Windows・自宅回線、利用者の実測(通信617回) |
+| 探索・天の川モード・全897地点(保存が足りない) | `explore_hoshibiyori.py` | 未実測 | — |
+| 探索・天の川モード・全897地点(保存がそろっている) | `explore_hoshibiyori.py` | 未実測 | — |
+| レポートの生成・天の川モード・主軸146地点(保存が足りない) | `generate_report.py` | 未実測 | — |
+| レポートの生成・天の川モード・主軸146地点(雲量が保存済み) | `generate_report.py` | 約2分 | 2026-11-15、Windows・自宅回線、利用者の実測(1.9分、通信0回) |
+| レポートの生成・星空・星座モード・主軸146地点(保存が足りない) | `generate_report.py` `--target stars` | 未実測 | — |
+| レポートの生成・星空・星座モード・主軸146地点(雲量が保存済み) | `generate_report.py` `--target stars` | 未実測 | — |
+| 星空ガイド(数値JSON・描画) | `scripts/make_sky_guide.py`・`scripts/render_sky_guide.py` | 未実測 | — |
+| コースの取り出し | `scripts/report_courses.py` | 未実測 | — |
+| 週末ページ | `scripts/weekend_page.py` | 未実測 | — |
+| 天気図・ひまわりの取得 | `step5_cloud_forecast/jma_weather_map.py` ほか | 未実測 | — |
+| 薄明・月の時刻の先行計算 | `scripts/warm_astro_cache.py --days 30` | 未実測 | — |
+| 単体テスト | `py -X utf8 -m unittest discover -s tests` | 約1分 | 2026-11-24、Windows、Claude Code の中で実測(568件で51.3秒) |
+
 - `py generate_report.py`(引数なし): **Open-Meteo API 約220回(加えて気象庁へ、ひまわりの時刻一覧1回と赤外タイル最大12枚[3コマ×2×2、basetimeごとにキャッシュ]、天気図1セッション)**。所要時間の実測(2026-11-15、Windows、自宅回線): 主要146地点・天の川モードで雲量がキャッシュ済みなら約2分。**雲量のキャッシュが無い状態のレポート生成は 1.1.0 では未実測**。全897地点の探索(`explore_hoshibiyori.py`、星空モード)は Open-Meteo 約620回で、雲量のキャッシュが無い初回は約6分(通信617回)、同じ日の2回目は約10秒(通信0回)。固定の `report.html`(git管理外、.gitignore 済み)を上書きする。終了コード: 0=出力済み、2=失敗セル率20%以上・中止扱いの HTTP 429(下記)・基準地点(石廊崎)の MSM の予報が取得の失敗で空(`report.html` は更新しない)。429 は本文の `reason` で種類を分け、1分の上限(`minutely`)だけは65秒待って同じセルを取り直して続ける(1回の実行で合計5回まで。`grid_cache.MINUTELY_RETRY_WAIT_SEC`/`MINUTELY_RETRY_MAX`)。6回目と、`hourly`/`daily`/種類不明は中止して終了コード2。`explore_hoshibiyori.py` も同じ条件で終了コード2。
 - ひまわりの「雲域の割合」(表示名は「雲域」)は、赤外の明るさの閾値(`himawari_image.py` `HIGH_CLOUD_BRIGHTNESS_THRESHOLD`)から出す参考値で、**閾値は暫定値**(晴れた夜は未較正)。スコア・足切りには使わない。
 - 実行前に「所要時間・リクエスト数・書き込み先」を伝えて承認を得る。Open-Meteo の無料枠は同じ回線の他の利用と共有される。

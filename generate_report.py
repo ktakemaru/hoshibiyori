@@ -56,7 +56,10 @@ from explore_hoshibiyori import (  # noqa: E402
     compute_site_night_window, make_lp_store, lp_limit_text,
     ReferenceForecastUnavailable,
     add_astro_grid_argument, make_astro_cache, finish_astro_cache,
+    add_estimate_argument, print_estimate,
 )
+import explore_hoshibiyori as _explore_module  # noqa: E402
+import time_estimates  # noqa: E402
 from lp_source import (  # noqa: E402
     BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, describe_alr,
 )
@@ -400,13 +403,23 @@ def parse_args(argv=None):
                     help="milkyway=天の川(既定。report.htmlに出力) / "
                          "stars=星空・星座(銀河中心の条件を使わない。天の川は対象外。report_stars.htmlに出力)")
     add_astro_grid_argument(ap)
+    add_estimate_argument(ap)
     return ap.parse_args(argv)
+
+
+def _report_sites() -> list[dict]:
+    """レポートの対象の地点(主軸だけ。_generate と同じ絞り方)。"""
+    return [s for s in load_candidate_sites() if is_primary_origin(s["origin"])]
 
 
 def main(argv=None) -> int:
     """終了コード: 0=出力済み(取得失敗があれば警告バナー付き)、2=取得失敗が多すぎる/429のためreport.htmlを更新せず中止。"""
     args = parse_args(argv)
+    if args.estimate:
+        return print_estimate("report", args.target, _report_sites(), args.astro_grid)
     t0 = time.perf_counter()
+    # 2026-11-24: 始まりの予告(標準エラーへ1行。標準出力とレポートは変わらない)
+    time_estimates.print_start_notice(_explore_module, "report", args.target, _report_sites, args.astro_grid)
     cache = GridCloudCache()
     astro = make_astro_cache(args.astro_grid)
     out_path = OUTPUT_PATH_STARS if args.target == "stars" else OUTPUT_PATH

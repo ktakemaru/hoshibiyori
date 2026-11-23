@@ -925,7 +925,26 @@ def parse_args(argv=None):
     ap.add_argument("--json-out", default=None, metavar="ファイル",
                     help="探索結果をJSON(スキーマ hoshibiyori-explore/1、候補は全件)で書き出す。"
                          "終了コード0のときだけ書く(2のときは書かず、既存のファイルにも触れない)。通信の量は変わらない")
+    add_estimate_argument(ap)
     return ap.parse_args(argv)
+
+
+def add_estimate_argument(ap) -> None:
+    """--estimate(explore と generate_report で共通)。"""
+    ap.add_argument("--estimate", action="store_true",
+                    help="時間の見積もりだけを出して終わる(通信しない。探索も計算もしない)")
+
+
+def print_estimate(kind: str, target: str, sites: list[dict], astro_grid: str) -> int:
+    """--estimate の本体。終了コード 0。"""
+    import time_estimates as te
+    ref_site = next(s for s in sites if s["name"] == "石廊崎")
+    state = te.cache_state(sys.modules[__name__], kind, sites, ref_site, astro_cache_dir=ASTRO_CACHE_DIR)
+    if astro_grid == "site":    # 従来の地点ごとの計算は保存を読まない
+        state.nights_ready = 0
+    for line in te.estimate_lines(kind, target, sites, state):
+        print(line)
+    return 0
 
 
 def add_astro_grid_argument(ap) -> None:
@@ -970,7 +989,12 @@ def finish_astro_cache(astro: AstroNightCache | None) -> None:
 def main(argv=None) -> int:
     """終了コード: 0=完了(取得失敗があれば警告を表示)、2=取得失敗が多すぎる/429。"""
     args = parse_args(argv)
+    if args.estimate:
+        return print_estimate("explore", args.target, load_candidate_sites(), args.astro_grid)
     t0 = time.perf_counter()
+    import time_estimates
+    # 2026-11-24: 始まりの予告(標準エラーへ1行。標準出力と --json-out は変わらない)
+    time_estimates.print_start_notice(sys.modules[__name__], "explore", args.target, load_candidate_sites, args.astro_grid)
     cache = GridCloudCache()
     astro = make_astro_cache(args.astro_grid)
     sink: dict = {}

@@ -85,6 +85,7 @@
 | `CHANGELOG.md` | 変更履歴(Keep a Changelog 形式。実際にmainにマージされた変更のみ) |
 | `.claude-plugin/` | Claude Code プラグインの定義(`plugin.json`・`marketplace.json`) |
 | `skills/hoshibiyori/` | プラグインのスキル(`SKILL.md`。手順・閾値・数値の正本は `AGENTS.md`) |
+| `time_estimates.py` | 長い作業の時間の目安(実測だけ)と、`--estimate` の見積もり |
 | `hb_paths.py` | 保存先(キャッシュ・天文暦・生成物)と読み取り専用の静的データの場所を決める。環境変数 `HOSHIBIYORI_DATA_DIR` に対応 |
 
 ## セットアップ
@@ -188,6 +189,7 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 - 所要時間の実測(2026-11-15、Windows、自宅回線):
   - 探索(全897地点・星空モード): 雲量のキャッシュが無い初回は約6分(通信617回)、同じ日の2回目は約10秒(通信0回)。
   - レポート生成(主要146地点・天の川モード): 雲量がキャッシュ済みで約2分。**雲量のキャッシュが無い状態のレポート生成は 1.1.0 では未実測**です。
+- 時間の見積もり(通信しない): `explore_hoshibiyori.py --estimate`・`generate_report.py --estimate`。天文計算の保存と、期限内の雲量の保存がどれだけあるかを読んで、実測から選んだ時間の目安を出す(探索も計算もしない)。探索・レポートの生成の始まりにも、同じ目安を標準エラーへ1行出す。時間の目安の表は `AGENTS.md` 第5節(値は実測だけ。正本は `time_estimates.py`)。
 - 星空ガイドの雲量取得(`--cloud fetch --allow-network`。先に `--estimate`)。
 
 **HTTP 429** は、1分の上限(`minutely`)なら65秒待って同じセルを取り直します(1回の実行で5回まで)。1時間・1日の上限と理由が分からないもの、6回目の1分の上限は中止します(終了コード2、`report.html` は更新しない)。別経路やリトライの連打で回避しません(`AGENTS.md` 第7節)。
