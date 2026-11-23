@@ -85,6 +85,7 @@
 | `CHANGELOG.md` | 変更履歴(Keep a Changelog 形式。実際にmainにマージされた変更のみ) |
 | `.claude-plugin/` | Claude Code プラグインの定義(`plugin.json`・`marketplace.json`) |
 | `skills/hoshibiyori/` | プラグインのスキル(`SKILL.md`。手順・閾値・数値の正本は `AGENTS.md`) |
+| `requested_nights.py` | 聞かれた夜(`--nights`)を調べる。通信しない |
 | `time_estimates.py` | 長い作業の時間の目安(実測だけ)と、`--estimate` の見積もり |
 | `hb_paths.py` | 保存先(キャッシュ・天文暦・生成物)と読み取り専用の静的データの場所を決める。環境変数 `HOSHIBIYORI_DATA_DIR` に対応 |
 
@@ -122,6 +123,15 @@ py -m venv .venv
 ### 探索結果を JSON で書き出す(`--json-out`)
 
 `explore_hoshibiyori.py --json-out <ファイル>` で、探索結果をスキーマ `hoshibiyori-explore/1`(`schemas/hoshibiyori-explore.schema.json`)の JSON に書き出します(ほかのプログラム、たとえばビヨリコンシェルが読むための出力)。近日中の候補(`finals`)と見込み(`outlooks`)を画面の上位N件で切らずに全件入れ、使った閾値・候補の夜・取得の集計・版と commit も入ります。時刻はオフセットつき、欠損は `null`。`--target`・`--astro-grid` と併用でき、通信の量は変わりません。終了コード0のときだけ書き(一部の予報が取れなかった回は `fetch.status` が `partial`)、終了コード2のときは書かず、既にあるファイルにも触れません。例: `.\.venv\Scripts\python.exe -X utf8 explore_hoshibiyori.py --target stars --json-out C:\temp\hoshi-stars.json`。スコアは `finals` と `outlooks` で式が違い、絶対値を比べられません(各候補の `score_kind`)。星空・星座モード(`--target stars`)はスコアを順位に使わないため、`score` は `null` です(順位は `rank` を見てください)。`nights` は候補の夜(月の条件で上位の夜)だけですが、`scanned_nights` には走査した全部の夜が日付順に入り、候補に選ばれたか(`selected`)と、選ばれなかった理由のコード(`not_selected_reason`: `no_sunset_or_sunrise`・`no_astronomical_darkness`・`no_moon_free_window`・`not_in_top_n`)が付きます。`scanned_nights` はスキーマの必須項目です(この項目が入る前の出力は、今のスキーマの検査を通りません)。
+
+**地点の変わらない ID**: 候補の `site_id` と、全地点の一覧 `site_index`(候補に入らなかった地点も入る)の `site_id` は、`stargazing_spots.json` の `id` です。同じ名前の地点が37組あるので、名前ではなく `site_id` で見分けます。一覧の `label` は見分けるための言い方(名前(市町村)。それでも重なる地点は ID を添える)です。この2つもスキーマの必須項目です。
+
+**聞かれた夜を必ず調べる(`--nights 2026-11-28,2026-11-29`)**: 夜の始まりの日付を指定すると、月の条件で上位6夜に入らない夜も調べ、`requested_nights[]` と画面の数行に出します(指定しないときは、この項目も画面の行もありません。候補・順位・スコアは変わりません)。
+
+- `window_kind`: `moon_free`(月の無い暗い時間帯で調べた)/ `dark`(月の無い時間帯が無い、または最小の晴れ間の1時間より短いので、暗い時間帯ぜんぶで調べた)/ `none`(調べていない。理由は `none_reason`)。月は `moon`(出ている時間・区間・輝面比。基準地点)。
+- 地点ごとの `status`: `passed` / `failed`(`reasons`: `cloud_filter`・`light_pollution_filter`・`direction_filter`[天の川モードだけ])/ `not_examined`(`not_examined_reason`)。閾値は候補と同じで、スコアは出しません(`null`)。地点が多いので、`sites` には条件を通った地点の全部と、主軸146地点を入れ、残りは `counts` の件数だけです。
+- **通信は増えません**: その回の通常の探索が取ったセル(1セルで全部の日が入っている)と、期限内の保存だけを読みます。通常の探索が取らないセル(候補が全部見込みの日の、光害で落ちる地点など)は `not_examined_reason: cell_not_fetched` になります。
+- ECMWF だけの夜(`forecast_regime: ECMWF`)も同じ雲量の閾値で判定しますが、目安です。
 
 依存パッケージは `requirements.txt` を参照: `skyfield`・`requests`・`numpy`(標高・光害タイルの配列処理)・`pillow`(ひまわり画像のモザイク化)。地上天気図の取得にはPlaywrightも使う(任意。未導入なら天気図セクションは省略される)。
 
