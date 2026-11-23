@@ -11,6 +11,8 @@ venv/
 # --- Runtime caches of external data (regenerable; access-politeness rules in CLAUDE.md) ---
 # 国土地理院 標高タイル(約23GB)
 step2_terrain/dem_cache/
+# 国土地理院 標高タイル(直下に作られた写し、約1GB)
+/dem_cache/
 # 旧光害タイルのキャッシュ(取得処理は段階LP3bで削除。手元に残っている場合に誤ってコミットしないため除外を残す)
 step3_light_pollution/tile_cache/
 # NASA Black Marble の生HDF5と比較用の中間生成物(約1GB。段階LP1、年1回の再生成で作り直せる)

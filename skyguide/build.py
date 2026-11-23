@@ -36,7 +36,21 @@ def load_spot(key: str) -> dict:
         raise SkyGuideError(f"stargazing_spots.json に地点がありません: {key}(一覧にない地点は --name --lat --lon --elevation)")
     if len(hits) > 1:
         raise SkyGuideError(f"地点名が複数あります。id で指定してください: {[h['id'] for h in hits]}")
-    return hits[0]
+    return with_elevation(hits[0])
+
+
+def with_elevation(spot: dict) -> dict:
+    """標高(elevation_m)が地点データに無い地点(石廊崎・ヘブンスそのはら)は、探索と同じ検証済みの値
+    (explore_hoshibiyori.ELEVATION_BY_NAME)を使う。それも無ければ分かる文で断る(標高を推測しない)。2026-11-24。"""
+    if spot.get("elevation_m") is not None:
+        return spot
+    import explore_hoshibiyori as ex
+    elev = ex.ELEVATION_BY_NAME.get(spot["name"])
+    if elev is None:
+        raise SkyGuideError(f"この地点は標高のデータがありません: {spot['name']}"
+                            "(--name --lat --lon --elevation で標高を指定してください)")
+    return {**spot, "elevation_m": elev,
+            "elevation_source": "explore_hoshibiyori.py ELEVATION_BY_NAME(検証済み地点の標高)"}
 
 
 def read_horizon_csv(path: Path) -> list[float]:

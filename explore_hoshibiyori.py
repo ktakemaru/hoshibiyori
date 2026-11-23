@@ -693,10 +693,10 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
             # (以前は判定をスキップして通過扱い)。horizon_alt は従来どおり None のまま(0 を入れない)。
             clears_horizon = best_alt > 0.0
             terrain_available = False
-            if clears_horizon:
-                no_terrain_count += 1   # 地形データが無く、0°の判定を通った件数(光害の判定は問わない)
 
         if clears_horizon and clears_light_pollution:
+            if not terrain_available:
+                no_terrain_count += 1   # 通過した候補のうち地形データが無いもの(2026-11-24、光害の足切りの後に数える)
             score = (
                 (100.0 - s["mean_obstruction"]) * 1.0
                 + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
