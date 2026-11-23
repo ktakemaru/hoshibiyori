@@ -51,8 +51,8 @@ ESTIMATES: tuple[Estimate, ...] = (
     Estimate("weekend", "週末ページ", "`scripts/weekend_page.py`", None, UNMEASURED, "—"),
     Estimate("weathermap", "天気図・ひまわりの取得", "`step5_cloud_forecast/jma_weather_map.py` ほか", None, UNMEASURED, "—"),
     Estimate("warm_astro", "薄明・月の時刻の先行計算", "`scripts/warm_astro_cache.py --days 30`", None, UNMEASURED, "—"),
-    Estimate("tests", "単体テスト", "`py -X utf8 -m unittest discover -s tests`", 51.3,
-             "約1分", "2026-11-24、Windows、Claude Code の中で実測(568件で51.3秒)"),
+    Estimate("tests", "単体テスト", "`py -X utf8 -m unittest discover -s tests`", 108.6,
+             "約2分", "2026-11-24、Windows、Claude Code の中で実測(658件で108.6秒)"),
 )
 BY_KEY = {e.key: e for e in ESTIMATES}
 

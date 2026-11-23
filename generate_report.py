@@ -41,7 +41,6 @@ for sub in ["step1_astronomy", "step2_terrain", "step3_light_pollution", "step4_
 from hb_paths import DATA_ROOT, ephemeris_load as load  # noqa: E402
 
 from catalog import get_target  # noqa: E402
-from sky_engine import altaz_at_datetime  # noqa: E402
 from grid_cache import FAILED_CELL_RATE_ABORT, FetchSummary, GridCloudCache, timing_line  # noqa: E402
 from cloud_forecast import OpenMeteoDailyLimitError  # noqa: E402
 from elevation_cloud import get_level_cloud_forecast, hourly_sky_obstruction_and_cloud_sea  # noqa: E402
@@ -61,6 +60,7 @@ from explore_hoshibiyori import (  # noqa: E402
 import explore_hoshibiyori as _explore_module  # noqa: E402
 import time_estimates  # noqa: E402
 import winter_milkyway  # noqa: E402
+import sky_highlights  # noqa: E402
 from lp_source import (  # noqa: E402
     BM_ALR_THRESHOLD, BM_CITATION, BM_RANK_NOTE, BM_RELATIVE_NOTE, describe_alr,
 )
@@ -101,24 +101,16 @@ MAP_REF_POINTS = [
 ]
 
 # --- この時期の見どころガイド(2026-09-06追加、1段目「概況」に表示) ---
-# step1_astronomy/targets.jsonに登録済みの天体から、天の川銀河中心(探索モード本体の
-# 主対象、常に表示)に加えて、星景写真の対象として人気があり肉眼でも見つけやすい
-# 「季節の目印」を最大MAX_SEASONAL_TARGETS件、月に応じて自動選択する。
-# 対象を増やしすぎないよう、四季を代表する大三角+定番星座に絞っている
-# (北斗七星・すばるはtargets.jsonには残すが、このローテーションには含めない)。
+# 2026-11-24から、対象の選び方と値は sky_highlights.py(惑星・季節の星座・星団・流星群を、宵・夜半・明け方の
+# 時間帯ごとに)が決め、ここでは文にするだけ。下の select_seasonal_targets は、月ごとの季節の判定として残してある
+# (今の見どころの表示では使っていない)。
 # 特定の候補地点の地形地平線には依存せず、平坦な地平線を仮定した汎用的な目安
 # (MIN_GUIDE_ALT_DEG以上で「見える」とみなす)であることに注意。
 CORE_TARGET_ID = "galactic_center"
 SEASONAL_TARGET_IDS = ["summer_triangle", "winter_triangle", "orion", "cassiopeia"]
 MAX_SEASONAL_TARGETS = 2
 MIN_GUIDE_ALT_DEG = 15.0
-_GUIDE_SAMPLE_INTERVAL_MIN = 15
 
-_SEASON_STATUS_LABEL = {
-    "in_season": "見頃です",
-    "coming_soon": "そろそろ見頃に入ってくる時期です",
-    "leaving_soon": "そろそろ見納めの時期です",
-}
 _SEASON_STATUS_PRIORITY = {"in_season": 0, "coming_soon": 1, "leaving_soon": 2}
 
 _COMPASS_16 = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東",
@@ -318,58 +310,12 @@ def build_casual_weather_note(ts, eph, casual_eligible_sites: list[dict], msm_ni
             "この期間だけ「硬派コース」側の遠方候補もあわせてご検討ください。")
 
 
-def _find_visible_windows(ts, eph, lat: float, lon: float, target,
-                           window_start: datetime, window_end: datetime) -> list[dict]:
-    """window_start〜window_end内で、対象の高度がMIN_GUIDE_ALT_DEGを上回る連続区間をすべて返す。
-
-    候補地点固有の地形地平線は考慮しない汎用ガイドのため、平坦な地平線+仰角閾値のみで判定する。
-    各区間について、開始・終了・南中(最高高度)時刻とその方位角/高度をまとめる。
-    """
-    samples = []
-    t = window_start
-    while t <= window_end:
-        az, alt = altaz_at_datetime(ts, eph, lat, lon, 0.0, target, t)
-        samples.append((t, az, alt))
-        t += timedelta(minutes=_GUIDE_SAMPLE_INTERVAL_MIN)
-
-    windows = []
-    cur = []
-    for s in samples:
-        if s[2] > MIN_GUIDE_ALT_DEG:
-            cur.append(s)
-        elif cur:
-            windows.append(cur)
-            cur = []
-    if cur:
-        windows.append(cur)
-
-    results = []
-    for w in windows:
-        peak = max(w, key=lambda s: s[2])
-        results.append({
-            "start": w[0][0], "end": w[-1][0],
-            "peak_time": peak[0], "peak_az": peak[1], "peak_alt": peak[2],
-        })
-    return results
-
-
-def build_sky_guide(ts, eph, ref_lat: float, ref_lon: float, night: NightCandidate, month: int,
-                    include_core: bool = True) -> dict:
-    """代表夜(通常は直近14夜のうち今夜)について、月に応じて選んだ天体の見える時間帯と方角をまとめる。
-
-    月の有無(無月時間帯)には左右されない一般的な「見どころ」ガイドなので、
-    夜全体(天文薄明終了〜天文薄明開始)を対象にする(night.window_start/endという
-    無月区間には限定しないが、空が完全に暗くなる時間帯には限定する)。
-    """
-    selected = select_seasonal_targets(month, include_core)
-    targets_out = []
-    for target, status in selected:
-        if night.dark_start is None or night.dark_end is None:
-            targets_out.append({"target": target, "status": status, "windows": []})
-            continue
-        windows = _find_visible_windows(ts, eph, ref_lat, ref_lon, target, night.dark_start, night.dark_end)
-        targets_out.append({"target": target, "status": status, "windows": windows})
-    return {"night_date": night.night_date, "targets": targets_out}
+def build_sky_guide(ts, eph, ref_lat: float, ref_lon: float, night: NightCandidate, now: datetime,
+                    winter_band: dict | None = None) -> dict:
+    """代表夜(通常は今夜)の見どころの値。月の有無には左右されない一般的なガイドなので、夜全体
+    (天文薄明終了〜天文薄明開始)を対象にする。値は sky_highlights.build が作り、文は render_sky_guide が作る。"""
+    return sky_highlights.build(_explore_module, ts, eph, ref_lat, ref_lon, night.night_date,
+                                night.dark_start, night.dark_end, now, MIN_GUIDE_ALT_DEG, winter_band)
 
 
 def build_period_summary(finals: list[FinalCandidate], outlooks: list[OutlookCandidate],
@@ -531,8 +477,10 @@ def _generate(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE, out
         winter_bands = {n.night_date: winter_milkyway.night_band(ts, eph, ref_site["lat"], ref_site["lon"], n.dark_start, n.dark_end)
                         for n in all_nights}
 
-    sky_guide = build_sky_guide(ts, eph, ref_site["lat"], ref_site["lon"], all_nights[0], t_start.month,
-                            include_core=target_mode != "stars")
+    tonight = all_nights[0]
+    tonight_band = (winter_bands[tonight.night_date] if tonight.night_date in winter_bands else
+                    winter_milkyway.night_band(ts, eph, ref_site["lat"], ref_site["lon"], tonight.dark_start, tonight.dark_end))
+    sky_guide = build_sky_guide(ts, eph, ref_site["lat"], ref_site["lon"], tonight, t_start, tonight_band)
     tier2_hardcore = sorted(finals, key=lambda f: final_rank_key(f, target_mode), reverse=True)[:TOP_N_TIER2]
 
     outlooks_by_date: dict = {}
@@ -916,39 +864,106 @@ def render_night_view_group(items: list[dict]) -> str:
         </div>"""
 
 
+def _guide_hm(dt: datetime, base) -> str:
+    """見どころの時刻(30分単位に丸め、翌日なら「翌」を付ける)。"""
+    total = round((dt.hour * 60 + dt.minute + dt.second / 60) / 30) * 30
+    rounded = dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(minutes=total)
+    return f"{'翌' if rounded.date() > base else ''}{rounded:%H:%M}"
+
+
+def _guide_direction(az: float, alt: float) -> str:
+    # 高度80°超(天頂付近)は方位角の変化が急峻で特定の方角として示す意味が薄いため「ほぼ天頂」と表現する
+    return "ほぼ天頂" if alt >= 80 else f"{compass_direction(az)}の高度{alt:.0f}°"
+
+
+def _guide_moon(intervals: list[dict], base) -> str:
+    if not intervals:
+        return "月は出ていない"
+    return "月は" + "・".join(f"{_guide_hm(m['start'], base)}〜{_guide_hm(m['end'], base)}" for m in intervals) + "に出ている"
+
+
+def _guide_window(m: dict, base) -> str:
+    return (f"{_guide_hm(m['start'], base)}〜{_guide_hm(m['end'], base)}、"
+            f"{_guide_hm(m['peak_time'], base)}ごろ{_guide_direction(m['peak_az'], m['peak_alt'])}")
+
+
+def _guide_member(m: dict) -> str:
+    return m["name"] + ("〈月明かりで見えにくい〉" if m["faint_in_moonlight"] else "")
+
+
+def guide_item_text(item: dict, base) -> tuple[str, str]:
+    """(見出し, 説明)。"""
+    if item["type"] == "planets":
+        return item["name"], "・".join(f"{m['name']}({_guide_window(m, base)})" for m in item["members"])
+    members = item["members"]
+    rep = next((m for m in members if m["name"] == item["name"]), None)
+    if rep is None:
+        rep = max(members, key=lambda m: m["peak_alt"])
+        if len(members) == 1 and item["name"] != rep["name"]:
+            return f"{_guide_member(rep)}({item['name']})", _guide_window(rep, base)
+        others = members
+    else:
+        others = [m for m in members if m is not rep]
+    names = "・".join(_guide_member(m) for m in others)
+    head = _guide_member(rep) if rep["name"] == item["name"] else item["name"]
+    return head + (f"({names})" if names else ""), _guide_window(rep, base)
+
+
+def guide_shower_text(s: dict) -> tuple[str, str]:
+    """流星群の(見出し, 説明)。"""
+    peak_base = s["peak_time"].date()
+    parts = [f"極大は{peak_base.month}月{peak_base.day}日 {_guide_hm(s['peak_time'], peak_base)}ごろ(日本時間)"]
+    if s["night_date"] is not None:
+        d = s["night_date"]
+        if s["radiant_start"] is not None:
+            parts.append(f"極大の夜({d.month}月{d.day}日の夜)に放射点が高度{sky_highlights.RADIANT_MIN_ALT_DEG:.0f}°以上に出ているのは"
+                         f"{_guide_hm(s['radiant_start'], d)}〜{_guide_hm(s['radiant_end'], d)}")
+        else:
+            parts.append(f"極大の夜({d.month}月{d.day}日の夜)には放射点が高度{sky_highlights.RADIANT_MIN_ALT_DEG:.0f}°以上に出ない")
+        parts.append(f"{_guide_moon(s['moon_up_intervals'], d)}(輝面比{s['moon_illuminated_fraction']:.0%})")
+    parts.append(f"出現数の目安は1時間あたり{s['zhr']}({s['caveat']})")
+    return s["name"], "。".join(parts)
+
+
 def render_sky_guide(sky_guide: dict) -> str:
-    if not sky_guide or not sky_guide.get("targets"):
+    if not sky_guide:
         return ""
-    lines = []
-    for t in sky_guide["targets"]:
-        target = t["target"]
-        status = t["status"]
-        windows = t["windows"]
-        status_phrase = _SEASON_STATUS_LABEL.get(status)
-        prefix = f"{status_phrase}。" if status_phrase else ""
+    base = sky_guide["night_date"]
+    min_alt = sky_guide["min_alt_deg"]
 
-        if not windows:
-            lines.append(f"<li><b>{html.escape(target.name)}</b>: {prefix}この時期は高度{MIN_GUIDE_ALT_DEG:.0f}&deg;以上には昇りません</li>")
-            continue
-        parts = []
-        for w in windows:
-            # 高度80°超(天頂付近)は方位角の変化が急峻で特定の方角として示す意味が薄いため、
-            # 「ほぼ天頂」と表現する(南中高度が観測地の緯度と対象の赤緯の差で決まるため、
-            # 夏の大三角のように緯度に近い赤緯を持つ対象では日本付近でしばしば天頂近くを通る)。
-            direction = "ほぼ天頂" if w["peak_alt"] >= 80 else f"{compass_direction(w['peak_az'])}の空"
-            parts.append(
-                f"{fmt_hm_rounded(w['start'])}〜{fmt_hm_rounded(w['end'])}頃({direction}、"
-                f"最高高度は{fmt_hm_rounded(w['peak_time'])}頃に約{w['peak_alt']:.0f}&deg;)"
-            )
-        lines.append(f"<li><b>{html.escape(target.name)}</b>: {prefix}{'、'.join(parts)}</li>")
-
+    def li(head: str, text: str) -> str:
+        return f"<li><b>{html.escape(head)}</b>: {html.escape(text)}</li>"
+    blocks = []
+    for slot in sky_guide["slots"]:
+        moon = f"、{_guide_moon(slot['moon_up_intervals'], base)}" if slot["moonlit"] else ""
+        rows = ("".join(li(*guide_item_text(i, base)) for i in slot["items"])
+                or f"<li>高度{min_alt:.0f}&deg;以上に出る対象はありません</li>")
+        blocks.append(f'<h4 class="guide-slot">{html.escape(slot["label"])}'
+                      f'({html.escape(_guide_hm(slot["start"], base))}〜{html.escape(_guide_hm(slot["end"], base))}{html.escape(moon)})</h4>'
+                      f'<ul class="guide-list">{rows}</ul>')
+    extra = []
+    if sky_guide.get("winter_band") is not None and sky_guide["winter_band"]["high_start"] is not None:
+        head, text = winter_milkyway.band_text(base, sky_guide["winter_band"]).split(": ", 1)
+        extra.append(li(head, text))
+    extra += [li(*guide_shower_text(s)) for s in sky_guide["showers"]]
+    if extra:
+        blocks.append(f'<h4 class="guide-slot">天の川の帯・流星群</h4><ul class="guide-list">{"".join(extra)}</ul>')
+    hidden = ""
+    if sky_guide["not_visible"]:
+        names = "、".join(n["name"] + (f"(次に見えるのは{n['next_month']}月ごろ)" if n["next_month"] else "")
+                         for n in sky_guide["not_visible"])
+        hidden = f'<p class="group-note">今の時期は見えません: {html.escape(names)}</p>'
+    if not blocks and not hidden:
+        return ""
     return f"""
         <div class="sky-guide">
           <h3 class="group-title">🌌 この時期の見どころ</h3>
-          <p class="group-note">対象地点固有の地形は考慮しない一般的な目安です(地平線から{MIN_GUIDE_ALT_DEG:.0f}&deg;以上を「見える」の基準、
+          <p class="group-note">対象地点固有の地形は考慮しない一般的な目安です(地平線から{min_alt:.0f}&deg;以上を「見える」の基準、
           時刻は30分単位に丸めています)。直近数日はほぼ同じ見え方のため今夜の分を代表として表示しています。
-          実際に見えるかどうかは地形・雲量に左右されます。</p>
-          <ul class="guide-list">{"".join(lines)}</ul>
+          実際に見えるかどうかは地形・雲量に左右されます。時間帯ごとに最大{sky_highlights.MAX_ITEMS_PER_SLOT}件(惑星 → その時間帯に南中する対象 → そのほか)です。
+          星・星団と流星群の元の値は、星表・流星群の一覧と照らしていない目安です。</p>
+          {"".join(blocks)}
+          {hidden}
         </div>"""
 
 
@@ -1309,6 +1324,7 @@ h1, h2, h3 { font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS M
 .sky-guide .guide-list { list-style: none; margin: 10px 0 0; padding: 14px 16px; display: grid; gap: 8px;
   font-size: .88rem; background: var(--surface-alt); border-radius: 10px; }
 .guide-list b { color: var(--accent); }
+.guide-slot { font-size: .88rem; margin: 14px 0 0; }
 
 .tier2-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
 .cand-grid { display: grid; gap: 10px; }
