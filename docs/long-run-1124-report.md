@@ -32,7 +32,7 @@
   - 天文計算の「そろっている夜」= 基準地点の夜と、雲量を調べる夜なら光害の足切りに残る地点のセルが全部保存されていること。
   - 実測の無い組み合わせは、同じコマンドの実測のうち長いほうで代用し、代用と分かるように書く。ただし、**保存がそろっているときの短い実測を、足りないときの目安には使わない**(レポートの生成の「足りないとき」は「まだ測っていません」と出る)。
   - 満月のころの見込みだけの日は、光害で落ちる地点の雲量を取らないので、全セルはそろわない。この日は保存が足りていても長いほうの目安が出る。
-- 単体テストの時間(約 1 分)は、この作業で測った値を表に入れた。
+- 単体テストの時間は、この作業で測った値を表に入れた(第 2 部では 568 件で約 1 分。第 5 部で 658 件・108.6 秒の約 2 分に更新)。
 
 ### 第 3 部 `feature/concierge-interface`
 
@@ -72,6 +72,22 @@
 | 日原鍾乳洞 | 7.10 | 37°・59° | 19% | 6 | 7 |
 | 奥多摩湖ダムサイトパーキング | 7.82 | 16°・36° | 64% | 7 | 4 |
 
+### 第 5 部 `feature/sky-highlights`
+
+- `sky_highlights.py` が値を返し、文は `generate_report.render_sky_guide` が作る。対象は `targets.json` に 19 件足した(18 件 + 秋の四辺形)。すばるは今あるものを使った。流星群 7 件は `step1_astronomy/meteor_showers.json`。
+- 流星群の極大は、ペルセウス座 2026-08-13 11 時ごろ、ふたご座 2026-12-14 23 時ごろ、しぶんぎ座 2027-01-04 12 時半ごろ(日本時間)で、3 つとも指示書の日付と合った。外したものは無い。
+- 決めたこと:
+  - **同じ星座・星の並びの対象を 1 件にまとめ、惑星もまとめて 1 件に数えた。** 冬は惑星が 3 つ出る夜があり、1 つずつ数えると上限の 4 件で星の枠がほとんど残らないため。
+  - 「今が季節」= その時間帯の中で南中する(いちばん高くなる時刻が時間帯の端でない)。`best_months` の無い対象にも使える決め方にした。同じ中では `targets.json` の並び順(既存の対象 → 指示書の表の順)。
+  - 月明かり = 月が地平線の上で、今ある「月の影響が小さい」の判定(位相角)に当たらない時刻が、時間帯の中にあること。
+  - 1 等星の印は、指示書の表に等級が無いため、一般に 1 等星とされるものに付けた(カストルは付けていない)。未照合。
+  - 銀河中心にも「月明かりで見えにくい」を添える。星空・星座モードのレポートにも銀河中心を出す(「同じものを出す」に従った。以前は外していた)。
+  - 太陽の黄経の春分点は J2000 とした(流星群の一覧の決まりと覚えているもの。未照合)。当日の春分点で計算すると約 9 時間ずれる。
+  - 極大の夜 = 放射点が高度 20° 以上の時間帯が、極大の時刻にいちばん近い夜(しぶんぎ座は 1 月 3 日の夜になる)。
+  - 「次に見えるのは」は、各月 15 日の暗い時間帯に一度でも高度 15° 以上に出る最初の月。組は代表の対象の月。
+- 見どころの以前の選び方(`select_seasonal_targets`)は、既存のテストが確かめているため残した(表示では使っていない)。「見頃です」などの季節の言葉は、表示から無くなった。
+- 座標の食い違い: 今ある対象との重なりはすばるだけで、今あるものを使った。星空ガイドの恒星カタログ(`skyguide/objects.json`)と同じ名前の対象は、最大 0.007° の差(どちらも星表とは照らしていない)。
+
 ## 3. テストの結果
 
 | 部 | 件数 | 結果 |
@@ -81,8 +97,9 @@
 | 第 2 部 | 592 | OK(skipped 3)。足したもの: `tests/test_wait_notice.py`(20 件) |
 | 第 3 部 | 610 | OK(skipped 3)。足したもの: `tests/test_concierge_interface.py`(18 件、約 27 秒) |
 | 第 4 部 | 633 | OK(skipped 3)。足したもの: `tests/test_stars_mode_info.py`(23 件) |
+| 第 5 部 | 658 | OK(skipped 3)、108.6 秒。足したもの: `tests/test_sky_highlights.py`(25 件) |
 
-直した既存のテスト: なし(第 1〜4 部)。
+直した既存のテスト: なし(全部の部)。第 4 部で 1 件落ちたが、テストは直さず表示のほうを変えた。
 
 ## 4. 変えていないことの確かめ
 
@@ -93,3 +110,151 @@
 - 第 2 部: 標準出力・JSON・レポートは第 1 部と 1 バイトも違わない。標準エラーに予告が 1 行増えただけ。
 - 第 3 部: `--nights` なしの標準出力・レポートは第 2 部と同じ。JSON は `site_id`・`site_index` を除くと変更前の main と同じ(6 通りとも)。`--nights` を付けると、足した行と `requested_nights`・注記・「天文計算のキャッシュ」の件数のほかは同じで、API の回数も同じ。
 - 第 4 部: JSON は `sky_openness`・`winter_milky_way` を除くと第 3 部と同じ(6 通りとも。候補・順位・スコア・API の回数も同じ)。標準出力とレポートの差は、足した印・空の開け・冬の帯の行だけ。
+- 第 5 部: 最後の JSON は、足した 4 項目(`site_id`・`site_index`・`sky_openness`・`winter_milky_way`)を除くと、変更前の main と 6 通りとも同じ。レポートの差は見どころの枠と、第 4 部で足した印・空の開け・冬の帯。
+- 保護領域: `step2_terrain`・`step3_light_pollution`・`step4_moonlight`・`step5_cloud_forecast`・`step7_geocoding`・`stargazing_spots.json`・`curated_spots.json`・`.claude-plugin` に main からの差分は無い(`git diff --stat main -- …` が空)。`explore_hoshibiyori.py` のスコア式・閾値・地形の無い地点の判定の行は変わっていない。
+- `--nights` なしの動き: 上の前後比較と、通信の関数の呼び出しを数えるテストで確かめた。
+- 天文暦の無い環境(CI と同じ)でも、足したテストは落ちない(データ領域を空にして実行、24 件スキップ)。
+
+## 5. 仮の値の一覧
+
+| 値 | 場所 |
+|---|---|
+| 30 秒(予告を出す境) | `time_estimates.NOTICE_THRESHOLD_SEC`・`AGENTS.md` 第 5 節 |
+| 高度 20°(空の開け具合) | `explore_hoshibiyori.SKY_OPEN_ALT_DEG` |
+| 高度 20°(冬の天の川の帯)・10° ごとの点・30 分ごと | `winter_milkyway.HIGH_ALT_DEG`・`BAND_L_DEG`・`SAMPLE_MIN` |
+| 22 時・翌 2 時(時間帯の境) | `sky_highlights.EVENING_END_HOUR`・`MIDNIGHT_END_HOUR` |
+| 時間帯ごとに 4 件 | `sky_highlights.MAX_ITEMS_PER_SLOT` |
+| 30 日以内の流星群 | `sky_highlights.METEOR_DAYS_AHEAD` |
+| 放射点の高度 20° | `sky_highlights.RADIANT_MIN_ALT_DEG`(指示書の値) |
+| 「次に見える」は各月 15 日・12 か月先まで | `sky_highlights._next_visible`・`NEXT_VISIBLE_MONTHS` |
+| ほぼ天頂 = 高度 80° 以上 | 見どころは従来からの値、`winter_milkyway._ZENITH_ALT_DEG` は同じ値 |
+
+## 6. 未照合の値の一覧
+
+`step1_astronomy/targets.json`(`source` が「指示書(2026-11-24)の値。未照合」)。赤経は時、赤緯は度。
+
+| 名前 | 赤経 | 赤緯 | 種類 | 組 | 1 等星 |
+|---|---|---|---|---|---|
+| アルデバラン | 4.598611 | +16.516667 | 星 | おうし座 | ○ |
+| カペラ | 5.278056 | +46.0 | 星 | ぎょしゃ座 | ○ |
+| リゲル | 5.242222 | -8.2 | 星 | オリオン座 | ○ |
+| ベテルギウス | 5.919444 | +7.4 | 星 | オリオン座 | ○ |
+| オリオン大星雲 | 5.588056 | -5.383333 | 星雲 | オリオン座 | — |
+| シリウス | 6.7525 | -16.716667 | 星 | 冬の大三角 | ○ |
+| プロキオン | 7.655 | +5.216667 | 星 | 冬の大三角 | ○ |
+| カストル | 7.576667 | +31.883333 | 星 | ふたご座 | — |
+| ポルックス | 7.755278 | +28.033333 | 星 | ふたご座 | ○ |
+| レグルス | 10.139444 | +11.966667 | 星 | しし座 | ○ |
+| スピカ | 13.42 | -11.166667 | 星 | おとめ座 | ○ |
+| アークトゥルス | 14.261111 | +19.183333 | 星 | うしかい座 | ○ |
+| アンタレス | 16.49 | -26.433333 | 星 | さそり座 | ○ |
+| ベガ | 18.615556 | +38.783333 | 星 | 夏の大三角 | ○ |
+| アルタイル | 19.846389 | +8.866667 | 星 | 夏の大三角 | ○ |
+| デネブ | 20.690556 | +45.283333 | 星 | 夏の大三角 | ○ |
+| フォーマルハウト | 22.960833 | -29.616667 | 星 | みなみのうお座 | ○ |
+| アンドロメダ銀河 | 0.712222 | +41.266667 | 銀河 | — | — |
+| 秋の四辺形(4 星の平均) | 23.625625 | +21.8875 | 星の並び | — | — |
+
+`step1_astronomy/meteor_showers.json`(同じく未照合)。
+
+| 名前 | 太陽黄経 | 放射点の赤経 | 放射点の赤緯 | 出現数の目安 |
+|---|---|---|---|---|
+| しぶんぎ座流星群 | 283.15 | 230 | +49 | 80 |
+| 4月こと座流星群 | 32.32 | 271 | +34 | 18 |
+| みずがめ座η流星群 | 45.5 | 338 | -1 | 50 |
+| ペルセウス座流星群 | 140.0 | 48 | +58 | 100 |
+| オリオン座流星群 | 208.0 | 95 | +16 | 20 |
+| しし座流星群 | 235.27 | 152 | +22 | 15 |
+| ふたご座流星群 | 262.2 | 112 | +33 | 150 |
+
+組・1 等星の印・黄経の春分点(J2000)も未照合。
+
+## 7. 確かめられていないこと
+
+- 実通信での動き、全 897 地点での時間とメモリ(`--nights` を付けたときの計算の増え方を含む)。
+- レポートの実物の見た目(ブラウザで開いていない。HTML の文と、`report_courses.py`・`weekend_page.py` のテストだけ)。
+- GitHub の CI(Python 3.13)。この PC の 3.13 には依存が入っておらず、テストは 3.15 だけで実行した(3.13 は構文だけ確かめた)。
+- 6 章の値。4 月こと座・みずがめ座 η・オリオン座・しし座の極大の日は、よく知られた日付との照合をしていない(指示書にある 3 つだけ)。
+- 見積もりで「保存がそろっている」と出たときに、実際に通信が 0 回になるか(光害で落ちる地点の薄明の計算は数えていない)。
+- 天の川モードの探索と、雲量の保存が無いレポートの生成の時間(未実測のまま)。
+
+## 8. 追跡していないファイル
+
+| ファイル | 種類 | 消してよいと考えるか |
+|---|---|---|
+| `dem_cache/`(1.1 GB、2,056 件) | (a) キャッシュ | `.gitignore` に足した。中身は標高タイルの保存で、取り直せる(取り直しは国土地理院への通信になる)。地形の計算が既定で読むのは `step2_terrain/dem_cache/` |
+| `net_check.py` | (b) 一時ファイル | よい。冒頭に「確かめが済んだら消してよい」と書いてある |
+| `logs/run_report_20261112.log`、`logs/run_report_stars_20261105.log` | (b) 実行の記録 | どちらでもよい。ほかの `logs/` は追跡しているので、残すなら commit する側 |
+| `docs/hoshibiyori_stars_mode_instructions.md`、`docs/release-1.1.0-instructions.md` | (c) 過去の指示書 | 判断しない。ほかの指示書は追跡しているので、commit する候補 |
+| `step2_terrain/horizon_curated_ext044_50km.csv`(奥只見ダム)、`step2_terrain/horizon_curated_ext045_50km.csv`(水窪ダム) | (c) 地平線のデータ | 消さないほうがよい。地点データ(`horizon_profile` は null)にはつながっていない。つなぐかは利用者が決める |
+
+## 9. 利用者がやること
+
+1. **push(PowerShell、`C:\hoshibiyori`)**。1 本ずつ。`new branch` と出れば成功。
+   - `git push -u origin chore/cleanup-1124`
+   - `git push -u origin feature/wait-notice`
+   - `git push -u origin feature/concierge-interface`
+   - `git push -u origin feature/stars-mode-info`
+   - `git push -u origin feature/sky-highlights`
+2. **実通信の確かめ(PowerShell。Claude Code の中では行わない)**。`git switch feature/sky-highlights` のあと:
+   1. `py -X utf8 explore_hoshibiyori.py --target stars --estimate` → 4 行が出て終わる。今日 1 回目なら「時間の目安: 約6分(通信あり)」。
+   2. `py -X utf8 explore_hoshibiyori.py --target stars --nights 2026-11-28 --json-out C:/temp/hoshi-stars.json`
+      → 最初に「897 地点の星空の条件を調べます(時間の目安: …)」、終わりに「[指定した夜]」のまとめと「探索結果の JSON を書きました」。`echo $LASTEXITCODE` が 0。JSON の `requested_nights` に 2026-11-28 が入る。かかった時間を目安と比べる。API 呼び出しの回数が、`--nights` なしの前回(617 回)から増えないことも見る(上書きになるので、今ある `C:/temp/hoshi-stars.json` を残すなら別の名前にする)。
+   3. `py -X utf8 generate_report.py --target stars` → `report_stars.html` を開き、見どころ(宵・夜半・明け方、流星群、今は見えない対象)・「空の開け」・冬の天の川の帯・カレンダーの「ECMWFだけの予報(目安)」の見た目を見る。
+   4. もう一度 1 を実行 → 「期限内」のセルが増え、時間の目安が変わる。
+3. **main に入れる範囲**: 前から順に、好きなところまで。全部なら `feature/sky-highlights` の PR 1 本、途中までならそのブランチの PR 1 本。main への反映はプラグインの公開になるので、2 のあとに。
+4. **版を上げるとき(1.2.0 の案)に直すもの**: `plugin.json` の `version`、`CHANGELOG.md` の `[Unreleased]`、README の「1.1.0」の表記、取得処理の User-Agent の版、`AGENTS.md` 第 5 節の実測の表(実通信の確かめで測れた値。`time_estimates.py` を直し、表を合わせる)。
+
+## 10. 利用者に決めてほしいこと
+
+1. 空の開け具合を、星空・星座モードの順位や足切りに使うか(見本は第 4 部)。
+2. 5 章の仮の値。
+3. 6 章の未照合の値を、誰がいつ何と照らすか。照らすまで出すか、流星群だけ外すか。
+4. 見どころの並べ方(惑星を 1 件に数える・組でまとめる・`targets.json` の並び順)と、季節の言葉(「見頃です」)を無くしたこと。
+5. 星空・星座モードのレポートの見どころに、銀河中心を出すか。
+6. `--nights` で、通常の探索が取らないセルの地点を「調べていない」にすること(通信を増やしてでも全地点を調べるか)。
+7. 標高の食い違い(石廊崎 60.0 m と標高タイル 44.28 m、ヘブンスそのはら 1600.36 m と 1595.68 m)のどちらを使うか。
+8. 8 章のファイル。
+
+## 11. ビヨリコンシェルに伝えること
+
+そのまま写せる形。
+
+- ホシビヨリの `explore_hoshibiyori.py --json-out`(スキーマ `hoshibiyori-explore/1`)に、次を足した。今ある項目の名前・意味は変わっていない。
+  - `site_index[]`: 全 897 地点。`site_id`・`name`・`label`(見分けるための言い方。重ならない)・`municipality`・`lat`・`lon`・`is_primary`・`group`(`primary`/`reference`)・`requires_lift_access`。
+  - `finals[]`・`outlooks[]` に `site_id`・`sky_openness`(`ridge_mean_deg`・`ridge_max_deg`・`open_fraction`・`open_alt_deg`、無い地点は `null`。参考の情報)。
+  - `scanned_nights[]` に `winter_milky_way`(参考の情報)。
+  - `--nights YYYY-MM-DD[,…]` を付けると `requested_nights[]`(付けないときはキーが無い)。
+  - `site_id`・`site_index`・`sky_openness` はスキーマの必須項目(これが入る前の出力は、今のスキーマの検査を通らない)。
+- 地点は名前ではなく `site_id` で見分ける(同じ名前が 37 組ある)。ID は変えない・使い回さない。
+- 使い方: `py -X utf8 explore_hoshibiyori.py --target stars --nights 2026-11-28 --json-out C:/temp/hoshi-stars.json`(終了コード 0 のときだけ書く)。先に `--estimate` を付けると、通信せずに時間の目安が出る。
+- `requested_nights[]` の 1 件(見本の値。時刻と数値は短くした):
+
+```json
+{"night_date": "2026-11-24", "scanned": true, "dark_start": "2026-11-24T18:03:53+09:00", "dark_end": "2026-11-25T04:58:58+09:00",
+ "window_start": null, "window_end": null, "moon_free_hours": 0.0, "selected": false, "regime": null,
+ "not_selected_reason": "no_moon_free_window", "window_kind": "dark", "none_reason": null, "forecast_regime": "MSM",
+ "moon": {"up_hours": 10.9, "up_intervals": [{"start": "…", "end": "…"}], "illuminated_fraction": 0.998, "phase_angle_deg": 4.8},
+ "counts": {"all": {"total": 28, "passed": 9, "failed": 19, "not_examined": 0, "cloud_examined": 26, "clear": 9,
+                    "failed_reasons": {"cloud_filter": 17, "light_pollution_filter": 3, "direction_filter": 0},
+                    "not_examined_reasons": {"no_window_at_site": 0, "cell_not_fetched": 0, "fetch_failed": 0, "no_forecast": 0}},
+            "primary": {"…": "同じ形"}, "reference": {"…": "同じ形"}},
+ "sites": [{"site_id": "curated:048", "site_name": "ヘブンスそのはら", "status": "passed", "reasons": [], "not_examined_reason": null,
+            "clear_start": "…", "clear_end": "…", "clear_hours": 2.88, "mean_obstruction": 20.3,
+            "mean_obstruction_window": 48.9, "alr": 2.05, "score": null}]}
+```
+
+- 答え方:
+  - 「何か所のうち何か所が晴れ」は `counts.all.clear` / `counts.all.cloud_examined`(雲量を調べた地点だけを分母にする)。光害なども含めた「条件を通った」は `passed` / `total`。
+  - `window_kind: none` の夜と `status: not_examined` の地点は「調べていない」。「曇り」と言わない。理由は `none_reason`・`not_examined_reason`。
+  - `window_kind: dark` の夜は月が出ている(`moon`)。無月時間帯が 1 時間より短い夜も `dark`(`moon_free_hours` に長さ)。
+  - `forecast_regime: ECMWF` の夜の雲量は目安。`selected` が `true` の夜でも、`finals`/`outlooks` とは判定の仕方が違うので件数を足さない。
+  - `sites` に入るのは、条件を通った地点の全部と、主軸 146 地点。ほかの地点は件数だけ。
+  - コンシェル向けには `--target stars` を使う(天の川モードの冬は、雲量を調べる地点がほとんど無い)。
+
+## 12. 次の段階の材料
+
+- **月と惑星の接近**: `sky_highlights._planet_altaz` と `moonlit` は、同じ時刻の配列で惑星と月を計算している。離角は `separation_from` を足せば出る。値は `slots[]` の隣に新しい項目で持てる。
+- **月食**: `de421.bsp` と Skyfield の月食の計算で、極大の時刻を出せる見込み(試していない)。「30 日以内のものを 1 行ずつ出す」作りは流星群(`upcoming_showers` と `guide_shower_text`)と同じ形。
+- **ダイヤモンド富士・パール富士**: 地点ごとの計算なので、基準の地点の見どころとは別になる。地平線のデータ(`load_horizon_profile`)は稜線の高度だけで、どの山かは分からない。富士山頂の方位と見かけの高度を地点ごとに計算し、太陽・月の方位・高度(`_grid` の刻みを細かく)と突き合わせる作りになる。
+- 見どころを JSON に出す場合: `sky_highlights.build` の戻り値は `explore_json.json_value` を通せば、そのまま JSON になる(テストで確かめた)。
