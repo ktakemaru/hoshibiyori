@@ -255,7 +255,7 @@ class RequestedNightsTests(unittest.TestCase):
         self.assertEqual(lines[3], "      その夜の月: 暗い時間帯 11.0時間のうち、月が出ているのは 8.5時間(輝面比 78%)")
         lines = rn.summary_lines([dict(rec, window_kind="dark", forecast_regime="MSM", selected=True,
                                        moon={"up_hours": 0.0, "illuminated_fraction": 0.02})])
-        self.assertEqual(lines[2], "    2026-11-28  暗い時間帯ぜんぶ(月が出ている)で調べた。予報は MSM。候補の上位の夜に入っている")
+        self.assertEqual(lines[2], "    2026-11-28  暗い時間帯ぜんぶで調べた。予報は MSM。候補の上位の夜に入っている")
         self.assertEqual(lines[3], "      その夜の月: 暗い時間帯 11.0時間のうち、月は出ていない(輝面比 2%)")
 
     def test_dark_when_no_usable_moon_free_window(self):
@@ -269,7 +269,7 @@ class RequestedNightsTests(unittest.TestCase):
         self.assertGreater(rec["moon"]["up_hours"], 9.0)
         self.assertGreater(rec["moon"]["illuminated_fraction"], 0.95)
         self.assertTrue(math.isfinite(rec["moon"]["phase_angle_deg"]))
-        self.assertIn("暗い時間帯ぜんぶ(月が出ている)", text)
+        self.assertIn("暗い時間帯ぜんぶで調べた", text)
 
     def test_window_shorter_than_min_clear_is_dark(self):
         # 無月時間帯が1時間未満の夜は、晴れていても「雲で通らない」になるので、暗い時間帯ぜんぶで調べる

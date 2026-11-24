@@ -292,7 +292,7 @@ def summary_lines(records: list[dict]) -> list[str]:
             lines.append(f"    {r['night_date']}  {_NONE_TEXT.get(r['none_reason'], '調べていない')}")
             continue
         a, p = r["counts"]["all"], r["counts"]["primary"]
-        kind = "月の無い時間帯" if r["window_kind"] == WINDOW_MOON_FREE else "暗い時間帯ぜんぶ(月が出ている)"
+        kind = "月の無い時間帯" if r["window_kind"] == WINDOW_MOON_FREE else "暗い時間帯ぜんぶ"
         lines.append(f"    {r['night_date']}  {kind}で調べた。予報は {r['forecast_regime']}。"
                      f"候補の上位の夜に{'入っている' if r['selected'] else '入っていない'}")
         # 月の情報は、何で調べたかとは別(どちらの場合も、その夜の暗い時間帯ぜんぶについての値)
