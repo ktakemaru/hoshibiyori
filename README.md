@@ -251,7 +251,7 @@ claude plugin install hoshibiyori@hoshibiyori-marketplace
 
 1.1.0 に書いていた3件(星空・星座モードの一覧の見出し、`report_courses.py`・`weekend_page.py` の星空・星座モード対応、「うち地形データなし」の件数の数え方)は、1.1.0 の後に直した([`CHANGELOG.md`](CHANGELOG.md) の Unreleased)。
 
-- 「この時期の見どころ」の星・星団の座標(`targets.json` の `source` が「指示書の値。未照合」の対象)と、流星群の表(`step1_astronomy/meteor_showers.json`)は、星表や流星群の一覧と照らしていない。どの時間帯に見えるかの目安だけに使う。
+- 「この時期の見どころ」の星・星団の座標(`targets.json` の `source` が「指示書の値。未照合」の対象)は、星表と照らしていない。どの時間帯に見えるかの目安だけに使う。流星群の表(`step1_astronomy/meteor_showers.json`)は、2026-11-24 に Wikipedia「List of meteor showers」と照らし、7件とも一致した(照らしたのはチャットの Claude)。
 - 「この時期の見どころ」には、月食・月と惑星の接近・ダイヤモンド富士などは無い。
 
 ### 既知の未確認事項

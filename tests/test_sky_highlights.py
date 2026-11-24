@@ -86,6 +86,44 @@ class SlotItemsTests(unittest.TestCase):
         self.assertIn("〈月明かりで見えにくい〉", gr.guide_item_text(items[2], T0.date())[0])
 
 
+class ShortWindowTests(unittest.TestCase):
+    """見える時間帯が表示の刻み(30分)より短い・丸めると始まりと終わりが同じになる対象は、その時間帯に出さない(月の区間と同じ決まり)。"""
+
+    def items(self, planets, targets, times=TIMES):
+        return sh.slot_items(times, planets, targets, 15.0, False)
+
+    def test_only_the_last_sample(self):
+        # 実物で「金星(翌05:00〜翌05:00)」になっていた形: 最後の1点だけ高度15°以上
+        last = [5.0] * 4 + [18.0]
+        self.assertEqual(self.items([("金星", AZ, last)], [(target("昇る星"), AZ, last)]), [])
+        got = self.items([("金星", AZ, last), ("火星", AZ, RISING)], [])
+        self.assertEqual([m["name"] for m in got[0]["members"]], ["火星"])
+
+    def test_boundary(self):
+        self.assertEqual(self.items([], [(target("15分"), AZ, [5.0] * 3 + [18.0] * 2)]), [])
+        self.assertEqual([i["name"] for i in self.items([], [(target("30分"), AZ, [5.0] * 2 + [18.0] * 3)])], ["30分"])
+
+    def test_rounds_to_the_same_time(self):
+        # 22:45〜23:15 は30分あるが、丸めるとどちらも 23:00
+        t = [datetime(2026, 11, 20, 22, 45, tzinfo=JST) + timedelta(minutes=15 * i) for i in range(3)]
+        self.assertEqual(gr._guide_hm(t[0], t[0].date()), gr._guide_hm(t[-1], t[0].date()))
+        self.assertEqual(self.items([], [(target("x"), AZ[:3], RISING[:3])], t), [])
+
+    def test_short_member_leaves_the_group(self):
+        last = [5.0] * 4 + [18.0]
+        got = self.items([], [(target("大三角", "大三角"), AZ, last), (target("甲", "大三角", first=True), AZ, last),
+                              (target("乙", "大三角"), AZ, RISING)])
+        self.assertEqual([m["name"] for m in got[0]["members"]], ["乙"])
+        self.assertFalse(got[0]["has_first_magnitude"])
+        self.assertEqual(gr.guide_item_text(got[0], T0.date())[0], "乙(大三角)")
+
+    def test_next_object_takes_the_place(self):
+        # 件数の上限は、短い対象を外したあとで数える
+        last = [5.0] * 4 + [18.0]
+        got = self.items([], [(target("短い"), AZ, last)] + [(target(f"星{i}"), AZ, TRANSIT) for i in range(5)])
+        self.assertEqual([i["name"] for i in got], ["星0", "星1", "星2", "星3"])
+
+
 class RenderTests(unittest.TestCase):
     def guide(self, **kw):
         base = {"night_date": T0.date(), "min_alt_deg": 15.0, "slots": [], "not_visible": [], "showers": [], "winter_band": None}
@@ -106,6 +144,23 @@ class RenderTests(unittest.TestCase):
         self.assertIn("<b>惑星</b>: 土星(22:00〜23:00、23:00ごろ南の高度34°)", html)
         self.assertIn("今の時期は見えません: 天の川銀河中心(次に見えるのは2月ごろ)、ある星</p>", html)
         self.assertIn("対象地点固有の地形は考慮しない一般的な目安です", html)      # 今の注意書きを残す
+
+    def test_empty_slot_and_note(self):
+        html = gr.render_sky_guide(self.guide(
+            slots=[{"key": "midnight", "label": "夜半", "start": TIMES[0], "end": TIMES[-1], "moonlit": False, "items": [],
+                    "moon_up_intervals": []}]))
+        self.assertIn("高度15&deg;以上に30分以上出る対象はありません", html)
+        self.assertIn("見える時間が30分より短い対象は、その時間帯には出しません", html)
+        self.assertIn("照らしていないのは星・星団の座標だけ", html)
+        self.assertIn("流星群の値は、流星群の一覧[Wikipedia「List of meteor showers」]と2026年11月24日に照合済み", html)
+
+    def test_degree_sign_has_no_gap(self):
+        # 「56° )」のように空いて見えるのは、文字ではなくフォント(Yu Gothic の「°」は全角幅)。文に空白を入れず、「°」だけ別のフォントで出す
+        items = sh.slot_items(TIMES, [("土星", AZ, RISING)], [(target("星"), AZ, TRANSIT)], 15.0, False)
+        for i in items:
+            self.assertNotRegex(gr.guide_item_text(i, T0.date())[1], r"°\s")
+        self.assertRegex(gr.CSS, r'@font-face \{ font-family: "hb-degree";[^}]*unicode-range: U\+00B0; \}')
+        self.assertRegex(gr.CSS, r'(?s)\nbody \{[^}]*font-family: "hb-degree", "Yu Gothic"')
 
     def test_short_moon_interval_is_not_shown(self):
         short = [{"start": TIMES[0], "end": TIMES[0] + timedelta(minutes=15)}]
@@ -140,7 +195,10 @@ class DataTests(unittest.TestCase):
         for t in targets:
             self.assertEqual("未照合" in t.source, t.id not in old, t.id)
         for s in sh.load_showers():
-            self.assertIn("未照合", s["source"])
+            self.assertIn("照合済み", s["source"])
+            self.assertNotIn("未照合", s["source"])
+            self.assertIn("List of meteor showers", s["source"])
+            self.assertIn("2026-11-24", s["source"].split("照合済み", 1)[1])
         self.assertEqual(len(sh.load_showers()), 7)
 
     def test_existing_targets_unchanged(self):
@@ -196,6 +254,18 @@ class AstronomyTests(unittest.TestCase):
         hidden = {n["name"]: n["next_month"] for n in guide["not_visible"]}
         self.assertIn("オリオン座", hidden)
         self.assertIn(hidden["オリオン座"], (7, 8, 9))
+
+    @mock.patch.object(sh, "_next_visible", lambda *a: {})
+    def test_no_window_starts_and_ends_at_the_same_time(self):
+        # 利用者が見た夜(2026-11-24、明け方の金星は暗い時間帯の終わりの1点だけ)と、1年の中のいくつかの夜
+        for y, m, d in ((2026, 11, 24), (2026, 12, 1), (2027, 3, 10), (2027, 6, 15), (2027, 9, 10)):
+            for s in self.guide(y, m, d)["slots"]:
+                self.assertTrue(s["items"])
+                for i in s["items"]:
+                    for mem in i["members"]:
+                        self.assertGreaterEqual(mem["end"] - mem["start"], timedelta(minutes=30))
+                        self.assertNotEqual(gr._guide_hm(mem["start"], date(y, m, d)), gr._guide_hm(mem["end"], date(y, m, d)))
+        self.assertNotIn("金星", self.slot_names(self.guide(2026, 11, 24), "dawn"))
 
     @mock.patch.object(sh, "_next_visible", lambda *a: {})
     def test_only_listed_objects_and_counts(self):
