@@ -74,6 +74,21 @@ def _visible_range(times, az, alt, min_alt: float) -> dict | None:
             "peak_az": float(az[k]), "peak_alt": float(alt[k])}
 
 
+def display_time(dt: datetime) -> datetime:
+    """見どころの表示の時刻(30分単位に丸める)。"""
+    total = round((dt.hour * 60 + dt.minute + dt.second / 60) / 30) * 30
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(minutes=total)
+
+
+def _listed_range(times, az, alt, min_alt: float) -> dict | None:
+    """時間帯の一覧に出す見える時間帯。表示の刻みより短いもの・丸めると始まりと終わりが同じになるものは None(月の区間と同じ決まり)。"""
+    import winter_milkyway as wm
+    r = _visible_range(times, az, alt, min_alt)
+    if r is None or not wm.is_displayable(r["start"], r["end"], display_time(r["start"]), display_time(r["end"])):
+        return None
+    return r
+
+
 def _transits_inside(alt) -> bool:
     """その時間帯の中で、いちばん高くなる時刻(南中)がある(端が最大なら、南中は時間帯の外)。"""
     k = max(range(len(alt)), key=lambda i: alt[i])
@@ -101,11 +116,11 @@ def moonlit(ts, eph, lat, lon, times, phase_negligible_deg: float) -> list[bool]
 
 
 def slot_items(times, planets, targets, min_alt: float, moon_up: bool) -> list[dict]:
-    """1つの時間帯の見どころ(最大 MAX_ITEMS_PER_SLOT 件)。planets: [(名前, 方位, 高度)]、targets: [(Target, 方位, 高度)]。"""
+    """1つの時間帯の見どころ(最大 MAX_ITEMS_PER_SLOT 件。見える時間が短すぎる対象は、件数を数える前に外す)。planets: [(名前, 方位, 高度)]、targets: [(Target, 方位, 高度)]。"""
     items = []
     seen = []
     for name, az, alt in planets:
-        r = _visible_range(times, az, alt, min_alt)
+        r = _listed_range(times, az, alt, min_alt)
         if r is not None:
             seen.append({"name": name, "kind": "惑星", "faint_in_moonlight": False, **r})
     if seen:
@@ -113,7 +128,7 @@ def slot_items(times, planets, targets, min_alt: float, moon_up: bool) -> list[d
 
     groups: dict[str, dict] = {}
     for order, (target, az, alt) in enumerate(targets):
-        r = _visible_range(times, az, alt, min_alt)
+        r = _listed_range(times, az, alt, min_alt)
         if r is None:
             continue
         label = target.group or target.name
@@ -161,7 +176,7 @@ def load_showers(path: Path = SHOWERS_PATH) -> list[dict]:
 
 
 def solar_longitude(ts, eph, dt: datetime) -> float:
-    """太陽の黄経(度)。春分点は J2000(流星群の一覧で使われる黄経の決まりに合わせる。未照合)。"""
+    """太陽の黄経(度)。春分点は J2000(流星群の一覧の太陽黄経は2000.0年分点。国際流星機構の説明)。"""
     t = ts.from_datetime(dt.astimezone(timezone.utc))
     return float(eph["earth"].at(t).observe(eph["sun"]).apparent().ecliptic_latlon()[1].degrees)
 

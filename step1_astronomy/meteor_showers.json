@@ -1,5 +1,5 @@
 {
-  "_note": "太陽黄経は極大のときの太陽の黄経(度。春分点は J2000 として計算する。未照合)、放射点は赤経・赤緯(度)、zhr は理想の条件での1時間あたりの出現数の目安。値は指示書(2026-11-24)のもので、国際流星機構などの一覧と照らしていない。",
+  "_note": "太陽黄経は極大のときの太陽の黄経(度。2000.0年分点。国際流星機構の説明)、放射点は赤経・赤緯(度)、zhr は理想の条件での1時間あたりの出現数の目安。値は指示書(2026-11-24)のもので、2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、7件とも太陽黄経・放射点の赤経と赤緯・出現数が一致した(赤経は時の単位を15倍して比べ、差は四捨五入の範囲)。",
   "showers": [
     {
       "id": "quadrantids",
@@ -8,7 +8,7 @@
       "radiant_ra_deg": 230,
       "radiant_dec_deg": 49,
       "zhr": 80,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     },
     {
       "id": "lyrids",
@@ -17,7 +17,7 @@
       "radiant_ra_deg": 271,
       "radiant_dec_deg": 34,
       "zhr": 18,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     },
     {
       "id": "eta_aquariids",
@@ -26,7 +26,7 @@
       "radiant_ra_deg": 338,
       "radiant_dec_deg": -1,
       "zhr": 50,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     },
     {
       "id": "perseids",
@@ -35,7 +35,7 @@
       "radiant_ra_deg": 48,
       "radiant_dec_deg": 58,
       "zhr": 100,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     },
     {
       "id": "orionids",
@@ -44,7 +44,7 @@
       "radiant_ra_deg": 95,
       "radiant_dec_deg": 16,
       "zhr": 20,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     },
     {
       "id": "leonids",
@@ -53,7 +53,7 @@
       "radiant_ra_deg": 152,
       "radiant_dec_deg": 22,
       "zhr": 15,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     },
     {
       "id": "geminids",
@@ -62,7 +62,7 @@
       "radiant_ra_deg": 112,
       "radiant_dec_deg": 33,
       "zhr": 150,
-      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+      "source": "指示書(2026-11-24)の値。照合済み: 2026-11-24 にチャットの Claude が Wikipedia「List of meteor showers」と照らし、太陽黄経・放射点の赤経と赤緯・出現数が一致"
     }
   ]
 }

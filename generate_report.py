@@ -866,8 +866,7 @@ def render_night_view_group(items: list[dict]) -> str:
 
 def _guide_hm(dt: datetime, base) -> str:
     """見どころの時刻(30分単位に丸め、翌日なら「翌」を付ける)。"""
-    total = round((dt.hour * 60 + dt.minute + dt.second / 60) / 30) * 30
-    rounded = dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(minutes=total)
+    rounded = sky_highlights.display_time(dt)
     return f"{'翌' if rounded.date() > base else ''}{rounded:%H:%M}"
 
 
@@ -938,7 +937,7 @@ def render_sky_guide(sky_guide: dict) -> str:
         moon = (f"、{_guide_moon(slot['moon_up_intervals'], base)}" if slot["moonlit"]
                 and winter_milkyway.shown_moon_intervals(slot["moon_up_intervals"], base, _guide_hm) else "")
         rows = ("".join(li(*guide_item_text(i, base)) for i in slot["items"])
-                or f"<li>高度{min_alt:.0f}&deg;以上に出る対象はありません</li>")
+                or f"<li>高度{min_alt:.0f}&deg;以上に{winter_milkyway.DISPLAY_STEP_MIN}分以上出る対象はありません</li>")
         blocks.append(f'<h4 class="guide-slot">{html.escape(slot["label"])}'
                       f'({html.escape(_guide_hm(slot["start"], base))}〜{html.escape(_guide_hm(slot["end"], base))}{html.escape(moon)})</h4>'
                       f'<ul class="guide-list">{rows}</ul>')
@@ -962,7 +961,9 @@ def render_sky_guide(sky_guide: dict) -> str:
           <p class="group-note">対象地点固有の地形は考慮しない一般的な目安です(地平線から{min_alt:.0f}&deg;以上を「見える」の基準、
           時刻は30分単位に丸めています)。直近数日はほぼ同じ見え方のため今夜の分を代表として表示しています。
           実際に見えるかどうかは地形・雲量に左右されます。時間帯ごとに最大{sky_highlights.MAX_ITEMS_PER_SLOT}件(惑星 → その時間帯に南中する対象 → そのほか)です。
-          星・星団と流星群の元の値は、星表・流星群の一覧と照らしていない目安です。</p>
+          見える時間が{winter_milkyway.DISPLAY_STEP_MIN}分より短い対象は、その時間帯には出しません。
+          元の値のうち、照らしていないのは星・星団の座標だけで、星表と照らしていない目安です
+          (流星群の値は、流星群の一覧[Wikipedia「List of meteor showers」]と2026年11月24日に照合済みです)。</p>
           {"".join(blocks)}
           {hidden}
         </div>"""
@@ -1261,11 +1262,13 @@ CSS = """
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
   }
 }
+/* 「Yu Gothic」などは「°」が全角幅で、あとに空白があるように見える(「56° )」)。「°」だけ字幅の狭いフォントで出す */
+@font-face { font-family: "hb-degree"; src: local("Segoe UI"), local("Helvetica Neue"), local("Arial"), local("Roboto"); unicode-range: U+00B0; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); }
 body {
   color: var(--text);
-  font-family: "Yu Gothic", "Hiragino Sans", "Meiryo", sans-serif;
+  font-family: "hb-degree", "Yu Gothic", "Hiragino Sans", "Meiryo", sans-serif;
   line-height: 1.6;
 }
 .mono { font-family: Consolas, "SF Mono", monospace; font-variant-numeric: tabular-nums; }
