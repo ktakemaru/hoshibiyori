@@ -33,6 +33,39 @@ py -m venv .venv
 - 保存先の切り替え(任意): 環境変数 `HOSHIBIYORI_DATA_DIR` を設定すると、キャッシュ・天文暦・生成物(`report.html`・`out/`・`weather_map_commentary.json` など)の書き込み先がそのフォルダになる(リポジトリと同じ相対構成。`hb_paths.py` が決める)。**未設定または空なら従来どおりリポジトリ直下で、動作は変わらない。** 読み取り専用の静的データ(`areas.json`・`stargazing_spots.json`・horizon CSV など)は常にリポジトリ側。PowerShell の例: `$env:HOSHIBIYORI_DATA_DIR="C:\tmp\hb_data"`。`scripts/check_setup.py` が「データ領域」を表示する。
 
 ## 5. 実行(ユーザーが頼んだときだけ)
+
+### 長い作業の前に伝える
+- 30 秒以上かかる見込みの作業の前に、何をするかと時間の目安を 1 行で利用者に伝える。例: 「全 897 地点の星空の条件を調べます。6 分ほどかかります。」
+- 伝えるのは、最初の長いコマンドを呼ぶ直前に 1 回だけ。途中の実況はしない。短い作業(30 秒未満)には出さない。
+- 時間の目安は、下の表から引く。自分で見積もらない。表に無い作業・「未実測」の作業は「時間の目安はまだ測っていません」と言う。
+- 条件で時間が大きく変わる作業(探索・レポートの生成)は、先に見積もりのコマンド(`--estimate`。通信しない)を実行して、その結果の時間を伝える。
+- 終わったあとに「○分かかりました」と報告する必要はない。
+- **選択肢を出すとき**(天の川モードか星空・星座モードか、など)は、選択肢ごとに時間の目安を添える。
+- 30 秒は仮の値。
+
+見積もり: `py -X utf8 explore_hoshibiyori.py --estimate`(`--target`・`--astro-grid` と併用可)、`py -X utf8 generate_report.py --estimate`。探索も計算もせず、天文計算の保存と雲量の保存(期限内)を読んで、4行を出して終了コード0で終わる。探索・レポートの生成は、始まりに同じ目安を標準エラーへ1行出す。
+
+時間の目安の表(値は実測だけ。正本は `time_estimates.py` の `ESTIMATES` で、食い違うとテストが落ちる):
+
+| 作業 | コマンド | 目安 | 出どころ |
+|---|---|---|---|
+| 探索・星空・星座モード・全897地点(保存が足りない) | `explore_hoshibiyori.py` `--target stars` | 約6分 | 2026-11-15、Windows・自宅回線、利用者の実測(360.9秒、通信あり・失敗0) |
+| 探索・星空・星座モード・全897地点(保存がそろっている) | `explore_hoshibiyori.py` `--target stars` | 約10秒 | 2026-11-15、Windows・自宅回線、利用者の実測(10.1秒、通信0回) |
+| 探索・星空・星座モード・全897地点・JSON つき | `explore_hoshibiyori.py` `--target stars --json-out …` | 約5分 | 2026-11-16、Windows・自宅回線、利用者の実測(通信617回) |
+| 探索・星空・星座モード・全897地点・`--nights` 1夜・JSON つき(雲量の保存なし) | `explore_hoshibiyori.py` `--target stars --nights … --json-out …` | 約4分 | 2026-11-24、Windows、利用者の実測1回(243.1秒、API 456回・失敗0、天文計算の保存は14夜のうち4夜) |
+| 探索・天の川モード・全897地点(保存が足りない) | `explore_hoshibiyori.py` | 未実測 | — |
+| 探索・天の川モード・全897地点(保存がそろっている) | `explore_hoshibiyori.py` | 未実測 | — |
+| レポートの生成・天の川モード・主軸146地点(保存が足りない) | `generate_report.py` | 未実測 | — |
+| レポートの生成・天の川モード・主軸146地点(雲量が保存済み) | `generate_report.py` | 約2分 | 2026-11-15、Windows・自宅回線、利用者の実測(1.9分、通信0回) |
+| レポートの生成・星空・星座モード・主軸146地点(保存が足りない) | `generate_report.py` `--target stars` | 未実測 | — |
+| レポートの生成・星空・星座モード・主軸146地点(雲量が保存済み) | `generate_report.py` `--target stars` | 約21秒 | 2026-11-24、Windows、利用者の実測1回(20.9秒、API 0回) |
+| 星空ガイド(数値JSON・描画) | `scripts/make_sky_guide.py`・`scripts/render_sky_guide.py` | 未実測 | — |
+| コースの取り出し | `scripts/report_courses.py` | 未実測 | — |
+| 週末ページ | `scripts/weekend_page.py` | 未実測 | — |
+| 天気図・ひまわりの取得 | `step5_cloud_forecast/jma_weather_map.py` ほか | 未実測 | — |
+| 薄明・月の時刻の先行計算 | `scripts/warm_astro_cache.py --days 30` | 未実測 | — |
+| 単体テスト | `py -X utf8 -m unittest discover -s tests` | 約2分 | 2026-11-24、Windows、Claude Code の中で実測(658件で108.6秒) |
+
 - `py generate_report.py`(引数なし): **Open-Meteo API 約220回(加えて気象庁へ、ひまわりの時刻一覧1回と赤外タイル最大12枚[3コマ×2×2、basetimeごとにキャッシュ]、天気図1セッション)**。所要時間の実測(2026-11-15、Windows、自宅回線): 主要146地点・天の川モードで雲量がキャッシュ済みなら約2分。**雲量のキャッシュが無い状態のレポート生成は 1.1.0 では未実測**。全897地点の探索(`explore_hoshibiyori.py`、星空モード)は Open-Meteo 約620回で、雲量のキャッシュが無い初回は約6分(通信617回)、同じ日の2回目は約10秒(通信0回)。固定の `report.html`(git管理外、.gitignore 済み)を上書きする。終了コード: 0=出力済み、2=失敗セル率20%以上・中止扱いの HTTP 429(下記)・基準地点(石廊崎)の MSM の予報が取得の失敗で空(`report.html` は更新しない)。429 は本文の `reason` で種類を分け、1分の上限(`minutely`)だけは65秒待って同じセルを取り直して続ける(1回の実行で合計5回まで。`grid_cache.MINUTELY_RETRY_WAIT_SEC`/`MINUTELY_RETRY_MAX`)。6回目と、`hourly`/`daily`/種類不明は中止して終了コード2。`explore_hoshibiyori.py` も同じ条件で終了コード2。
 - ひまわりの「雲域の割合」(表示名は「雲域」)は、赤外の明るさの閾値(`himawari_image.py` `HIGH_CLOUD_BRIGHTNESS_THRESHOLD`)から出す参考値で、**閾値は暫定値**(晴れた夜は未較正)。スコア・足切りには使わない。
 - 実行前に「所要時間・リクエスト数・書き込み先」を伝えて承認を得る。Open-Meteo の無料枠は同じ回線の他の利用と共有される。
@@ -40,8 +73,11 @@ py -m venv .venv
 - `explore_hoshibiyori.py` も引数なし(探索結果をコンソールに出す)。
 - `explore_hoshibiyori.py --json-out <ファイル>`: 探索結果を JSON(スキーマ `hoshibiyori-explore/1`、`schemas/hoshibiyori-explore.schema.json`)で書き出す。近日中(`finals`)・見込み(`outlooks`)の候補を全件、閾値・夜・取得の集計・版と commit とともに入れる。終了コード0のときだけ書き(`fetch.status` が `ok`/`partial`)、2のときは書かず既存のファイルにも触れない。通信の量は付けないときと同じ。`--target`・`--astro-grid` と併用できる。
   - `scanned_nights`: 走査した全部の夜(日付順)。`selected`(候補の夜か)・`regime`(選ばれた夜だけ MSM/ECMWF)・`not_selected_reason`(`no_sunset_or_sunrise`/`no_astronomical_darkness`/`no_moon_free_window`/`not_in_top_n`)。スキーマの必須項目。
+  - `site_id`(候補・一覧)と `site_index`(全地点の一覧: `site_id`・名前・`label`[見分けるための言い方]・市町村・緯度経度・主軸か参考か・リフト要): 同じ名前の地点が37組あるので、地点は名前でなく `site_id` で見分ける。
+- `explore_hoshibiyori.py --nights 2026-11-28,2026-11-29`(夜の始まりの日付): 候補の上位6夜に入らない夜も雲量を調べ、`--json-out` の `requested_nights[]` と画面の数行に出す(候補の一覧・順位・`finals`・`outlooks` は変わらない。スコアは出さない)。**通信は増えない**(その回の通常の探索が取ったセルと期限内の保存だけを読む。取っていないセルの地点は `not_examined`)。「調べていない」(`window_kind: none`・`status: not_examined`)と「条件を通らなかった」(`status: failed`)を混ぜて答えない。`window_kind: dark` の夜は月が出ている(`moon` を添える)。`forecast_regime: ECMWF` の雲量は目安。
 - 薄明・月の時刻は既定で0.25度格子(ECMWFと同じ)の代表点で計算し、`<データ領域>/step1_astronomy/astro_cache/`(git管理外)に保存して次の実行から読むだけにする(本人の決定、2026-11-13。地点ごとの計算との差は薄明で1分未満)。地点ごとの従来の計算に戻すのは `--astro-grid site`(explore・generate_report 共通。保存は読まない・書かない)。先に計算しておくのは `py -X utf8 scripts/warm_astro_cache.py --days 30`(通信しない)。
 - ユーザーが「天の川にこだわらない」「星座」「冬」「明るい星・惑星を見たい」などと言ったら `--target stars`(星空・星座モード。銀河中心の高度・地形を条件にしない。出力は `report_stars.html` で `report.html` を上書きしない)を使う。天の川を撮るときは既定の `milkyway`。
+- 「空の開け具合」(`sky_openness`)と「冬の天の川の帯」(`winter_milky_way`)は参考の情報で、順位・足切りには使っていない。「ECMWFだけの予報(目安)」の印の付いた夜は、雲量で足切りしていない。
 - `report.html` は追跡しない。生成日時が今日でなければ答えに使わない。
 
 ## 6. 保護領域(ユーザーの明示的な指示と承認なしに変えない)
@@ -55,6 +91,7 @@ py -m venv .venv
 | 格子セルキャッシュとTTL | `grid_cache.py` `CACHE_TTL_SEC` | MSM 3時間 / ECMWF 6時間 |
 | 候補地点データ | `stargazing_spots.json`、`curated_spots.json` ほか | 一括編集の前に必ずバックアップ(`.bak_*`)を取る |
 | 重複削除30グループ | `step7_geocoding/pending_deletions_round2.json` | ユーザーの目視承認待ち。勝手に適用しない |
+| 地点の ID(`stargazing_spots.json` の `id`) | `tests/fixtures/site_ids.json` | 一度決めたら変えない・使い回さない・地点を外したら欠番にする(fixture の `retired` に移す)。日本語の入った ID(`test:富士山頂` など)もそのまま使う |
 | 地形データの無い地点の地平線の判定 | `explore_hoshibiyori.py` の `compute_target_window`・`stage3_direction_filter` | 天の川モードで、地形地平線のデータが無い地点は地平線を高度0°として判定する(0°より上のときだけ見える。新しい閾値は作らない)。2026-11-16 利用者承認 |
 
 ## 7. 外部サイトへのアクセスの節度
@@ -101,6 +138,7 @@ py -m venv .venv
    - 近日中(MSM)と中期見込み(ECMWF)はスコアの式が違い、絶対値は比べられない(第6節)。中期見込みの雲量は晴天率の参考表示で、足切りには使われていないと断る。
    - 雲量は全天の平均で、方角ごとの雲は分からない(第10節と同じ)。
    - 光害は Black Marble 由来のALR(日本で未較正の相対指数)。空の明るさ(mag/arcsec²)は無いので、順位・段階の目安としてだけ伝える。解説JSONの verdict に等級(N.NN mag)は書けず、ALR の値はレポートの候補と照合される。
+   - 「今の時期の見どころは?」「流星群は?」と聞かれたら、今日のレポートの「この時期の見どころ」から答える(自分の知識で天体・時刻・極大の日を足さない)。基準の地点・平らな地平線の目安で、地形・雲を見ていないこと、星・流星群の元の値は未照合の目安であることを添える。流星群の出現数には「理想の条件での目安で、実際に見える数はこれより少ない。突発的な増減は予測できない」を必ず添える。月食・月と惑星の接近・ダイヤモンド富士は、まだ計算していないと言う。
 3. 星空ガイドへ進む
    - ユーザーが選んだ(または筆頭候補を提案して承認された)地点と夜で、第10節の手順に進む。
    - `--spot` にはレポートに出た地点名をそのまま使う(`stargazing_spots.json` の name と同じ表記)。見つからないときは推測で置き換えず、そのままユーザーに報告する。

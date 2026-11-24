@@ -17,6 +17,11 @@ class Target:
     dec_deg: float
     best_season: str
     best_months: list[int]
+    # 見どころ用(2026-11-24。sky_highlights.py)。無い対象は既定値
+    kind: str = ""               # 星 / 星団 / 星雲 / 銀河 / 星の並び
+    group: str = ""              # まとめて出す組(星座・星の並び)。空なら単独
+    first_magnitude: bool = False
+    source: str = ""             # 座標の出どころ(空は従来からの対象)
 
 
 def load_targets(path: str | Path = _DEFAULT_PATH) -> list[Target]:

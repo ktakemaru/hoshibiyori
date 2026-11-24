@@ -36,13 +36,40 @@ STARS_NOTE = "星空・星座モードでは score を使いません(順位は 
 # scanned_nights(走査した全部の夜)の注記。いつも NOTES の後ろ(STARS_NOTE の前)に足す。2026-11-16。
 SCANNED_NOTE = "scanned_nights は走査した全部の夜です。selected が false の夜は、not_selected_reason の理由で候補から外れています。"
 
+# 聞かれた夜(--nights)を付けたときだけ足す注記。2026-11-24。
+REQUESTED_NOTE = ("requested_nights は --nights で指定した夜です。候補(finals・outlooks)とは別で、score は出しません。"
+                  "雲量はこの回に取った分だけを使い、status が not_examined の地点は調べていません(条件を通らなかったのではありません)。"
+                  "forecast_regime が ECMWF の夜の雲量は目安です。")
 
-def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm_dates: Iterable[date]) -> list[dict]:
+
+def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool]) -> list[dict]:
+    """全地点の一覧(候補に入らなかった地点も入る)。label は見分けるための言い方(名前(市町村)。それでも重なるときはIDを添える)。"""
+    sites = list(sites)
+    plain = [f"{s['name']}({s['municipality']})" for s in sites]
+    counts: dict[str, int] = {}
+    for p in plain:
+        counts[p] = counts.get(p, 0) + 1
+    out = []
+    for s, p in zip(sites, plain):
+        primary = bool(is_primary(s["origin"]))
+        out.append({
+            "site_id": s.get("id"), "name": s["name"],
+            "label": p if counts[p] == 1 else f"{s['name']}({s['municipality']}・{s.get('id')})",
+            "municipality": s["municipality"], "lat": json_value(s["lat"]), "lon": json_value(s["lon"]),
+            "is_primary": primary, "group": "primary" if primary else "reference",
+            "requires_lift_access": bool(s.get("requires_lift_access", False)),
+        })
+    return out
+
+
+def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm_dates: Iterable[date],
+                          winter_bands: dict | None = None) -> list[dict]:
     """走査した全部の夜((NightCandidate, 理由のコード or None) の並び、日付順)を JSON の値にする。
 
     selected は「候補の夜(nights)に入ったか」で、nights の日付の集合から決める(並べ替えを繰り返さない)。
     regime は選ばれた夜だけ MSM / ECMWF、選ばれていない夜は null。not_selected_reason は選ばれた夜では null。
-    理由が None なのに nights に入っていない夜は、上位N夜の切り捨て(not_in_top_n)として扱う。"""
+    理由が None なのに nights に入っていない夜は、上位N夜の切り捨て(not_in_top_n)として扱う。
+    winter_bands(日付 → winter_milkyway.night_band の値)があれば winter_milky_way を足す(暗い時間帯が無い夜は null)。"""
     chosen = set(selected_dates)
     msm = set(msm_dates)
     out = []
@@ -52,6 +79,8 @@ def scanned_night_records(scanned: Iterable, selected_dates: Iterable[date], msm
         rec["selected"] = selected
         rec["regime"] = ("MSM" if n.night_date in msm else "ECMWF") if selected else None
         rec["not_selected_reason"] = None if selected else (reason or "not_in_top_n")
+        if winter_bands is not None:
+            rec["winter_milky_way"] = json_value(winter_bands.get(n.night_date))
         out.append(rec)
     return out
 
@@ -140,13 +169,15 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
                        nights: list, msm_dates: Iterable[date], finals: list, outlooks: list,
                        final_rank_key: Callable, outlook_rank_key: Callable, is_primary: Callable[[str], bool],
                        fetch_summary, fetch_failures: Iterable, sites: dict,
-                       scanned_nights: Iterable) -> dict:
+                       scanned_nights: Iterable, site_index: Iterable[dict] = (),
+                       requested_nights: list[dict] | None = None, winter_bands: dict | None = None) -> dict:
     """探索結果の JSON(dict)を組み立てる。通信・天文計算・ファイルの読み書きはしない。
 
     final_rank_key / outlook_rank_key は1引数の関数(target を束ねたもの)。msm_dates は精密予報(MSM)側の夜の日付。
     scanned_nights(走査した全部の夜。stage1_moon_filter の scan_out)は必須(スキーマの required、2026-11-16)。
     None なら ValueError(集めていないのに「0夜」と書かないため)。キー scanned_nights は nights の直後に置き、
-    注記 SCANNED_NOTE をいつも足す。
+    注記 SCANNED_NOTE をいつも足す。site_index は全地点(load_candidate_sites の形)。
+    requested_nights は --nights の結果で、None(指定なし)ならキーも注記も出さない。
     """
     if scanned_nights is None:
         raise ValueError("scanned_nights は必須です(_explore を collect_scan=True で呼んでください)")
@@ -173,13 +204,17 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
         "thresholds": {k: json_value(v) for k, v in thresholds.items()},
         "reference_site": ref,
         "sites": {k: json_value(v) for k, v in sites.items()},
+        "site_index": site_index_records(site_index, is_primary),
         "nights": night_records,
-        "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates),
+        "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates, winter_bands),
         "finals": ranked_records(finals, final_rank_key, is_primary, "final", score_unused=stars),
         "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook", score_unused=stars),
         "fetch": fetch_record(fetch_summary, fetch_failures),
         "notes": list(NOTES) + [SCANNED_NOTE] + ([STARS_NOTE] if stars else []),
     }
+    if requested_nights is not None:
+        doc["requested_nights"] = json_value(requested_nights)
+        doc["notes"].append(REQUESTED_NOTE)
     return doc
 
 

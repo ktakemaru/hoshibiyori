@@ -1,0 +1,68 @@
+{
+  "_note": "太陽黄経は極大のときの太陽の黄経(度。春分点は J2000 として計算する。未照合)、放射点は赤経・赤緯(度)、zhr は理想の条件での1時間あたりの出現数の目安。値は指示書(2026-11-24)のもので、国際流星機構などの一覧と照らしていない。",
+  "showers": [
+    {
+      "id": "quadrantids",
+      "name": "しぶんぎ座流星群",
+      "solar_longitude_deg": 283.15,
+      "radiant_ra_deg": 230,
+      "radiant_dec_deg": 49,
+      "zhr": 80,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    },
+    {
+      "id": "lyrids",
+      "name": "4月こと座流星群",
+      "solar_longitude_deg": 32.32,
+      "radiant_ra_deg": 271,
+      "radiant_dec_deg": 34,
+      "zhr": 18,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    },
+    {
+      "id": "eta_aquariids",
+      "name": "みずがめ座η流星群",
+      "solar_longitude_deg": 45.5,
+      "radiant_ra_deg": 338,
+      "radiant_dec_deg": -1,
+      "zhr": 50,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    },
+    {
+      "id": "perseids",
+      "name": "ペルセウス座流星群",
+      "solar_longitude_deg": 140.0,
+      "radiant_ra_deg": 48,
+      "radiant_dec_deg": 58,
+      "zhr": 100,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    },
+    {
+      "id": "orionids",
+      "name": "オリオン座流星群",
+      "solar_longitude_deg": 208.0,
+      "radiant_ra_deg": 95,
+      "radiant_dec_deg": 16,
+      "zhr": 20,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    },
+    {
+      "id": "leonids",
+      "name": "しし座流星群",
+      "solar_longitude_deg": 235.27,
+      "radiant_ra_deg": 152,
+      "radiant_dec_deg": 22,
+      "zhr": 15,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    },
+    {
+      "id": "geminids",
+      "name": "ふたご座流星群",
+      "solar_longitude_deg": 262.2,
+      "radiant_ra_deg": 112,
+      "radiant_dec_deg": 33,
+      "zhr": 150,
+      "source": "指示書(2026-11-24)の値。未照合(国際流星機構などの一覧と照らしていない)"
+    }
+  ]
+}

@@ -122,6 +122,7 @@ def _build_site(entry: dict) -> dict:
         elevation_m = DEFAULT_ELEVATION_M
 
     return {
+        "id": entry.get("id"),      # 変わらないID(AGENTS.md 第6節。2026-11-24)
         "name": name, "lat": entry["lat"], "lon": entry["lon"], "elevation_m": elevation_m,
         "municipality": entry.get("municipality") or "不明",
         "origin": entry["origin"],
@@ -154,6 +155,39 @@ def load_horizon_profile(csv_path: str) -> dict[int, float]:
 
 def horizon_alt_at(profile: dict[int, float], az_deg: float) -> float:
     return profile[round(az_deg) % 360]
+
+
+# 空の開け具合(2026-11-24)。順位・足切りには使わない。
+SKY_OPEN_ALT_DEG = 20.0  # 稜線がこの高度以下の方位を「開けている」と数える(仮の値)
+_sky_openness_cache: dict[str, dict] = {}
+
+
+def sky_openness_of(profile: dict[int, float]) -> dict:
+    """地形の地平線(方位ごとの稜線の高度)から、稜線の平均・最大と、高度 SKY_OPEN_ALT_DEG より上が開けている方位の割合。"""
+    values = list(profile.values())
+    return {"ridge_mean_deg": sum(values) / len(values), "ridge_max_deg": max(values),
+            "open_fraction": sum(v <= SKY_OPEN_ALT_DEG for v in values) / len(values),
+            "open_alt_deg": SKY_OPEN_ALT_DEG}
+
+
+def sky_openness(site: dict) -> dict | None:
+    """地形の地平線のデータがある地点だけ。無ければ None。"""
+    csv_path = site.get("horizon_csv")
+    if not csv_path:
+        return None
+    if csv_path not in _sky_openness_cache:
+        _sky_openness_cache[csv_path] = sky_openness_of(load_horizon_profile(csv_path))
+    return dict(_sky_openness_cache[csv_path])
+
+
+def sky_openness_text(openness: dict | None) -> str | None:
+    """「稜線の平均 8°・最大 24°」。データの無い地点は None(表示しない)。"""
+    if openness is None:
+        return None
+
+    def deg(x: float) -> str:
+        return f"{round(x) + 0:d}°"
+    return f"稜線の平均 {deg(openness['ridge_mean_deg'])}・最大 {deg(openness['ridge_max_deg'])}"
 
 
 def find_sun_events(ts, eph, lat: float, lon: float, day_start_local: datetime) -> tuple[datetime, datetime]:
@@ -303,6 +337,8 @@ class FinalCandidate:
     score: float = 0.0
     alr: float | None = None            # 光害(相対指数ALR)
     alr_rank_pct: float | None = None
+    site_id: str | None = None          # 地点の変わらないID(2026-11-24)
+    sky_openness: dict | None = None    # 空の開け具合(地形データの無い地点は None。順位には使わない。2026-11-24)
 
 
 @dataclass
@@ -327,6 +363,8 @@ class OutlookCandidate:
     score: float = 0.0
     alr: float | None = None
     alr_rank_pct: float | None = None
+    site_id: str | None = None
+    sky_openness: dict | None = None
 
 
 def make_lp_store() -> BmLightPollutionStore:
@@ -659,7 +697,8 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
                     horizon_alt=None, terrain_available=False,
                     mean_obstruction=s["mean_obstruction"], lp_index=lp_result.brightness_ratio,
                     moon_free_hours=moon_free_hours, clear_hours=s["clear_hours"], score=0.0,
-                    alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
+                    alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct, site_id=site.get("id"),
+                    sky_openness=sky_openness(site),
                 ))
             continue
 
@@ -693,10 +732,10 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
             # (以前は判定をスキップして通過扱い)。horizon_alt は従来どおり None のまま(0 を入れない)。
             clears_horizon = best_alt > 0.0
             terrain_available = False
-            if clears_horizon:
-                no_terrain_count += 1   # 地形データが無く、0°の判定を通った件数(光害の判定は問わない)
 
         if clears_horizon and clears_light_pollution:
+            if not terrain_available:
+                no_terrain_count += 1   # 通過した候補のうち地形データが無いもの(2026-11-24、光害の足切りの後に数える)
             score = (
                 (100.0 - s["mean_obstruction"]) * 1.0
                 + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
@@ -712,7 +751,8 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
                 horizon_alt=h_alt, terrain_available=terrain_available,
                 mean_obstruction=s["mean_obstruction"], lp_index=lp_result.brightness_ratio,
                 moon_free_hours=moon_free_hours, clear_hours=s["clear_hours"], score=score,
-                alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
+                alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct, site_id=site.get("id"),
+                sky_openness=sky_openness(site),
             ))
 
     if stars_mode:
@@ -792,7 +832,8 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
                 terrain_available=profile is not None,
                 lp_index=lp_result.brightness_ratio,
                 clear_sky_pct=clear_sky_pct, moon_free_hours=moon_free_hours, score=score,
-                alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct,
+                alr=lp_result.alr, alr_rank_pct=lp_result.rank_pct, site_id=site.get("id"),
+                sky_openness=sky_openness(site),
             ))
 
     print(f"\n[見込み(ECMWF圏内)] 候補日{len(nights)}日 × 候補地点{len(sites)}件のうち、"
@@ -806,6 +847,10 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
 NO_TERRAIN_NOTE = "地形データなし(地平線を高度0°として判定)"
 
 
+# MSM の範囲の外(ECMWF だけ)の夜に付ける印(2026-11-24)。雲量での足切りが効かず、確かさが低いため
+ECMWF_ONLY_NOTE = "ECMWFだけの予報(目安)"
+
+
 def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int,
                          target_mode: str = DEFAULT_TARGET_MODE) -> None:
     stars_mode = target_mode == "stars"
@@ -814,11 +859,13 @@ def _print_outlook_items(outlooks: list[OutlookCandidate], target, top_n: int,
                          if o.terrain_available and o.horizon_alt is not None else NO_TERRAIN_NOTE)
         clear_note = f"参考: この時間帯の晴天率 約{o.clear_sky_pct:.0f}%" if o.clear_sky_pct is not None else "参考: 晴天率データなし"
         print(f"\n[{i}位]" + ("" if stars_mode else f" スコア {o.score:.1f}"))
-        print(f"  日付      : {o.night_date}")
+        print(f"  日付      : {o.night_date} {ECMWF_ONLY_NOTE}")
         print(f"  地点      : {o.site_name}（{o.municipality}）")
         print(f"  由来      : {ORIGIN_LABELS.get(o.origin, o.origin)}")
         if stars_mode:
             print(f"  暗い無月時間帯: {o.visible_start.strftime('%H:%M')} 〜 {o.visible_end.strftime('%H:%M')}")
+            if o.sky_openness is not None:
+                print(f"  空の開け  : {sky_openness_text(o.sky_openness)}")
         else:
             print(f"  {target.name}の見頃: {o.visible_start.strftime('%H:%M')} 〜 {o.visible_end.strftime('%H:%M')}"
                   f"（{terrain_note}）")
@@ -874,6 +921,8 @@ def _print_final_items(finals: list[FinalCandidate], target, top_n: int,
         if stars_mode:
             print(f"  推奨時間帯 : {f.window_start.strftime('%H:%M')} 〜 {f.window_end.strftime('%H:%M')}"
                   f"（晴れ間 {f.clear_hours:.1f}時間、月の影響小 {f.moon_free_hours:.1f}時間）")
+            if f.sky_openness is not None:
+                print(f"  空の開け  : {sky_openness_text(f.sky_openness)}")
         else:
             print(f"  推奨時間帯 : {f.window_start.strftime('%H:%M')} 〜 {f.window_end.strftime('%H:%M')}"
                   f"（狙い目 {f.best_time.strftime('%H:%M')} 頃、月の影響小 {f.moon_free_hours:.1f}時間）")
@@ -925,7 +974,38 @@ def parse_args(argv=None):
     ap.add_argument("--json-out", default=None, metavar="ファイル",
                     help="探索結果をJSON(スキーマ hoshibiyori-explore/1、候補は全件)で書き出す。"
                          "終了コード0のときだけ書く(2のときは書かず、既存のファイルにも触れない)。通信の量は変わらない")
+    ap.add_argument("--nights", default=None, type=_nights_argument, metavar="YYYY-MM-DD[,YYYY-MM-DD…]",
+                    help="夜の始まりの日付。候補の上位の夜に入らなくても雲量を調べる(--json-out の requested_nights と"
+                         "画面の数行。候補の一覧・順位は変わらず、通信も増えない)")
+    add_estimate_argument(ap)
     return ap.parse_args(argv)
+
+
+def _nights_argument(text: str) -> list[date]:
+    import argparse
+    from requested_nights import parse_nights
+    try:
+        return parse_nights(text)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"日付は YYYY-MM-DD をカンマ区切りで指定してください({text!r}: {e})") from e
+
+
+def add_estimate_argument(ap) -> None:
+    """--estimate(explore と generate_report で共通)。"""
+    ap.add_argument("--estimate", action="store_true",
+                    help="時間の見積もりだけを出して終わる(通信しない。探索も計算もしない)")
+
+
+def print_estimate(kind: str, target: str, sites: list[dict], astro_grid: str) -> int:
+    """--estimate の本体。終了コード 0。"""
+    import time_estimates as te
+    ref_site = next(s for s in sites if s["name"] == "石廊崎")
+    state = te.cache_state(sys.modules[__name__], kind, sites, ref_site, astro_cache_dir=ASTRO_CACHE_DIR)
+    if astro_grid == "site":    # 従来の地点ごとの計算は保存を読まない
+        state.nights_ready = 0
+    for line in te.estimate_lines(kind, target, sites, state):
+        print(line)
+    return 0
 
 
 def add_astro_grid_argument(ap) -> None:
@@ -970,7 +1050,12 @@ def finish_astro_cache(astro: AstroNightCache | None) -> None:
 def main(argv=None) -> int:
     """終了コード: 0=完了(取得失敗があれば警告を表示)、2=取得失敗が多すぎる/429。"""
     args = parse_args(argv)
+    if args.estimate:
+        return print_estimate("explore", args.target, load_candidate_sites(), args.astro_grid)
     t0 = time.perf_counter()
+    import time_estimates
+    # 2026-11-24: 始まりの予告(標準エラーへ1行。標準出力と --json-out は変わらない)
+    time_estimates.print_start_notice(sys.modules[__name__], "explore", args.target, load_candidate_sites, args.astro_grid)
     cache = GridCloudCache()
     astro = make_astro_cache(args.astro_grid)
     sink: dict = {}
@@ -1022,7 +1107,8 @@ def write_explore_json(path, result: dict | None, cache, args) -> Path:
         outlook_rank_key=lambda o: outlook_rank_key(o, target_mode),
         is_primary=is_primary_origin,
         fetch_summary=cache.summary(), fetch_failures=list(getattr(cache, "failures", [])),
-        sites=result.get("sites", {}),
+        sites=result.get("sites", {}), site_index=result.get("site_index", ()),
+        requested_nights=result.get("requested_nights"), winter_bands=result.get("winter_bands"),
     )
     return ej.write_json_atomic(path, doc)
 
@@ -1030,7 +1116,10 @@ def write_explore_json(path, result: dict | None, cache, args) -> Path:
 def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink: dict | None = None) -> int:
     try:
         # 走査した全部の夜(scanned_nights)は --json-out のときだけ集める
-        result = _explore(cache, args.target, astro, collect_scan=bool(getattr(args, "json_out", None)))
+        kwargs = {"collect_scan": bool(getattr(args, "json_out", None))}
+        if getattr(args, "nights", None):
+            kwargs["requested_dates"] = args.nights
+        result = _explore(cache, args.target, astro, **kwargs)
         if sink is not None:
             sink["result"] = result
     except OpenMeteoDailyLimitError as e:
@@ -1056,9 +1145,11 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink
 
 
 def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
-             astro: AstroNightCache | None = None, collect_scan: bool = False) -> dict:
+             astro: AstroNightCache | None = None, collect_scan: bool = False,
+             requested_dates: list[date] | None = None) -> dict:
     """探索して結果を画面に出す。戻り値は --json-out 用の材料(2026-11-16。画面の出力は変えていない)。
-    collect_scan が真なら、第1段階で走査した全部の夜を scanned_nights として返す(計算は増えない)。"""
+    collect_scan が真なら、第1段階で走査した全部の夜を scanned_nights として返す(計算は増えない)。
+    requested_dates(--nights)があれば、その夜を requested_nights.py で調べる(通信は増えない。候補には混ぜない)。"""
     t_start = time.time()
 
     ts = load.timescale()
@@ -1078,8 +1169,20 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
     print(f"[光害] Black Marble由来のALR(相対指数。空の明るさの等級・ボートル値は表示しない)。仮閾値 {lp_limit_text(lp_store)}\n")
 
     ref_site = next(s for s in sites if s["name"] == "石廊崎")
-    scan: list | None = [] if collect_scan else None
+    scan: list | None = [] if collect_scan or requested_dates else None
     nights = stage1_moon_filter(ts, eph, ref_site["lat"], ref_site["lon"], astro, scan_out=scan)
+
+    # 冬の天の川の帯(夜ごとの値、基準地点)。候補の選び方には使わない。JSON では走査した全部の夜、画面は星空・星座モードの候補の夜
+    winter_bands: dict = {}
+    if collect_scan or target_mode == "stars":
+        import winter_milkyway as wm
+        band_nights = {n.night_date: n for n in ([n for n, _ in scan] if collect_scan else nights)}
+        winter_bands = {d: wm.night_band(ts, eph, ref_site["lat"], ref_site["lon"], n.dark_start, n.dark_end)
+                        for d, n in band_nights.items()}
+        if target_mode == "stars":
+            print("\n[冬の天の川の帯](基準地点・平らな地平線の目安。順位には使わない)")
+            for n in nights:
+                print(f"    {n.night_date}  {wm.band_text(n.night_date, winter_bands.get(n.night_date))}")
 
     msm_nights = [n for n in nights if forecast_regime_for_night(cache, ref_site, n) == "MSM"]
     ecmwf_nights = [n for n in nights if n not in msm_nights]
@@ -1109,6 +1212,14 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
         outlooks = []
         print("\n[見込みパート] 該当する候補夜がありません。")
 
+    requested = None
+    if requested_dates:
+        import requested_nights as rn
+        requested = rn.evaluate(sys.modules[__name__], ts, eph, requested_dates, scan, {n.night_date for n in nights},
+                                {n.night_date for n in msm_nights}, sites, ref_site, cache, lp_store, target_mode, astro)
+        for line in rn.summary_lines(requested):
+            print(line)
+
     t_end = time.time()
     if target_mode == "milkyway" and len(finals) + len(outlooks) < MILKYWAY_FEW_RESULTS:
         print("\n候補が少ない場合は `--target stars` で星空・星座向けの候補を探せます。")
@@ -1122,9 +1233,13 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
                   "with_horizon": sum(1 for s in sites if s["horizon_csv"])},
         "reference_site": ref_site, "nights": nights, "msm_dates": [n.night_date for n in msm_nights],
         "finals": finals, "outlooks": outlooks, "alr_threshold": lp_store.alr_threshold,
+        "site_index": sites,
     }
+    if requested is not None:
+        result["requested_nights"] = requested
     if scan is not None:
         result["scanned_nights"] = scan
+        result["winter_bands"] = winter_bands
     return result
 
 

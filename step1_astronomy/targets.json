@@ -1,4 +1,5 @@
 {
+  "_note": "座標は J2000。source の無い対象は従来からのもの。source が「指示書の値。未照合」の対象は、目安(どの時間帯に見えるか)だけに使い、正確さが要る用途に使わない。group は見どころでまとめて出す組(星座・星の並び)、first_magnitude は1等星か(どちらも未照合)。best_months が空の対象は、季節を計算で決める(sky_highlights.py)。",
   "targets": [
     {
       "id": "galactic_center",
@@ -7,7 +8,8 @@
       "ra_hours": 17.760011,
       "dec_deg": -29.007806,
       "best_season": "夏(6〜8月)",
-      "best_months": [6, 7, 8]
+      "best_months": [6, 7, 8],
+      "kind": "天の川"
     },
     {
       "id": "big_dipper",
@@ -34,7 +36,8 @@
       "ra_hours": 5.603558,
       "dec_deg": -1.201917,
       "best_season": "冬(12〜2月)",
-      "best_months": [12, 1, 2]
+      "best_months": [12, 1, 2],
+      "group": "オリオン座"
     },
     {
       "id": "summer_triangle",
@@ -43,7 +46,8 @@
       "ra_hours": 19.717519,
       "dec_deg": 30.977407,
       "best_season": "夏〜秋(7〜10月)",
-      "best_months": [7, 8, 9, 10]
+      "best_months": [7, 8, 9, 10],
+      "group": "夏の大三角"
     },
     {
       "id": "winter_triangle",
@@ -52,7 +56,8 @@
       "ra_hours": 6.775680,
       "dec_deg": -1.361355,
       "best_season": "冬(12〜2月)",
-      "best_months": [12, 1, 2]
+      "best_months": [12, 1, 2],
+      "group": "冬の大三角"
     },
     {
       "id": "pleiades",
@@ -61,7 +66,256 @@
       "ra_hours": 3.790000,
       "dec_deg": 24.116667,
       "best_season": "秋〜冬(11〜1月)",
-      "best_months": [11, 12, 1]
+      "best_months": [11, 12, 1],
+      "group": "おうし座",
+      "kind": "星団"
+    },
+    {
+      "id": "aldebaran",
+      "name": "アルデバラン",
+      "name_en": "Aldebaran",
+      "ra_hours": 4.598611,
+      "dec_deg": 16.516667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "おうし座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "capella",
+      "name": "カペラ",
+      "name_en": "Capella",
+      "ra_hours": 5.278056,
+      "dec_deg": 46.0,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "ぎょしゃ座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "rigel",
+      "name": "リゲル",
+      "name_en": "Rigel",
+      "ra_hours": 5.242222,
+      "dec_deg": -8.2,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "オリオン座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "betelgeuse",
+      "name": "ベテルギウス",
+      "name_en": "Betelgeuse",
+      "ra_hours": 5.919444,
+      "dec_deg": 7.4,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "オリオン座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "orion_nebula",
+      "name": "オリオン大星雲",
+      "name_en": "Orion Nebula (M42)",
+      "ra_hours": 5.588056,
+      "dec_deg": -5.383333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星雲",
+      "group": "オリオン座",
+      "first_magnitude": false,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "sirius",
+      "name": "シリウス",
+      "name_en": "Sirius",
+      "ra_hours": 6.7525,
+      "dec_deg": -16.716667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "冬の大三角",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "procyon",
+      "name": "プロキオン",
+      "name_en": "Procyon",
+      "ra_hours": 7.655,
+      "dec_deg": 5.216667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "冬の大三角",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "castor",
+      "name": "カストル",
+      "name_en": "Castor",
+      "ra_hours": 7.576667,
+      "dec_deg": 31.883333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "ふたご座",
+      "first_magnitude": false,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "pollux",
+      "name": "ポルックス",
+      "name_en": "Pollux",
+      "ra_hours": 7.755278,
+      "dec_deg": 28.033333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "ふたご座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "regulus",
+      "name": "レグルス",
+      "name_en": "Regulus",
+      "ra_hours": 10.139444,
+      "dec_deg": 11.966667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "しし座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "spica",
+      "name": "スピカ",
+      "name_en": "Spica",
+      "ra_hours": 13.42,
+      "dec_deg": -11.166667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "おとめ座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "arcturus",
+      "name": "アークトゥルス",
+      "name_en": "Arcturus",
+      "ra_hours": 14.261111,
+      "dec_deg": 19.183333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "うしかい座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "antares",
+      "name": "アンタレス",
+      "name_en": "Antares",
+      "ra_hours": 16.49,
+      "dec_deg": -26.433333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "さそり座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "vega",
+      "name": "ベガ",
+      "name_en": "Vega",
+      "ra_hours": 18.615556,
+      "dec_deg": 38.783333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "夏の大三角",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "altair",
+      "name": "アルタイル",
+      "name_en": "Altair",
+      "ra_hours": 19.846389,
+      "dec_deg": 8.866667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "夏の大三角",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "deneb",
+      "name": "デネブ",
+      "name_en": "Deneb",
+      "ra_hours": 20.690556,
+      "dec_deg": 45.283333,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "夏の大三角",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "fomalhaut",
+      "name": "フォーマルハウト",
+      "name_en": "Fomalhaut",
+      "ra_hours": 22.960833,
+      "dec_deg": -29.616667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星",
+      "group": "みなみのうお座",
+      "first_magnitude": true,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "andromeda_galaxy",
+      "name": "アンドロメダ銀河",
+      "name_en": "Andromeda Galaxy (M31)",
+      "ra_hours": 0.712222,
+      "dec_deg": 41.266667,
+      "best_season": "",
+      "best_months": [],
+      "kind": "銀河",
+      "group": "",
+      "first_magnitude": false,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
+    },
+    {
+      "id": "autumn_square",
+      "name": "秋の四辺形",
+      "name_en": "Great Square of Pegasus (Alpheratz/Scheat/Markab/Algenib centroid)",
+      "ra_hours": 23.625625,
+      "dec_deg": 21.8875,
+      "best_season": "",
+      "best_months": [],
+      "kind": "星の並び",
+      "group": "",
+      "first_magnitude": false,
+      "source": "指示書(2026-11-24)の値。未照合(星表と照らしていない)"
     }
   ]
 }
