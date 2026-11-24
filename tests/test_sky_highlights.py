@@ -185,6 +185,24 @@ class RenderTests(unittest.TestCase):
         self.assertIn("放射点が高度20°以上に出ない", none)
         self.assertIn(sh.METEOR_CAVEAT, none)
 
+    def test_short_radiant_window_has_no_times(self):
+        base = {"name": "みずがめ座η流星群", "peak_time": datetime(2027, 5, 7, 0, 30, tzinfo=JST), "zhr": 50, "source": "x",
+                "caveat": sh.METEOR_CAVEAT, "night_date": date(2027, 5, 6), "moon_up_intervals": [], "moon_illuminated_fraction": 0.0}
+
+        def text(*hm):
+            (a, b, c, e) = hm
+            return gr.guide_shower_text(dict(base, radiant_start=datetime(2027, 5, 7, a, b, tzinfo=JST),
+                                             radiant_end=datetime(2027, 5, 7, c, e, tzinfo=JST)))[1]
+        # 30分より短い / 1点だけ / 短いが丸めると時刻は違う / 30分あるが丸めると同じ(2:45〜3:15 → 翌03:00)
+        for hm in ((3, 7, 3, 14), (3, 14, 3, 14), (3, 10, 3, 20), (2, 45, 3, 15)):
+            t = text(*hm)
+            self.assertIn("極大の夜(5月6日の夜)に放射点が高度20°以上に出ているのは30分より短い。月は出ていない(輝面比0%)", t)
+            self.assertNotRegex(t, r"翌\d\d:\d\d〜")
+            self.assertIn("極大は5月7日 00:30ごろ(日本時間)", t)
+            self.assertIn("出現数の目安は1時間あたり50", t)
+            self.assertIn(sh.METEOR_CAVEAT, t)
+        self.assertIn("出ているのは翌02:30〜翌03:00。", text(2, 30, 3, 0))      # ちょうど30分は今までどおり
+
 
 class DataTests(unittest.TestCase):
     def test_sources_are_marked(self):
@@ -339,6 +357,26 @@ class AstronomyTests(unittest.TestCase):
         self.assertEqual((q["name"], q["night_date"]), ("しぶんぎ座流星群", date(2027, 1, 3)))
         self.assertGreater(q["radiant_start"], datetime(2027, 1, 4, 0, 0, tzinfo=JST))
         self.assertTrue(0.0 <= q["moon_illuminated_fraction"] <= 1.0)
+
+    def test_shower_text_of_short_and_usual_windows(self):
+        def text(*start):
+            s = sh.upcoming_showers(ex, self.ts, self.eph, LAT, LON, datetime(*start, 9, tzinfo=JST))[0]
+            return (s["radiant_start"], s["radiant_end"], *gr.guide_shower_text(s))
+        a, b, name, t = text(2027, 5, 1)
+        self.assertEqual(name, "みずがめ座η流星群")
+        self.assertIsNotNone(a)                                             # 値は残る(文だけが変わる)
+        self.assertLess(b - a, timedelta(minutes=30))
+        self.assertIn("極大の夜(5月6日の夜)に放射点が高度20°以上に出ているのは30分より短い。", t)
+        self.assertNotIn("翌03:00", t)
+        for part in ("極大は5月7日", "輝面比", "出現数の目安は1時間あたり50", sh.METEOR_CAVEAT):
+            self.assertIn(part, t)
+        _a, _b, name, t = text(2026, 12, 1)
+        self.assertEqual(name, "ふたご座流星群")
+        self.assertIn("極大の夜(12月14日の夜)に放射点が高度20°以上に出ているのは20:00〜翌05:00。", t)
+        # 一度も高度20°以上に出ない夜(南緯40°のペルセウス座: 放射点の赤緯+58°)は、もとからの文のまま
+        s = sh.upcoming_showers(ex, self.ts, self.eph, -40.0, LON, datetime(2027, 8, 1, 9, tzinfo=JST))[0]
+        self.assertEqual((s["name"], s["radiant_start"]), ("ペルセウス座流星群", None))
+        self.assertRegex(gr.guide_shower_text(s)[1], r"極大の夜\(8月1\d日の夜\)には放射点が高度20°以上に出ない。")
 
     def test_no_darkness(self):
         g = sh.build(ex, self.ts, self.eph, LAT, LON, date(2026, 11, 24), None, None, datetime(2026, 11, 24, 9, tzinfo=JST), MIN_ALT)
