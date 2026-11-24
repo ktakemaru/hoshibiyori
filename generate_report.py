@@ -914,8 +914,11 @@ def guide_shower_text(s: dict) -> tuple[str, str]:
     if s["night_date"] is not None:
         d = s["night_date"]
         if s["radiant_start"] is not None:
-            parts.append(f"極大の夜({d.month}月{d.day}日の夜)に放射点が高度{sky_highlights.RADIANT_MIN_ALT_DEG:.0f}°以上に出ているのは"
-                         f"{_guide_hm(s['radiant_start'], d)}〜{_guide_hm(s['radiant_end'], d)}")
+            # 短すぎる時間帯は、月・惑星・星と同じ決まり(is_displayable)で見分け、時刻を書かない(行は外さない)
+            start, end = _guide_hm(s["radiant_start"], d), _guide_hm(s["radiant_end"], d)
+            when = (f"{start}〜{end}" if winter_milkyway.is_displayable(s["radiant_start"], s["radiant_end"], start, end)
+                    else f"{winter_milkyway.DISPLAY_STEP_MIN}分より短い")
+            parts.append(f"極大の夜({d.month}月{d.day}日の夜)に放射点が高度{sky_highlights.RADIANT_MIN_ALT_DEG:.0f}°以上に出ているのは{when}")
         else:
             parts.append(f"極大の夜({d.month}月{d.day}日の夜)には放射点が高度{sky_highlights.RADIANT_MIN_ALT_DEG:.0f}°以上に出ない")
         parts.append(f"{_guide_moon(s['moon_up_intervals'], d)}(輝面比{s['moon_illuminated_fraction']:.0%})")
