@@ -267,6 +267,27 @@ class RequestedNightsTests(unittest.TestCase):
         self.assertEqual(rec["counts"]["all"]["passed"], 3)
         self.assertEqual(rec["moon_free_hours"], short[0].moon_free_hours)
 
+    def test_passed_matches_finals_on_a_selected_msm_night(self):
+        # 候補の夜(MSM)を指定したとき、通った地点・晴れ間・平均雲量が、通常の段階(finals)と同じになること
+        summer = datetime(2026, 8, 10, 9, 0, tzinfo=JST)
+        cloud = lambda t: 10.0 if t.hour in (20, 21, 22, 23) else 25.0 if t.hour in (0, 1) else 80.0   # noqa: E731
+        for now, target in ((self.NEW_MOON, "stars"), (summer, "milkyway")):
+            with self.subTest(target=target):
+                nights = [now.date() + timedelta(days=i) for i in range(3)]
+                result, _, _, _ = self.explore(now, target, nights, cloud)
+                compared = 0
+                for rec in result["requested_nights"]:
+                    if not (rec["selected"] and rec["regime"] == "MSM"):
+                        continue
+                    self.assertEqual(rec["forecast_regime"], "MSM")
+                    want = {f.site_id: (f.clear_hours, f.mean_obstruction, f.window_start, f.window_end)
+                            for f in result["finals"] if f.night_date == rec["night_date"]}
+                    got = {s["site_id"]: (s["clear_hours"], s["mean_obstruction"], s["clear_start"], s["clear_end"])
+                           for s in rec["sites"] if s["status"] == "passed"}
+                    self.assertEqual(got, want)
+                    compared += len(want)
+                self.assertGreater(compared, 0)
+
     def test_out_of_range_is_none(self):
         days = [self.NEW_MOON.date() - timedelta(days=1), self.NEW_MOON.date() + timedelta(days=14)]
         result, text, _, cache = self.explore(self.NEW_MOON, "stars", days)
