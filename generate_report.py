@@ -877,9 +877,8 @@ def _guide_direction(az: float, alt: float) -> str:
 
 
 def _guide_moon(intervals: list[dict], base) -> str:
-    if not intervals:
-        return "月は出ていない"
-    return "月は" + "・".join(f"{_guide_hm(m['start'], base)}〜{_guide_hm(m['end'], base)}" for m in intervals) + "に出ている"
+    shown = winter_milkyway.shown_moon_intervals(intervals, base, _guide_hm)
+    return "月は" + "・".join(shown) + "に出ている" if shown else "月は出ていない"
 
 
 def _guide_window(m: dict, base) -> str:
@@ -935,7 +934,9 @@ def render_sky_guide(sky_guide: dict) -> str:
         return f"<li><b>{html.escape(head)}</b>: {html.escape(text)}</li>"
     blocks = []
     for slot in sky_guide["slots"]:
-        moon = f"、{_guide_moon(slot['moon_up_intervals'], base)}" if slot["moonlit"] else ""
+        # 月明かりのある時間帯でも、表示の刻みより短い区間しか無ければ月のことは書かない(「月は出ていない」とは書かない)
+        moon = (f"、{_guide_moon(slot['moon_up_intervals'], base)}" if slot["moonlit"]
+                and winter_milkyway.shown_moon_intervals(slot["moon_up_intervals"], base, _guide_hm) else "")
         rows = ("".join(li(*guide_item_text(i, base)) for i in slot["items"])
                 or f"<li>高度{min_alt:.0f}&deg;以上に出る対象はありません</li>")
         blocks.append(f'<h4 class="guide-slot">{html.escape(slot["label"])}'

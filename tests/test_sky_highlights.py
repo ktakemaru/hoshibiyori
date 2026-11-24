@@ -107,6 +107,17 @@ class RenderTests(unittest.TestCase):
         self.assertIn("今の時期は見えません: 天の川銀河中心(次に見えるのは2月ごろ)、ある星</p>", html)
         self.assertIn("対象地点固有の地形は考慮しない一般的な目安です", html)      # 今の注意書きを残す
 
+    def test_short_moon_interval_is_not_shown(self):
+        short = [{"start": TIMES[0], "end": TIMES[0] + timedelta(minutes=15)}]
+        html = gr.render_sky_guide(self.guide(
+            slots=[{"key": "midnight", "label": "夜半", "start": TIMES[0], "end": TIMES[-1], "moonlit": True, "items": [],
+                    "moon_up_intervals": short}]))
+        self.assertIn("夜半(22:00〜23:00)", html)
+        self.assertEqual(gr._guide_moon(short, T0.date()), "月は出ていない")
+        # 30分でも、丸めると始まりと終わりが同じ時刻になる区間は出さない(22:45〜23:15 → 23:00〜23:00)
+        half = [{"start": datetime(2026, 11, 20, 22, 45, tzinfo=JST), "end": datetime(2026, 11, 20, 23, 15, tzinfo=JST)}]
+        self.assertEqual(gr._guide_moon(half, date(2026, 11, 20)), "月は出ていない")
+
     def test_shower_always_has_the_caveat(self):
         s = {"name": "ふたご座流星群", "peak_time": datetime(2026, 12, 14, 22, 49, tzinfo=JST), "zhr": 150, "source": "x",
              "caveat": sh.METEOR_CAVEAT, "night_date": date(2026, 12, 14), "radiant_start": datetime(2026, 12, 14, 20, 5, tzinfo=JST),

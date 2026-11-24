@@ -140,6 +140,32 @@ class BandSummaryTests(unittest.TestCase):
                          "冬の天の川の帯: 18:00〜20:30に高く、18:00ごろ最も高い(帯のいちばん高い所は南の高度40°)。月は22:00〜翌01:30に出ている")
 
 
+class MoonIntervalTextTests(unittest.TestCase):
+    """表示の刻み(30分)より短い区間・始まりと終わりが同じに見える区間は出さない(2026-11-24)。"""
+    NIGHT = date(2026, 12, 6)
+
+    @staticmethod
+    def at(h, m):
+        return datetime(2026, 12, 7, h, m, tzinfo=JST)
+
+    def shown(self, *pairs):
+        return wm.shown_moon_intervals([{"start": self.at(*a), "end": self.at(*b)} for a, b in pairs], self.NIGHT)
+
+    def test_short_intervals_are_dropped(self):
+        self.assertEqual(self.shown(((5, 4), (5, 4))), [])             # 長さ0
+        self.assertEqual(self.shown(((4, 49), (5, 4))), [])            # 翌05:00〜翌05:00 になっていた
+        self.assertEqual(self.shown(((4, 40), (5, 5))), [])            # 丸めると違う時刻でも、刻みより短い
+        self.assertEqual(self.shown(((4, 30), (5, 0))), ["翌04:30〜翌05:00"])   # ちょうど30分は出す
+        self.assertEqual(self.shown(((1, 0), (3, 0)), ((4, 49), (5, 4))), ["翌01:00〜翌03:00"])
+
+    def test_band_text(self):
+        times = [datetime(2026, 12, 6, 18, tzinfo=JST) + timedelta(minutes=30 * i) for i in range(6)]
+        band = dict(wm.summarize(times, [[(180.0, 40.0)] * 11] * 6),
+                    moon_up_intervals=[{"start": self.at(4, 49), "end": self.at(5, 4)}])
+        self.assertTrue(wm.band_text(self.NIGHT, band).endswith("。月は出ていない"))
+        self.assertEqual(len(band["moon_up_intervals"]), 1)      # 値(JSON)は変えない
+
+
 class ScannedNightTests(unittest.TestCase):
     def test_json_item(self):
         nights, scan = scan_fixture()

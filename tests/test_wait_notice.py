@@ -142,6 +142,79 @@ class CacheStateTests(EstimateBase):
         self.assertTrue(old.exists())
 
 
+def fill_reference_forecast(cache_dir: Path, msm_hours: int) -> None:
+    """基準地点の2セルに予報の値を入れる。MSM は今日の0時から msm_hours 時間分。"""
+    cache = GridCloudCache(cache_dir=cache_dir)
+    today = datetime.now(ex.JST).replace(hour=0, minute=0, second=0, microsecond=0)
+    for m, d, hours in ((MSM_MODEL, MSM_MAX_FORECAST_DAYS, msm_hours), (ECMWF_MODEL, ECMWF_MAX_FORECAST_DAYS, 15 * 24)):
+        hourly = {"time": [f"{today + timedelta(hours=h):%Y-%m-%dT%H:%M}" for h in range(hours)]}
+        for v in level_hourly_vars().split(","):
+            hourly[v] = [1500.0 if "geopotential" in v else 10.0] * hours
+        cache._write_disk((m, grid_cell(SITES[0]["lat"], SITES[0]["lon"], m), d, level_hourly_vars()), hourly)
+
+
+class NeededCellsTests(EstimateBase):
+    """「通信あり」= この回に要る雲量のセルが期限内に無い。光害で落ちる地点のセルは、MSM の夜を調べる回だけ要る。"""
+
+    def fill(self, msm_hours, **astro):
+        fill_cloud(self.cloud, SITES[:2])           # 光害で落ちる地点(3つ目)のセルは無い
+        fill_reference_forecast(self.cloud, msm_hours)
+        fill_astro(self.astro, SITES[:2], **astro)
+
+    def test_ecmwf_only(self):
+        self.fill(0)
+        for kind in ("explore", "report"):
+            with self.subTest(kind=kind):
+                s = self.state(kind)
+                self.assertEqual((s.cells_fresh, s.cells_total, s.needed_fresh, s.needed_total), (4, 6, 4, 4))
+                self.assertTrue(s.cloud_ready)
+                lines = te.estimate_lines(kind, "stars", SITES, s)
+                self.assertEqual(lines[2], "雲量の保存: 期限内 4 セル / 全 6 セル(この回に要るのは 4 セル)")
+                self.assertEqual(lines[3], "時間の目安: " + {"explore": "約10秒", "report": "約21秒"}[kind])
+
+    def test_msm_night_needs_every_cell(self):
+        self.fill(48)
+        s = self.state("report")
+        self.assertIsNone(s.needed_total)
+        self.assertFalse(s.cloud_ready)
+        self.assertIn("通信あり", te.estimate_lines("report", "stars", SITES, s)[3])
+
+    def test_msm_night_outside_the_top_is_not_counted(self):
+        # 見本の無月時間帯は日が進むほど長いので、MSM の範囲の夜は探索の上位6夜に入らない
+        self.fill(48)
+        self.assertTrue(self.state("explore").cloud_ready)
+
+    def test_missing_astro_is_not_a_reason(self):
+        # 近い3夜だけ保存済み。残りの夜は保存が無いが、MSM の値も無いので、天文計算が無くても要るセルが決まる
+        self.fill(0, nights=3)
+        for kind in ("explore", "report"):
+            s = self.state(kind)
+            self.assertEqual((s.nights_ready, s.cloud_ready), (3, True))
+            self.assertNotIn("通信あり", te.estimate_lines(kind, "stars", SITES, s)[3])
+        self.assertEqual(te.estimate_lines("report", "stars", SITES, self.state("report"))[3],
+                         "時間の目安: 約21秒。天文計算の保存が足りない分だけ長くなることがある")
+
+    def test_no_astro_at_all_has_no_short_time(self):
+        fill_cloud(self.cloud, SITES[:2])
+        fill_reference_forecast(self.cloud, 0)
+        self.assertEqual(te.estimate_lines("report", "stars", SITES, self.state("report"))[3], "時間の目安: まだ測っていません")
+
+    def test_unknown_near_night_is_on_the_safe_side(self):
+        # MSM の値のある夜の天文計算が無いときは、MSM の夜がありうるので全セルを要るとする
+        fill_cloud(self.cloud, SITES[:2])
+        fill_reference_forecast(self.cloud, 48)
+        self.assertFalse(self.state("report").cloud_ready)
+
+    def test_start_notice(self):
+        self.fill(0)
+        for msm_hours, text in ((0, "(時間の目安: 約21秒)"), (48, "(時間の目安: まだ測っていません・通信あり)")):
+            fill_reference_forecast(self.cloud, msm_hours)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                te.print_start_notice(ex, "report", "stars", lambda: [dict(s) for s in SITES], "ecmwf")
+            self.assertTrue(err.getvalue().endswith(text + "\n"), err.getvalue())
+
+
 class PickTimeTests(unittest.TestCase):
     def test_measured_combinations(self):
         self.assertEqual(te.pick_time("explore", "stars", False)[0], "約6分")
@@ -154,7 +227,8 @@ class PickTimeTests(unittest.TestCase):
             self.assertTrue(text.startswith("約6分"))
             self.assertIn("未実測", text)
             self.assertEqual(used.key, "explore/stars/cold")
-        self.assertTrue(te.pick_time("report", "stars", True)[0].startswith("約2分"))
+        # 2026-11-24 に実測が入ったので代用しない(以前は天の川モードの「約2分」で代用していた)
+        self.assertEqual(te.pick_time("report", "stars", True)[0], "約21秒")
 
     def test_short_measurement_is_not_used_for_a_longer_state(self):
         # レポートは「保存が足りない」状態の実測が無い。保存済みの約2分を当てはめない

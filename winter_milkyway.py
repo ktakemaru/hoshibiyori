@@ -13,6 +13,7 @@ BAND_L_DEG = tuple(range(120, 221, 10))     # 帯を代表する銀経(度)
 HIGH_ALT_DEG = 20.0                         # これ以上を「高く出ている」とする(仮の値)
 HIGH_FRACTION = 0.5                         # 帯の点のうち、この割合以上が高く出ている時間帯を採る(指示書「半分以上」)
 SAMPLE_MIN = 30
+DISPLAY_STEP_MIN = 30                       # 画面・レポートの時刻の刻み(分)
 _ZENITH_ALT_DEG = 80.0                      # これ以上は方角でなく「ほぼ天頂」と書く(generate_report.render_sky_guide と同じ)
 
 
@@ -107,6 +108,17 @@ def _hm(dt: datetime, base) -> str:
     return f"{'翌' if r.date() != base else ''}{r:%H:%M}"
 
 
+def shown_moon_intervals(intervals: list[dict], base, fmt=_hm) -> list[str]:
+    """月が出ている区間の文。表示の刻み(30分)より短い区間と、丸めると始まりと終わりが同じになる区間は出さない
+    (値のほう[moon_up_intervals]は変えない)。fmt は時刻の書き方。"""
+    out = []
+    for m in intervals:
+        start, end = fmt(m["start"], base), fmt(m["end"], base)
+        if m["end"] - m["start"] >= timedelta(minutes=DISPLAY_STEP_MIN) and start != end:
+            out.append(f"{start}〜{end}")
+    return out
+
+
 def _compass(az: float) -> str:
     names = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東",
              "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"]
@@ -119,8 +131,7 @@ def band_text(night_date, band: dict | None) -> str:
         return "冬の天の川の帯: この夜は高く出ません"
     where = ("ほぼ天頂" if band["peak_point_alt_deg"] >= _ZENITH_ALT_DEG
              else f"{_compass(band['peak_point_az_deg'])}の高度{band['peak_point_alt_deg']:.0f}°")
-    moon = band["moon_up_intervals"]
-    moon_text = ("月は出ていない" if not moon else
-                 "月は" + "・".join(f"{_hm(m['start'], night_date)}〜{_hm(m['end'], night_date)}" for m in moon) + "に出ている")
+    moon = shown_moon_intervals(band["moon_up_intervals"], night_date)
+    moon_text = "月は出ていない" if not moon else "月は" + "・".join(moon) + "に出ている"
     return (f"冬の天の川の帯: {_hm(band['high_start'], night_date)}〜{_hm(band['high_end'], night_date)}に高く、"
             f"{_hm(band['peak_time'], night_date)}ごろ最も高い(帯のいちばん高い所は{where})。{moon_text}")

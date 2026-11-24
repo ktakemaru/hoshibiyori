@@ -243,6 +243,21 @@ class RequestedNightsTests(unittest.TestCase):
         for r in doc["finals"] + doc["outlooks"] + doc["requested_nights"][0]["sites"]:
             self.assertIn(r["site_id"], index)
 
+    def test_summary_separates_the_window_and_the_moon(self):
+        counts = {k: {"total": 5, "passed": 3, "failed": 2, "not_examined": 0, "cloud_examined": 5, "clear": 4,
+                      "failed_reasons": {"cloud_filter": 1, "light_pollution_filter": 1, "direction_filter": 0}}
+                  for k in ("all", "primary")}
+        rec = {"night_date": date(2026, 11, 28), "window_kind": "moon_free", "forecast_regime": "ECMWF", "selected": False,
+               "counts": counts, "dark_start": datetime(2026, 11, 28, 18, 0, tzinfo=ex.JST),
+               "dark_end": datetime(2026, 11, 29, 5, 0, tzinfo=ex.JST), "moon": {"up_hours": 8.5, "illuminated_fraction": 0.78}}
+        lines = rn.summary_lines([rec])
+        self.assertEqual(lines[2], "    2026-11-28  月の無い時間帯で調べた。予報は ECMWF。候補の上位の夜に入っていない")
+        self.assertEqual(lines[3], "      その夜の月: 暗い時間帯 11.0時間のうち、月が出ているのは 8.5時間(輝面比 78%)")
+        lines = rn.summary_lines([dict(rec, window_kind="dark", forecast_regime="MSM", selected=True,
+                                       moon={"up_hours": 0.0, "illuminated_fraction": 0.02})])
+        self.assertEqual(lines[2], "    2026-11-28  暗い時間帯ぜんぶ(月が出ている)で調べた。予報は MSM。候補の上位の夜に入っている")
+        self.assertEqual(lines[3], "      その夜の月: 暗い時間帯 11.0時間のうち、月は出ていない(輝面比 2%)")
+
     def test_dark_when_no_usable_moon_free_window(self):
         d = self.FULL_MOON.date()        # 満月の夜
         result, text, _, _ = self.explore(self.FULL_MOON, "stars", [d])

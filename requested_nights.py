@@ -276,6 +276,14 @@ _NONE_TEXT = {
 }
 
 
+def _moon_text(r: dict) -> str:
+    moon = r["moon"]
+    dark_hours = (r["dark_end"] - r["dark_start"]).total_seconds() / 3600.0
+    up = f"{moon['up_hours']:.1f}"
+    state = "月は出ていない" if up == "0.0" else f"月が出ているのは {up}時間"
+    return f"その夜の月: 暗い時間帯 {dark_hours:.1f}時間のうち、{state}(輝面比 {moon['illuminated_fraction']:.0%})"
+
+
 def summary_lines(records: list[dict]) -> list[str]:
     """画面のまとめ(--nights を付けたときだけ出す)。"""
     lines = ["", "[指定した夜](--nights。候補の一覧・順位とは別。雲量はこの回に取った分だけを使う)"]
@@ -284,11 +292,11 @@ def summary_lines(records: list[dict]) -> list[str]:
             lines.append(f"    {r['night_date']}  {_NONE_TEXT.get(r['none_reason'], '調べていない')}")
             continue
         a, p = r["counts"]["all"], r["counts"]["primary"]
-        kind = "月の無い暗い時間帯" if r["window_kind"] == WINDOW_MOON_FREE else "暗い時間帯ぜんぶ(月が出ている)"
-        moon = r["moon"]
-        lines.append(f"    {r['night_date']}  {kind}・{r['forecast_regime']}"
-                     f"・上位の夜に{'入っている' if r['selected'] else '入っていない'}"
-                     f"・月が出ている {moon['up_hours']:.1f}時間(輝面比 {moon['illuminated_fraction']:.0%})")
+        kind = "月の無い時間帯" if r["window_kind"] == WINDOW_MOON_FREE else "暗い時間帯ぜんぶ(月が出ている)"
+        lines.append(f"    {r['night_date']}  {kind}で調べた。予報は {r['forecast_regime']}。"
+                     f"候補の上位の夜に{'入っている' if r['selected'] else '入っていない'}")
+        # 月の情報は、何で調べたかとは別(どちらの場合も、その夜の暗い時間帯ぜんぶについての値)
+        lines.append(f"      {_moon_text(r)}")
         lines.append(f"      条件を通った {a['passed']}/{a['total']}地点(主軸 {p['passed']}/{p['total']})"
                      f" / 1時間以上の晴れ間 {a['clear']}/{a['cloud_examined']}地点 / 調べていない {a['not_examined']}地点")
         f = a["failed_reasons"]
