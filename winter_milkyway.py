@@ -108,13 +108,18 @@ def _hm(dt: datetime, base) -> str:
     return f"{'翌' if r.date() != base else ''}{r:%H:%M}"
 
 
+def is_displayable(start: datetime, end: datetime, shown_start, shown_end) -> bool:
+    """表示の刻み(30分)以上あり、丸めた始まりと終わりが違う区間か(月・見どころの対象で共通の決まり)。"""
+    return end - start >= timedelta(minutes=DISPLAY_STEP_MIN) and shown_start != shown_end
+
+
 def shown_moon_intervals(intervals: list[dict], base, fmt=_hm) -> list[str]:
     """月が出ている区間の文。表示の刻み(30分)より短い区間と、丸めると始まりと終わりが同じになる区間は出さない
     (値のほう[moon_up_intervals]は変えない)。fmt は時刻の書き方。"""
     out = []
     for m in intervals:
         start, end = fmt(m["start"], base), fmt(m["end"], base)
-        if m["end"] - m["start"] >= timedelta(minutes=DISPLAY_STEP_MIN) and start != end:
+        if is_displayable(m["start"], m["end"], start, end):
             out.append(f"{start}〜{end}")
     return out
 
