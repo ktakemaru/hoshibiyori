@@ -55,6 +55,7 @@ py -m venv .venv
 | 探索・星空・星座モード・全897地点・`--nights` 1夜・JSON つき(雲量の保存なし) | `explore_hoshibiyori.py` `--target stars --nights … --json-out …` | 約4分 | 2026-11-24、Windows、利用者の実測1回(243.1秒、API 456回・失敗0、天文計算の保存は14夜のうち4夜) |
 | 探索・天の川モード・全897地点(保存が足りない) | `explore_hoshibiyori.py` | 未実測 | — |
 | 探索・天の川モード・全897地点(保存がそろっている) | `explore_hoshibiyori.py` | 未実測 | — |
+| 探索・天の川モード・全897地点・`--nights` 14夜・JSON つき(予報の保存あり。1.2.0、計算の短縮の前) | `explore_hoshibiyori.py` `--nights … --json-out …` | 約10分 | 2026-11-25、Windows、利用者の実測1回(583.2秒、通信0回) |
 | レポートの生成・天の川モード・主軸146地点(保存が足りない) | `generate_report.py` | 未実測 | — |
 | レポートの生成・天の川モード・主軸146地点(雲量が保存済み) | `generate_report.py` | 約2分 | 2026-11-15、Windows・自宅回線、利用者の実測(1.9分、通信0回) |
 | レポートの生成・星空・星座モード・主軸146地点(保存が足りない) | `generate_report.py` `--target stars` | 未実測 | — |

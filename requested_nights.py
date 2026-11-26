@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 
 WINDOW_MOON_FREE = "moon_free"
 WINDOW_DARK = "dark"
@@ -46,6 +46,9 @@ class FetchedOnlyCache:
         if memo is None:
             memo = {}
         self._by_time_memo = memo
+        # 保存から読んだセルは、この回のあいだ覚えておく(2026-11-27、処理時間の短縮)。以前は地点×夜ごとに同じファイルを
+        # 読み直していたため、同じ時系列が毎回別のオブジェクトになり、時系列の変換の使い回し(_by_time_memo)が効かなかった
+        self._disk_memo: dict = {}
 
     def get_hourly(self, lat, lon, model, forecast_days, variables):
         from grid_cache import grid_cell
@@ -54,7 +57,9 @@ class FetchedOnlyCache:
         if key in memory:
             return memory[key]
         if getattr(self._cache, "disk_cache_enabled", False):
-            return self._cache._read_disk(key, model)
+            if key not in self._disk_memo:
+                self._disk_memo[key] = self._cache._read_disk(key, model)
+            return self._disk_memo[key]
         return None
 
     def has_cell(self, lat, lon) -> bool:
@@ -112,13 +117,10 @@ def moon_info(ex, ts, eph, ref_site: dict, dark_start: datetime | None, dark_end
 
 
 def _track(ex, ts, eph, site, target, start: datetime, end: datetime):
-    """対象天体の (方位, 高度) を15分刻みでまとめて計算する。"""
-    times, t = [], start
-    while t <= end:
-        times.append(t)
-        t += timedelta(minutes=TRACK_INTERVAL_MIN)
-    az, alt = ex.altaz_at_time(ts.from_datetimes([x.astimezone(timezone.utc) for x in times]), eph,
-                               site["lat"], site["lon"], site["elevation_m"], target)
+    """対象天体の (方位, 高度) を15分刻みでまとめて計算する。時刻の列は同じ時間帯の地点で使い回す(2026-11-27、
+    ex._sample_times。作り方は以前と同じ)。"""
+    times, t_sf = ex._sample_times(ts, start, end, TRACK_INTERVAL_MIN)
+    az, alt = ex.altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
     return list(zip([float(a) for a in az], [float(a) for a in alt]))
 
 
