@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+### Added
+- **`--json-out` の `requested_nights[].sites[].night_rank`(聞かれた夜の中の順位)**: `status: passed` の地点だけに、`group`(primary・reference)ごとに1から付ける(ほかは `null`)。決め方は候補の一覧と同じで、予報が MSM の夜(候補の夜は `regime`、それ以外は `forecast_regime`)は `finals`、ECMWF の夜は `outlooks` の順位キー(`final_rank_key`・`outlook_rank_key`)をそのまま使い、並べ方も同じ関数(`explore_json.ranked_groups`。`ranked_records` から分けた)で行う。星空・星座モードの ECMWF の夜は「光害(ALR)が小さい→月の影響が小さい時間が長い順」。天の川モードはスコア順で、スコアの式は `final_score`・`outlook_score` に移した(式は変えていない)。スコアは今までどおり出さない。候補の夜では、同じ夜の `finals`・`outlooks` の `rank` と、共通の地点どうしの並びが同じ(単体テストと固定キャッシュの実物で確かめた)
+- **`site_index[].origin`**(地点の出どころ。候補の `origin` と同じ値)。ODbL の表示を地点ごとに分けられるように
+- 聞かれた夜の注記(`notes`)とスキーマの `status` の説明に「`window_kind` が `dark` の夜の `passed` は、月を条件にしていない」を足した(項目は増やしていない。`status` の意味は変えていない)
+- スキーマ: `night_rank` と `site_index[].origin` を必須項目に足した(番号は `/1` のまま)。`--nights` を付けない出力は `site_index[].origin` のほかは変わらない(固定キャッシュで確かめた)
+
 ### Changed
 - **天の川モードの計算を速くした(結果は変わらない)**: 見込み(`stage_outlook`)の銀河中心の方位・高度(`compute_target_window`)を、1時刻ずつでなく時刻の列をまとめて Skyfield に渡す形にした。まとめた計算は末尾の桁が違うことがあるため、まとめた値は「見える・見えない」と「最も高い時刻」の選択にだけ使い、返す高度・方位は選んだ時刻を従来と同じ1時刻の計算でやり直す。判定が末尾の桁で入れ替わりうるサンプル(地平線・稜線との差、稜線の方位の丸めの境目、最も高い2時刻の差が 1e-6° 未満)があれば、従来の計算に切り替える。同じ時間帯の時刻の列は使い回す(`_sample_times`、`--nights` の `_track` も同じものを使う)。`--nights` の評価(`requested_nights.FetchedOnlyCache`)は、保存から読んだセルをその回のあいだ覚え、地点×夜ごとに同じファイルを読み直して時系列の変換をやり直していたのをやめた。確かめ(固定キャッシュ・主軸146地点・通信0回、2026-11-27): 天の川モード `--nights` なし CPU 152.2 → 7.0 秒、`--nights` 14夜・JSON つき 228.5 → 23.8 秒、星空・星座モード `--nights` 14夜 6.6 → 5.6 秒。どれも画面の行(時間の行を除く)・戻り値の全件・JSON(生成日時と commit を除く)が1文字も変わらない。夏の夜の値の一致は単体テスト(`tests/test_milkyway_speed.py`)で確かめた。全897地点の時間は未実測
 - 「実行時間の内訳(計算)」の行を足した(見込みの計算と `--nights` の計算の秒。画面だけ)

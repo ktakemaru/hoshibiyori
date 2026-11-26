@@ -140,7 +140,7 @@ def evaluate_site(ex, ts, eph, site: dict, night_date: date, kind: str, reader: 
            "window_start": None, "window_end": None,
            "clear_start": None, "clear_end": None, "clear_hours": None,
            "mean_obstruction": None, "mean_obstruction_window": None,
-           "alr": None, "alr_rank_pct": None, "score": None}
+           "alr": None, "alr_rank_pct": None, "score": None, "night_rank": None}
     reading = lp_store.get(site["lat"], site["lon"])
     rec["alr"], rec["alr_rank_pct"] = reading.alr, reading.rank_pct
     reasons = []
@@ -198,6 +198,67 @@ def evaluate_site(ex, ts, eph, site: dict, night_date: date, kind: str, reader: 
         rec["status"] = "passed"
     rec["not_examined_reason"] = not_examined   # 光害・方角で落ちた地点でも、雲量を調べていなければ理由を残す
     return rec
+
+
+def _profile(ex, site: dict, profiles: dict):
+    if not site["horizon_csv"]:
+        return None
+    if site["horizon_csv"] not in profiles:
+        profiles[site["horizon_csv"]] = ex.load_horizon_profile(site["horizon_csv"])
+    return profiles[site["horizon_csv"]]
+
+
+def assign_night_ranks(ex, ts, eph, records: list[dict], sites: list[dict], night_date: date, list_kind: str,
+                       target_mode: str, astro, lp_store, profiles: dict) -> None:
+    """status が passed の地点に night_rank(group ごとに1から)を付ける。ほかは None のまま。2026-11-27。
+
+    決め方は候補の一覧と同じ: list_kind が "final" なら ex.final_rank_key、"outlook" なら ex.outlook_rank_key を、
+    探索の候補と同じ項目(光害・月の影響が小さい時間・晴れ間・平均雲量、天の川モードはスコア)を持たせた値に当てて、
+    explore_json.ranked_groups で並べる(並べ方・同じ値どうしの並びは finals・outlooks と同じ)。
+    天の川モードのスコアは、finals なら晴れ間の中の最も高い時刻(ex.peak_altitude)と ex.final_score、outlooks なら
+    調べた時間帯の見頃(ex.compute_target_window)と ex.outlook_score で、探索と同じ式。スコアは出さない(score は None のまま)。
+    天の川モードでスコアが求まらない地点(見頃の区間が取れない)は、そのグループの最後に、地点の並びの順で付ける。"""
+    from types import SimpleNamespace
+
+    import explore_json as ej
+    target = ex.get_target(ex.TARGET_ID) if target_mode != "stars" else None
+    items, unranked = [], []
+    for rec, site in zip(records, sites):
+        if rec["status"] != "passed":
+            continue
+        reading = lp_store.get(site["lat"], site["lon"])
+        _start, _end, moon_free_hours = ex.compute_site_night_window(ts, eph, site, night_date, astro)
+        score = None
+        if target is not None:
+            profile = _profile(ex, site, profiles)
+            if list_kind == "final":
+                best_alt, best_az, best_time = ex.peak_altitude(ts, eph, site, target, rec["clear_start"], rec["clear_end"])
+                if best_time is not None:
+                    h_alt = ex.horizon_alt_at(profile, best_az) if profile is not None else None
+                    score = ex.final_score(rec["mean_obstruction"], best_alt, h_alt, rec["clear_hours"],
+                                           reading.brightness_ratio)
+            else:
+                _v0, _v1, _pt, peak_az, peak_alt = ex.compute_target_window(ts, eph, site, target, rec["window_start"],
+                                                                           rec["window_end"], profile)
+                if peak_az is not None:
+                    score = ex.outlook_score(reading.brightness_ratio, peak_alt,
+                                             ex.horizon_alt_at(profile, peak_az) if profile is not None else 0.0,
+                                             moon_free_hours)
+            if score is None:
+                unranked.append((rec, site))
+                continue
+        items.append(SimpleNamespace(rec=rec, origin=site["origin"], alr=reading.alr, lp_index=reading.brightness_ratio,
+                                     moon_free_hours=moon_free_hours, clear_hours=rec["clear_hours"],
+                                     mean_obstruction=rec["mean_obstruction"], score=score))
+    key_fn = ex.final_rank_key if list_kind == "final" else ex.outlook_rank_key
+    last = {}
+    for group, _primary, rank, item in ej.ranked_groups(items, lambda x: key_fn(x, target_mode), ex.is_primary_origin):
+        item.rec["night_rank"] = rank
+        last[group] = rank
+    for rec, site in unranked:
+        group = "primary" if ex.is_primary_origin(site["origin"]) else "reference"
+        last[group] = last.get(group, 0) + 1
+        rec["night_rank"] = last[group]
 
 
 def _counts(records: list[dict]) -> dict:
@@ -261,6 +322,11 @@ def evaluate(ex, ts, eph, requested: list[date], scan: list, selected_dates: set
         rec["window_kind"] = kind
         rec["forecast_regime"] = ex.forecast_regime_for_night(reader, ref_site, eval_night)
         records = [evaluate_site(ex, ts, eph, s, d, kind, reader, lp_store, target_mode, astro, profiles) for s in sites]
+        # その夜の中の順位(2026-11-27)。予報が MSM の夜は finals、ECMWF の夜は outlooks と同じ決め方(候補の夜は regime、
+        # そうでない夜は forecast_regime で分ける。探索が夜を finals と outlooks に分けるのと同じ区分)
+        regime = rec["regime"] if selected else rec["forecast_regime"]
+        assign_night_ranks(ex, ts, eph, records, sites, d, "final" if regime == "MSM" else "outlook", target_mode, astro,
+                           lp_store, profiles)
         rec["counts"] = {"all": _counts(records),
                          "primary": _counts([r for r in records if r["is_primary"]]),
                          "reference": _counts([r for r in records if not r["is_primary"]])}

@@ -134,7 +134,8 @@
     },
     "site": {
       "type": "object",
-      "required": ["site_id", "name", "label", "municipality", "lat", "lon", "is_primary", "group", "requires_lift_access"],
+      "required": ["site_id", "name", "label", "municipality", "lat", "lon", "is_primary", "group", "requires_lift_access",
+                   "origin"],
       "properties": {
         "site_id": {"type": ["string", "null"]},
         "name": {"type": "string", "description": "同じ名前の地点がある。見分けるには site_id か label を使う"},
@@ -144,7 +145,9 @@
         "lon": {"type": "number"},
         "is_primary": {"type": "boolean"},
         "group": {"enum": ["primary", "reference"]},
-        "requires_lift_access": {"type": "boolean"}
+        "requires_lift_access": {"type": "boolean"},
+        "origin": {"enum": ["curated", "curated+test_site", "curated+viewpoint", "curated_external", "viewpoint", "test_site"],
+                   "description": "地点の出どころ(候補の origin と同じ値)。curated・curated+test_site・curated+viewpoint・curated_external が主軸、viewpoint・test_site が参考。viewpoint は OpenStreetMap の展望データ(ODbL)由来、curated+viewpoint は OSM の地点と統合した主軸の地点(座標は curated 側)。2026-11-27 追加"}
       }
     },
     "requested_night": {
@@ -214,14 +217,15 @@
       "type": "object",
       "required": ["site_id", "site_name", "municipality", "is_primary", "group", "status", "reasons",
                    "not_examined_reason", "window_start", "window_end", "clear_start", "clear_end", "clear_hours",
-                   "mean_obstruction", "mean_obstruction_window", "alr", "alr_rank_pct", "score"],
+                   "mean_obstruction", "mean_obstruction_window", "alr", "alr_rank_pct", "score", "night_rank"],
       "properties": {
         "site_id": {"type": ["string", "null"]},
         "site_name": {"type": "string"},
         "municipality": {"type": "string"},
         "is_primary": {"type": "boolean"},
         "group": {"enum": ["primary", "reference"]},
-        "status": {"enum": ["passed", "failed", "not_examined"]},
+        "status": {"enum": ["passed", "failed", "not_examined"],
+                   "description": "passed=雲・光害(天の川モードは方角も)の条件を通った / failed=通らなかった(reasons) / not_examined=調べていない。window_kind が dark の夜の passed は、月を条件にしていない(2026-11-27)"},
         "reasons": {"type": "array", "items": {"enum": ["cloud_filter", "light_pollution_filter", "direction_filter"]}},
         "not_examined_reason": {"enum": ["no_window_at_site", "cell_not_fetched", "fetch_failed", "no_forecast", null],
                                 "description": "雲量を調べていない理由(光害・方角で落ちた地点にも入る)"},
@@ -234,7 +238,9 @@
         "mean_obstruction_window": {"type": ["number", "null"], "description": "調べた時間帯ぜんぶの平均の視界遮蔽雲量"},
         "alr": {"type": ["number", "null"]},
         "alr_rank_pct": {"type": ["number", "null"]},
-        "score": {"type": "null", "description": "指定した夜ではスコアを出さない"}
+        "score": {"type": "null", "description": "指定した夜ではスコアを出さない"},
+        "night_rank": {"type": ["integer", "null"], "minimum": 1,
+                       "description": "その夜の中の順位(group ごとに1から)。status が passed の地点だけ、ほかは null。決め方は候補の一覧と同じで、予報が MSM の夜(候補の夜は regime、それ以外は forecast_regime)は finals、ECMWF の夜は outlooks の並び(星空・星座モードの outlooks は ALR が小さい→月の影響が小さい時間が長い順)。天の川モードでスコアが求まらない地点はグループの最後。2026-11-27 追加"}
       }
     },
     "candidate_common": {

@@ -757,6 +757,62 @@ STARS_FINAL_ORDER = "晴れ時間が長い→平均雲量が低い→光害(ALR)
 STARS_OUTLOOK_ORDER = "光害(ALR)が小さい→月の影響が小さい時間が長い順"
 
 
+def final_score(mean_obstruction: float, best_alt: float, h_alt: float | None, clear_hours: float,
+                brightness_ratio: float) -> float:
+    """近日中(FinalCandidate.score、天の川モード)のスコア。式は 1.2.0 の stage3_direction_filter のまま
+    (2026-11-27 に関数へ移しただけ。聞かれた夜の順位 night_rank でも同じ式を使うため)。"""
+    return (
+        (100.0 - mean_obstruction) * 1.0
+        + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
+        + clear_hours * 3.0
+        - brightness_ratio * 10.0
+    )
+
+
+def outlook_score(brightness_ratio: float, peak_alt: float, horizon_alt: float, moon_free_hours: float) -> float:
+    """見込み(OutlookCandidate.score、天の川モード)のスコア。horizon_alt は最も高い時刻の方位の稜線(地形データが無ければ 0.0)。
+    式は 1.2.0 の stage_outlook のまま(2026-11-27 に関数へ移しただけ)。"""
+    return (
+        (100.0 - brightness_ratio * 10.0)
+        + max(0.0, peak_alt - horizon_alt) * 0.5
+        + moon_free_hours * 3.0
+    )
+
+
+def peak_altitude_scalar(ts, eph, site: dict, target, window_start: datetime, window_end: datetime,
+                         sample_interval_min: int = 15):
+    """時間帯の中で対象天体が最も高い時刻(15分刻み、同じ高さなら先の時刻)の (高度, 方位, 時刻)。サンプルが無ければ
+    (-90.0, None, None)。1.2.0 の stage3_direction_filter のループのまま(2026-11-27 に関数へ移しただけ)。"""
+    best_alt, best_az, best_time = -90.0, None, None
+    t = window_start
+    while t <= window_end:
+        t_sf = ts.from_datetime(t.astimezone(timezone.utc))
+        az, alt = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
+        if alt > best_alt:
+            best_alt, best_az, best_time = alt, az, t
+        t += timedelta(minutes=sample_interval_min)
+    return best_alt, best_az, best_time
+
+
+def peak_altitude(ts, eph, site: dict, target, window_start: datetime, window_end: datetime,
+                  sample_interval_min: int = 15):
+    """peak_altitude_scalar と同じ結果を、時刻の列をまとめた計算で速く求める(聞かれた夜の順位で使う)。
+    最も高い2時刻の差が TARGET_TRACK_GUARD_DEG 未満なら peak_altitude_scalar に切り替える。返す値は選んだ時刻の1時刻の計算。"""
+    times, t_sf = _sample_times(ts, window_start, window_end, sample_interval_min)
+    if not times:
+        return -90.0, None, None
+    _az, alt_arr = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
+    alts = [float(a) for a in alt_arr]
+    best_i = max(range(len(alts)), key=lambda i: alts[i])      # 同じ高さなら先の時刻
+    others = [a for i, a in enumerate(alts) if i != best_i]
+    if (others and alts[best_i] - max(others) < TARGET_TRACK_GUARD_DEG) or alts[best_i] - (-90.0) < TARGET_TRACK_GUARD_DEG:
+        return peak_altitude_scalar(ts, eph, site, target, window_start, window_end, sample_interval_min)
+    best_time = times[best_i]
+    az, alt = altaz_at_time(ts.from_datetime(best_time.astimezone(timezone.utc)), eph,
+                            site["lat"], site["lon"], site["elevation_m"], target)
+    return alt, az, best_time
+
+
 def final_rank_key(f: "FinalCandidate", target_mode: str = DEFAULT_TARGET_MODE):
     """降順ソート用のキー(大きいほど上位)。milkywayは従来のスコア。
     starsは、晴れ時間が長い → 平均雲量が低い → ALRが小さい → 月の影響が小さい時間が長い、の辞書式順序。"""
@@ -810,14 +866,7 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
                 horizon_profile_cache[site["horizon_csv"]] = load_horizon_profile(site["horizon_csv"])
             profile = horizon_profile_cache[site["horizon_csv"]]
 
-        best_alt, best_az, best_time = -90.0, None, None
-        t = window_start
-        while t <= window_end:
-            t_sf = ts.from_datetime(t.astimezone(timezone.utc))
-            az, alt = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
-            if alt > best_alt:
-                best_alt, best_az, best_time = alt, az, t
-            t += timedelta(minutes=15)
+        best_alt, best_az, best_time = peak_altitude_scalar(ts, eph, site, target, window_start, window_end)
 
         if best_time is None:
             continue
@@ -838,12 +887,7 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
         if clears_horizon and clears_light_pollution:
             if not terrain_available:
                 no_terrain_count += 1   # 通過した候補のうち地形データが無いもの(2026-11-24、光害の足切りの後に数える)
-            score = (
-                (100.0 - s["mean_obstruction"]) * 1.0
-                + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
-                + s["clear_hours"] * 3.0
-                - lp_result.brightness_ratio * 10.0
-            )
+            score = final_score(s["mean_obstruction"], best_alt, h_alt, s["clear_hours"], lp_result.brightness_ratio)
             finals.append(FinalCandidate(
                 night_date=night.night_date, site_name=site["name"], municipality=site["municipality"],
                 origin=site["origin"], site_lat=site["lat"], site_lon=site["lon"],
@@ -918,11 +962,8 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
             if stars_mode:
                 score = 0.0   # 並び順は outlook_rank_key が決める(銀河中心の項が無いため)
             else:
-                score = (
-                    (100.0 - lp_result.brightness_ratio * 10.0)
-                    + max(0.0, peak_alt - (horizon_alt_at(profile, peak_az) if profile is not None else 0.0)) * 0.5
-                    + moon_free_hours * 3.0
-                )
+                score = outlook_score(lp_result.brightness_ratio, peak_alt,
+                                      horizon_alt_at(profile, peak_az) if profile is not None else 0.0, moon_free_hours)
 
             results.append(OutlookCandidate(
                 night_date=night.night_date, site_name=site["name"], municipality=site["municipality"],

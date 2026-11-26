@@ -39,7 +39,9 @@ SCANNED_NOTE = "scanned_nights は走査した全部の夜です。selected が 
 # 聞かれた夜(--nights)を付けたときだけ足す注記。2026-11-24。
 REQUESTED_NOTE = ("requested_nights は --nights で指定した夜です。候補(finals・outlooks)とは別で、score は出しません。"
                   "雲量はこの回に取った分だけを使い、status が not_examined の地点は調べていません(条件を通らなかったのではありません)。"
-                  "forecast_regime が ECMWF の夜の雲量は目安です。")
+                  "forecast_regime が ECMWF の夜の雲量は目安です。"
+                  "window_kind が dark の夜の passed は、月を条件にしていません(月の無い時間帯が無いか短いため、暗い時間帯ぜんぶで調べています)。"
+                  "night_rank はその夜の中の順位で、候補の一覧と同じ決め方です(予報が MSM の夜は finals、ECMWF の夜は outlooks の並び)。")
 
 
 def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool]) -> list[dict]:
@@ -58,6 +60,7 @@ def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool])
             "municipality": s["municipality"], "lat": json_value(s["lat"]), "lon": json_value(s["lon"]),
             "is_primary": primary, "group": "primary" if primary else "reference",
             "requires_lift_access": bool(s.get("requires_lift_access", False)),
+            "origin": s["origin"],      # 2026-11-27: 地点の出どころ(候補の origin と同じ値)
         })
     return out
 
@@ -122,19 +125,28 @@ def ranked_records(items: Iterable, rank_key: Callable, is_primary: Callable[[st
     """画面(print_final_report / print_outlook_report)と同じ並び: 主要候補を順位キーの降順、続いて参考候補を同じく降順。
     順位(rank)は各グループの中で1から(画面の「[N位]」と同じ)。
     score_unused が真(星空・星座モード)なら score を null にする(並び・順位は変えない)。"""
-    items = list(items)
     out: list[dict] = []
+    for group, primary, i, x in ranked_groups(items, rank_key, is_primary):
+        rec = dataclass_record(x)
+        if score_unused:
+            rec["score"] = None
+        rec["score_kind"] = score_kind
+        rec["is_primary"] = primary
+        rec["group"] = group
+        rec["rank"] = i
+        out.append(rec)
+    return out
+
+
+def ranked_groups(items: Iterable, rank_key: Callable, is_primary: Callable[[str], bool]) -> list[tuple]:
+    """(group, is_primary, rank, item) の並び。主要候補を順位キーの降順、続いて参考候補を同じく降順。順位は各グループの中で1から。
+    同じキーどうしは元の並びのまま(安定な並べ替え)。ranked_records(finals・outlooks)と、聞かれた夜の night_rank が使う
+    (2026-11-27、並べ方を1か所にするため ranked_records から分けた)。"""
+    items = list(items)
+    out: list[tuple] = []
     for group, primary in (("primary", True), ("reference", False)):
         members = sorted((x for x in items if bool(is_primary(x.origin)) == primary), key=rank_key, reverse=True)
-        for i, x in enumerate(members, 1):
-            rec = dataclass_record(x)
-            if score_unused:
-                rec["score"] = None
-            rec["score_kind"] = score_kind
-            rec["is_primary"] = primary
-            rec["group"] = group
-            rec["rank"] = i
-            out.append(rec)
+        out.extend((group, primary, i, x) for i, x in enumerate(members, 1))
     return out
 
 

@@ -134,12 +134,13 @@ MSMの範囲の外の夜(見込み)には、どちらのモードでも「ECMWF�
 
 `explore_hoshibiyori.py --json-out <ファイル>` で、探索結果をスキーマ `hoshibiyori-explore/1`(`schemas/hoshibiyori-explore.schema.json`)の JSON に書き出します(ほかのプログラム、たとえばビヨリコンシェルが読むための出力)。近日中の候補(`finals`)と見込み(`outlooks`)を画面の上位N件で切らずに全件入れ、使った閾値・候補の夜・取得の集計・版と commit も入ります。時刻はオフセットつき、欠損は `null`。`--target`・`--astro-grid` と併用でき、通信の量は変わりません。終了コード0のときだけ書き(一部の予報が取れなかった回は `fetch.status` が `partial`)、終了コード2のときは書かず、既にあるファイルにも触れません。例: `.\.venv\Scripts\python.exe -X utf8 explore_hoshibiyori.py --target stars --json-out C:\temp\hoshi-stars.json`。スコアは `finals` と `outlooks` で式が違い、絶対値を比べられません(各候補の `score_kind`)。星空・星座モード(`--target stars`)はスコアを順位に使わないため、`score` は `null` です(順位は `rank` を見てください)。`nights` は候補の夜(月の条件で上位の夜)だけですが、`scanned_nights` には走査した全部の夜が日付順に入り、候補に選ばれたか(`selected`)と、選ばれなかった理由のコード(`not_selected_reason`: `no_sunset_or_sunrise`・`no_astronomical_darkness`・`no_moon_free_window`・`not_in_top_n`)が付きます。`scanned_nights` はスキーマの必須項目です(この項目が入る前の出力は、今のスキーマの検査を通りません)。
 
-**地点の変わらない ID**: 候補の `site_id` と、全地点の一覧 `site_index`(候補に入らなかった地点も入る)の `site_id` は、`stargazing_spots.json` の `id` です。同じ名前の地点が37組あるので、名前ではなく `site_id` で見分けます。一覧の `label` は見分けるための言い方(名前(市町村)。それでも重なる地点は ID を添える)です。この2つもスキーマの必須項目です。
+**地点の変わらない ID**: 候補の `site_id` と、全地点の一覧 `site_index`(候補に入らなかった地点も入る)の `site_id` は、`stargazing_spots.json` の `id` です。同じ名前の地点が37組あるので、名前ではなく `site_id` で見分けます。一覧の `label` は見分けるための言い方(名前(市町村)。それでも重なる地点は ID を添える)です。この2つもスキーマの必須項目です。一覧の `origin` は地点の出どころで、候補の `origin` と同じ値です(`curated`・`curated+test_site`・`curated+viewpoint`・`curated_external` が主軸、`viewpoint`・`test_site` が参考。`viewpoint` は OpenStreetMap の展望データ[ODbL]由来。2026-11-27 追加、必須項目)。
 
 **聞かれた夜を必ず調べる(`--nights 2026-11-28,2026-11-29`)**: 夜の始まりの日付を指定すると、月の条件で上位6夜に入らない夜も調べ、`requested_nights[]` と画面の数行に出します(指定しないときは、この項目も画面の行もありません。候補・順位・スコアは変わりません)。
 
 - `window_kind`: `moon_free`(月の無い暗い時間帯で調べた)/ `dark`(月の無い時間帯が無い、または最小の晴れ間の1時間より短いので、暗い時間帯ぜんぶで調べた)/ `none`(調べていない。理由は `none_reason`)。月は `moon`(出ている時間・区間・輝面比。基準地点)。
-- 地点ごとの `status`: `passed` / `failed`(`reasons`: `cloud_filter`・`light_pollution_filter`・`direction_filter`[天の川モードだけ])/ `not_examined`(`not_examined_reason`)。閾値は候補と同じで、スコアは出しません(`null`)。地点が多いので、`sites` には条件を通った地点の全部と、主軸146地点を入れ、残りは `counts` の件数だけです。
+- 地点ごとの `status`: `passed` / `failed`(`reasons`: `cloud_filter`・`light_pollution_filter`・`direction_filter`[天の川モードだけ])/ `not_examined`(`not_examined_reason`)。閾値は候補と同じで、スコアは出しません(`null`)。地点が多いので、`sites` には条件を通った地点の全部と、主軸146地点を入れ、残りは `counts` の件数だけです。**`window_kind` が `dark` の夜の `passed` は、月を条件にしていません**(月が出ている時間帯も含めて調べています。月のことは `moon` を見てください)。
+- 地点ごとの `night_rank`(2026-11-27 追加): その夜の中の順位(`group` ごとに1から)。`passed` の地点だけに付き、ほかは `null`。決め方は候補の一覧と同じで、予報が MSM の夜(候補の夜は `regime`、それ以外は `forecast_regime`)は `finals`、ECMWF の夜は `outlooks` の並び(星空・星座モードの `outlooks` は「光害(ALR)が小さい→月の影響が小さい時間が長い順」、天の川モードはスコア順。スコアそのものは出しません)。候補の夜では、同じ夜の `finals`・`outlooks` の `rank` と、共通の地点どうしの並びが同じになります。
 - **通信は増えません**: その回の通常の探索が取ったセル(1セルで全部の日が入っている)と、期限内の保存だけを読みます。通常の探索が取らないセル(候補が全部見込みの日の、光害で落ちる地点など)は `not_examined_reason: cell_not_fetched` になります。
 - ECMWF だけの夜(`forecast_regime: ECMWF`)も同じ雲量の閾値で判定しますが、目安です。
 
