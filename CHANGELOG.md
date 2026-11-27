@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- **`--json-out` の `requested_nights[].sites[].night_rank`(聞かれた夜の中の順位)**: `status: passed` の地点だけに、`group`(primary・reference)ごとに1から付ける(ほかは `null`)。決め方は候補の一覧と同じで、予報が MSM の夜(候補の夜は `regime`、それ以外は `forecast_regime`)は `finals`、ECMWF の夜は `outlooks` の順位キー(`final_rank_key`・`outlook_rank_key`)をそのまま使い、並べ方も同じ関数(`explore_json.ranked_groups`。`ranked_records` から分けた)で行う。星空・星座モードの ECMWF の夜は「光害(ALR)が小さい→月の影響が小さい時間が長い順」。天の川モードはスコア順で、スコアの式は `final_score`・`outlook_score` に移した(式は変えていない)。スコアは今までどおり出さない。候補の夜では、同じ夜の `finals`・`outlooks` の `rank` と、共通の地点どうしの並びが同じ(単体テストと固定キャッシュの実物で確かめた)
+- **`--json-out` の `requested_nights[].sites[].night_rank`(聞かれた夜の中の順位)**: `status: passed` の地点だけに、`group`(primary・reference)ごとに1から付ける(ほかは `null`)。決め方は今の一覧と同じ: 星空・星座モードはどの夜も `outlooks` の順位キー(`outlook_rank_key`、「光害(ALR)が小さい→月の影響が小さい時間が長い順」、利用者の決定)、天の川モードはスコア順で、予報が MSM の夜(候補の夜は `regime`、それ以外は `forecast_regime`)は `finals`、ECMWF の夜は `outlooks` の順位キー。並べ方は同じ関数(`explore_json.ranked_groups`。`ranked_records` から分けた)。スコアの式は `final_score`・`outlook_score` に移した(式は変えていない。1.2.0 と夏の夜の候補の全件で同じことを確かめた)。スコアは今までどおり出さない。星空・星座モードで予報が MSM の夜は、`finals`(晴れ時間が先)と並びが違うことがある(直していない)
 - **`site_index[].origin`**(地点の出どころ。候補の `origin` と同じ値)。ODbL の表示を地点ごとに分けられるように
 - 聞かれた夜の注記(`notes`)とスキーマの `status` の説明に「`window_kind` が `dark` の夜の `passed` は、月を条件にしていない」を足した(項目は増やしていない。`status` の意味は変えていない)
 - スキーマ: `night_rank` と `site_index[].origin` を必須項目に足した(番号は `/1` のまま)。`--nights` を付けない出力は `site_index[].origin` のほかは変わらない(固定キャッシュで確かめた)

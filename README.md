@@ -140,7 +140,7 @@ MSMの範囲の外の夜(見込み)には、どちらのモードでも「ECMWF�
 
 - `window_kind`: `moon_free`(月の無い暗い時間帯で調べた)/ `dark`(月の無い時間帯が無い、または最小の晴れ間の1時間より短いので、暗い時間帯ぜんぶで調べた)/ `none`(調べていない。理由は `none_reason`)。月は `moon`(出ている時間・区間・輝面比。基準地点)。
 - 地点ごとの `status`: `passed` / `failed`(`reasons`: `cloud_filter`・`light_pollution_filter`・`direction_filter`[天の川モードだけ])/ `not_examined`(`not_examined_reason`)。閾値は候補と同じで、スコアは出しません(`null`)。地点が多いので、`sites` には条件を通った地点の全部と、主軸146地点を入れ、残りは `counts` の件数だけです。**`window_kind` が `dark` の夜の `passed` は、月を条件にしていません**(月が出ている時間帯も含めて調べています。月のことは `moon` を見てください)。
-- 地点ごとの `night_rank`(2026-11-27 追加): その夜の中の順位(`group` ごとに1から)。`passed` の地点だけに付き、ほかは `null`。決め方は候補の一覧と同じで、予報が MSM の夜(候補の夜は `regime`、それ以外は `forecast_regime`)は `finals`、ECMWF の夜は `outlooks` の並び(星空・星座モードの `outlooks` は「光害(ALR)が小さい→月の影響が小さい時間が長い順」、天の川モードはスコア順。スコアそのものは出しません)。候補の夜では、同じ夜の `finals`・`outlooks` の `rank` と、共通の地点どうしの並びが同じになります。
+- 地点ごとの `night_rank`(2026-11-27 追加): その夜の中の順位(`group` ごとに1から)。`passed` の地点だけに付き、ほかは `null`。星空・星座モードは、どの夜も `outlooks` と同じ「光害(ALR)が小さい→月の影響が小さい時間が長い順」です(予報が MSM の夜の `finals` は晴れ時間を先に見るので、並びが違うことがあります)。天の川モードはスコア順で、予報が MSM の夜(候補の夜は `regime`、それ以外は `forecast_regime`)は `finals`、ECMWF の夜は `outlooks` のスコアの式と並びです(スコアそのものは出しません)。候補の夜では、星空・星座モードは同じ夜の `outlooks` の `rank`、天の川モードは同じ夜の `finals`・`outlooks` の `rank` と、共通の地点どうしの並びが同じになります。
 - **通信は増えません**: その回の通常の探索が取ったセル(1セルで全部の日が入っている)と、期限内の保存だけを読みます。通常の探索が取らないセル(候補が全部見込みの日の、光害で落ちる地点など)は `not_examined_reason: cell_not_fetched` になります。
 - ECMWF だけの夜(`forecast_regime: ECMWF`)も同じ雲量の閾値で判定しますが、目安です。
 

@@ -240,7 +240,7 @@
         "alr_rank_pct": {"type": ["number", "null"]},
         "score": {"type": "null", "description": "指定した夜ではスコアを出さない"},
         "night_rank": {"type": ["integer", "null"], "minimum": 1,
-                       "description": "その夜の中の順位(group ごとに1から)。status が passed の地点だけ、ほかは null。決め方は候補の一覧と同じで、予報が MSM の夜(候補の夜は regime、それ以外は forecast_regime)は finals、ECMWF の夜は outlooks の並び(星空・星座モードの outlooks は ALR が小さい→月の影響が小さい時間が長い順)。天の川モードでスコアが求まらない地点はグループの最後。2026-11-27 追加"}
+                       "description": "その夜の中の順位(group ごとに1から)。status が passed の地点だけ、ほかは null。星空・星座モードはどの夜も outlooks と同じ「ALR が小さい→月の影響が小さい時間が長い順」(予報が MSM の夜の finals[晴れ時間が先]とは並びが違うことがある)。天の川モードはスコア順で、予報が MSM の夜(候補の夜は regime、それ以外は forecast_regime)は finals、ECMWF の夜は outlooks のスコアの式と並び。天の川モードでスコアが求まらない地点はグループの最後。2026-11-27 追加"}
       }
     },
     "candidate_common": {

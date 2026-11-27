@@ -41,7 +41,8 @@ REQUESTED_NOTE = ("requested_nights は --nights で指定した夜です。候�
                   "雲量はこの回に取った分だけを使い、status が not_examined の地点は調べていません(条件を通らなかったのではありません)。"
                   "forecast_regime が ECMWF の夜の雲量は目安です。"
                   "window_kind が dark の夜の passed は、月を条件にしていません(月の無い時間帯が無いか短いため、暗い時間帯ぜんぶで調べています)。"
-                  "night_rank はその夜の中の順位で、候補の一覧と同じ決め方です(予報が MSM の夜は finals、ECMWF の夜は outlooks の並び)。")
+                  "night_rank はその夜の中の順位です。星空・星座モードはどの夜も outlooks と同じ「光害(ALR)が小さい→月の影響が小さい時間が長い順」"
+                  "(予報が MSM の夜の finals とは並びが違うことがあります)、天の川モードはスコア順(予報が MSM の夜は finals、ECMWF の夜は outlooks の式)です。")
 
 
 def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool]) -> list[dict]:

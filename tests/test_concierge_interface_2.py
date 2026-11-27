@@ -1,7 +1,8 @@
 """コンシェル向けの項目の追加(2026-11-27)の単体テスト(通信しない)。
 
-- requested_nights[].sites[].night_rank: passed の地点だけ group ごとに1から、ほかは null。候補の夜では、同じ夜の
-  finals(予報が MSM)・outlooks(ECMWF)の rank と、共通の地点どうしの並びが食い違わない(星空・星座モードと天の川モード)。
+- requested_nights[].sites[].night_rank: passed の地点だけ group ごとに1から、ほかは null。
+  星空・星座モードはどの夜も「ALR が小さい→月の影響が小さい時間が長い順」(outlooks の決め方、利用者の決定)で、候補の夜では同じ夜の
+  outlooks の rank と、共通の地点どうしの並びが同じ。天の川モードは予報が MSM の夜は finals、ECMWF の夜は outlooks と同じ。
 - site_index[].origin(候補の origin と同じ値)。
 - 月を条件にしていない dark の夜の passed の注記。
 _explore を実際に動かす部分は tests/test_concierge_interface.py の仕組み(作りものの時刻・雲量・光害)を使う。
@@ -59,11 +60,12 @@ class NightRankTests(unittest.TestCase):
                         self.assertIsNone(s["night_rank"])
                     self.assertIsNone(s["score"])
 
-    def check_same_order_as_candidates(self, doc):
-        """候補の夜では、同じ夜の finals / outlooks の並びと、共通の地点どうしの並びが同じ。比べた夜の (MSM, ECMWF) の数を返す。"""
+    def check_same_order_as_candidates(self, doc, stars=False):
+        """候補の夜では、同じ夜の finals / outlooks の並びと、共通の地点どうしの並びが同じ。比べた夜の (MSM, ECMWF) の数を返す。
+        stars なら MSM の夜は比べない(星空・星座モードの night_rank は outlooks の決め方で、finals とは違ってよい)。"""
         compared = {"MSM": 0, "ECMWF": 0}
         for night in doc["requested_nights"]:
-            if not night["selected"]:
+            if not night["selected"] or (stars and night["regime"] == "MSM"):
                 continue
             listed = doc["finals"] if night["regime"] == "MSM" else doc["outlooks"]
             for group in ("primary", "reference"):
@@ -78,13 +80,37 @@ class NightRankTests(unittest.TestCase):
                 compared[night["regime"]] += 1
         return compared
 
+    def check_stars_order(self, doc, now):
+        """星空・星座モードは、どの夜も ALR が小さい→月の影響が小さい時間が長い(同じなら地点の並び)。比べた夜の数を返す。
+        月の影響が小さい時間は、探索が保存した天文計算(同じ格子の代表点)から読む。"""
+        ts = ex.load.timescale()
+        eph = ex.load(str(BSP))
+        astro = ex.make_astro_cache("ecmwf", cache_dir=Path(self.tmp.name) / f"astro_{now:%Y%m%d}")
+        order = {s["site_id"]: i for i, s in enumerate(doc["site_index"])}
+        nights = 0
+        for night in doc["requested_nights"]:
+            for group in ("primary", "reference"):
+                passed = [s for s in night["sites"] if s["status"] == "passed" and s["group"] == group]
+                if len(passed) < 2:
+                    continue
+                moon = {}
+                for s in passed:
+                    _a, _b, h = ex.compute_site_night_window(ts, eph, next(x for x in tci.SITES if x["id"] == s["site_id"]),
+                                                             date.fromisoformat(night["night_date"]), astro)
+                    moon[s["site_id"]] = h
+                want = [s["site_id"] for s in sorted(passed, key=lambda s: (s["alr"], -moon[s["site_id"]], order[s["site_id"]]))]
+                self.assertEqual(_order_by_rank(passed, "night_rank"), want, f"{night['night_date']} {group}")
+                nights += 1
+        return nights
+
     def test_stars_mode(self):
         result, doc = self.run_all_nights(self.NEW_MOON, "stars")
         self.assertEqual(tci.validate(doc, tci.SCHEMA, tci.SCHEMA), [])
         self.check_rank_shape(doc)
-        compared = self.check_same_order_as_candidates(doc)
-        self.assertGreater(compared["MSM"], 0)
+        compared = self.check_same_order_as_candidates(doc, stars=True)
         self.assertGreater(compared["ECMWF"], 0)
+        self.assertTrue(any(n["selected"] and n["regime"] == "MSM" for n in doc["requested_nights"]))   # MSM の夜もある
+        self.assertGreater(self.check_stars_order(doc, self.NEW_MOON), 0)
         # 候補の夜に入らない夜にも順位が付く
         others = [n for n in doc["requested_nights"] if not n["selected"] and n["counts"]]
         self.assertTrue(any(s["night_rank"] is not None for n in others for s in n["sites"]))

@@ -322,11 +322,13 @@ def evaluate(ex, ts, eph, requested: list[date], scan: list, selected_dates: set
         rec["window_kind"] = kind
         rec["forecast_regime"] = ex.forecast_regime_for_night(reader, ref_site, eval_night)
         records = [evaluate_site(ex, ts, eph, s, d, kind, reader, lp_store, target_mode, astro, profiles) for s in sites]
-        # その夜の中の順位(2026-11-27)。予報が MSM の夜は finals、ECMWF の夜は outlooks と同じ決め方(候補の夜は regime、
+        # その夜の中の順位(2026-11-27)。星空・星座モードは、どの夜も「光害(ALR)が小さい→月の影響が小さい時間が長い順」
+        # (利用者の決定。outlooks と同じ決め方。MSM の夜の finals[晴れ時間が先]とは並びが違うことがある)。天の川モードは
+        # スコア順で、スコアの式が2つあるため、予報が MSM の夜は finals、ECMWF の夜は outlooks の式(候補の夜は regime、
         # そうでない夜は forecast_regime で分ける。探索が夜を finals と outlooks に分けるのと同じ区分)
         regime = rec["regime"] if selected else rec["forecast_regime"]
-        assign_night_ranks(ex, ts, eph, records, sites, d, "final" if regime == "MSM" else "outlook", target_mode, astro,
-                           lp_store, profiles)
+        list_kind = "outlook" if target_mode == "stars" or regime != "MSM" else "final"
+        assign_night_ranks(ex, ts, eph, records, sites, d, list_kind, target_mode, astro, lp_store, profiles)
         rec["counts"] = {"all": _counts(records),
                          "primary": _counts([r for r in records if r["is_primary"]]),
                          "reference": _counts([r for r in records if not r["is_primary"]])}
