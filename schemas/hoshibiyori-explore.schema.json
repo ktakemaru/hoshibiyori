@@ -161,7 +161,7 @@
                     "description": "これから30日以内に極大がある流星群(夜によらないので1回だけ)"},
         "by_night": {"type": "object", "additionalProperties": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/highlight_night"}],
                                                                 "type": ["object", "null"]},
-                     "description": "夜の始まりの日付(YYYY-MM-DD) → その夜の見どころ。scanned_nights[]・requested_nights[] の night_date で引く。暗い時間帯が無い夜は null"}
+                     "description": "夜の始まりの日付(YYYY-MM-DD) → その夜の見どころ。scanned_nights[]・requested_nights[] の night_date で引く。暗い時間帯が無い夜は null。走査した夜の外の夜(requested_nights の none_reason が out_of_scanned_range)はキーが無い"}
       }
     },
     "highlight_night": {
@@ -235,7 +235,7 @@
         "id": {"type": "string"},
         "name": {"type": "string"},
         "kind": {"const": "流星群"},
-        "peak_time": {"$ref": "#/$defs/datetime_or_null", "description": "極大の時刻(太陽の黄経から求めた目安)"},
+        "peak_time": {"$ref": "#/$defs/datetime_or_null", "description": "極大の時刻(太陽の黄経から求めた目安。二分法の刻みのため、実行するたびに30秒以内で動く。レポートは30分単位に丸めて表示)"},
         "zhr": {"type": ["number", "null"]},
         "zhr_note": {"type": "string", "description": "出現数(zhr)は例年の目安であること"},
         "caveat": {"type": "string", "description": "出現数に必ず添える注意(理想の条件での目安・突発的な増減は予測できない)"},

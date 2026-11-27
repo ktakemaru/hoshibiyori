@@ -49,7 +49,7 @@ REQUESTED_NOTE = ("requested_nights は --nights で指定した夜です。候�
 HIGHLIGHTS_BASIS_TEXT = "基準の地点・平らな地平線の目安(地形・雲は見ていない)"
 SHOWER_ZHR_NOTE = "例年の目安(理想の条件での1時間あたりの出現数。その年の予報ではない)"
 HIGHLIGHTS_NOTE = ("highlights はレポートの「この時期の見どころ」と同じ値です(sky_highlights.build)。基準の地点・平らな地平線の目安で、"
-                   "地形・雲は見ていません。by_night は走査した夜の日付で引き、暗い時間帯が無い夜は null です。"
+                   "地形・雲は見ていません。by_night は走査した夜の日付で引き、暗い時間帯が無い夜は null、走査した夜の外の夜はキーがありません。"
                    "時刻は丸めていません(レポートは30分単位に丸めて表示)。coordinates_unverified が true の対象は座標を星表と照らしていません。")
 
 
