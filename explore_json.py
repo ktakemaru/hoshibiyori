@@ -45,6 +45,66 @@ REQUESTED_NOTE = ("requested_nights は --nights で指定した夜です。候�
                   "(予報が MSM の夜の finals とは並びが違うことがあります)、天の川モードはスコア順(予報が MSM の夜は finals、ECMWF の夜は outlooks の式)です。")
 
 
+# 見どころ(highlights)の目安の基準(2026-11-27)。コンシェルがそのまま文に使える短い語
+HIGHLIGHTS_BASIS_TEXT = "基準の地点・平らな地平線の目安(地形・雲は見ていない)"
+SHOWER_ZHR_NOTE = "例年の目安(理想の条件での1時間あたりの出現数。その年の予報ではない)"
+HIGHLIGHTS_NOTE = ("highlights はレポートの「この時期の見どころ」と同じ値です(sky_highlights.build)。基準の地点・平らな地平線の目安で、"
+                   "地形・雲は見ていません。by_night は走査した夜の日付で引き、暗い時間帯が無い夜は null です。"
+                   "時刻は丸めていません(レポートは30分単位に丸めて表示)。coordinates_unverified が true の対象は座標を星表と照らしていません。")
+
+
+def highlights_record(highlights: dict | None) -> dict | None:
+    """見どころの値(explore の _explore が sky_highlights で作ったもの)を JSON の形にする。無ければ None。
+
+    中身は sky_highlights.build と upcoming_showers の値をそのまま(項目の追加だけ)。流星群は夜によらないので1回だけ持ち、
+    夜ごとの値(by_night)は時間帯(slots)と今夜は見えない対象(not_visible)だけにする(同じ中身を2回持たない)。
+    冬の天の川の帯は scanned_nights[].winter_milky_way にある。"""
+    if highlights is None:
+        return None
+    ref = highlights["reference_site"]
+    showers = []
+    for sh in highlights["showers"]:
+        rec = {"id": sh["id"], "name": sh["name"], "kind": "流星群", "peak_time": json_value(sh["peak_time"]),
+               "zhr": json_value(sh["zhr"]), "zhr_note": SHOWER_ZHR_NOTE, "caveat": sh["caveat"], "source": sh["source"],
+               "night_date": json_value(sh["night_date"]),
+               "radiant_min_alt_deg": json_value(highlights["radiant_min_alt_deg"]),
+               "radiant_start": json_value(sh["radiant_start"]), "radiant_end": json_value(sh["radiant_end"]),
+               "moon_up_intervals": json_value(sh["moon_up_intervals"]),
+               "moon_illuminated_fraction": json_value(sh["moon_illuminated_fraction"])}
+        showers.append(rec)
+    by_night = {}
+    for d, g in highlights["by_night"].items():
+        by_night[json_value(d)] = None if g is None else {
+            "night_date": json_value(g["night_date"]),
+            "slots": _blank_kind_to_null(json_value(g["slots"])),
+            "not_visible": _blank_kind_to_null(json_value(g["not_visible"])),
+        }
+    return {
+        "basis": {"text": HIGHLIGHTS_BASIS_TEXT,
+                  "reference_site": {"name": ref.get("name"), "lat": json_value(ref.get("lat")), "lon": json_value(ref.get("lon"))},
+                  "flat_horizon": True, "terrain": False, "clouds": False,
+                  "min_alt_deg": json_value(highlights["min_alt_deg"]),
+                  "max_items_per_slot": highlights["max_items_per_slot"]},
+        "computed_at": json_value(highlights["computed_at"]),
+        "showers": showers,
+        "by_night": by_night,
+    }
+
+
+def _blank_kind_to_null(value):
+    """種類(kind・kinds)が空の文字列の対象(targets.json に種類を書いていない従来からの対象)は null にする(推測で埋めない)。"""
+    if isinstance(value, list):
+        return [_blank_kind_to_null(v) for v in value]
+    if isinstance(value, dict):
+        out = {k: _blank_kind_to_null(v) for k, v in value.items()}
+        if out.get("kind") == "":
+            out["kind"] = None
+        if isinstance(out.get("kinds"), list):
+            out["kinds"] = [k if k != "" else None for k in out["kinds"]]
+        return out
+    return value
+
+
 def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool]) -> list[dict]:
     """全地点の一覧(候補に入らなかった地点も入る)。label は見分けるための言い方(名前(市町村)。それでも重なるときはIDを添える)。"""
     sites = list(sites)
@@ -183,7 +243,8 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
                        final_rank_key: Callable, outlook_rank_key: Callable, is_primary: Callable[[str], bool],
                        fetch_summary, fetch_failures: Iterable, sites: dict,
                        scanned_nights: Iterable, site_index: Iterable[dict] = (),
-                       requested_nights: list[dict] | None = None, winter_bands: dict | None = None) -> dict:
+                       requested_nights: list[dict] | None = None, winter_bands: dict | None = None,
+                       highlights: dict | None = None) -> dict:
     """探索結果の JSON(dict)を組み立てる。通信・天文計算・ファイルの読み書きはしない。
 
     final_rank_key / outlook_rank_key は1引数の関数(target を束ねたもの)。msm_dates は精密予報(MSM)側の夜の日付。
@@ -222,9 +283,12 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
         "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates, winter_bands),
         "finals": ranked_records(finals, final_rank_key, is_primary, "final", score_unused=stars),
         "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook", score_unused=stars),
+        "highlights": highlights_record(highlights),     # 2026-11-27。無ければ null
         "fetch": fetch_record(fetch_summary, fetch_failures),
         "notes": list(NOTES) + [SCANNED_NOTE] + ([STARS_NOTE] if stars else []),
     }
+    if highlights is not None:
+        doc["notes"].append(HIGHLIGHTS_NOTE)
     if requested_nights is not None:
         doc["requested_nights"] = json_value(requested_nights)
         doc["notes"].append(REQUESTED_NOTE)

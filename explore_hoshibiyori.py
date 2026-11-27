@@ -1219,6 +1219,25 @@ def main(argv=None) -> int:
     return code
 
 
+def night_highlights(ts, eph, ref_site: dict, scan: list, now: datetime | None = None) -> dict:
+    """走査した夜ごとの見どころ(sky_highlights.build の値)。暗い時間帯が無い夜は None。流星群は夜によらないので1回だけ計算して
+    各夜に渡す(build に渡す showers。中身は build が自分で計算するものと同じ)。冬の天の川の帯は scanned_nights の側にあるので渡さない。"""
+    import sky_highlights as sh
+    now = datetime.now(JST) if now is None else now
+    me = sys.modules[__name__]
+    showers = sh.upcoming_showers(me, ts, eph, ref_site["lat"], ref_site["lon"], now)
+    by_night = {}
+    for n, _reason in scan:
+        if n.dark_start is None or n.dark_end is None:
+            by_night[n.night_date] = None
+            continue
+        by_night[n.night_date] = sh.build(me, ts, eph, ref_site["lat"], ref_site["lon"], n.night_date, n.dark_start,
+                                          n.dark_end, now, sh.GUIDE_MIN_ALT_DEG, None, showers)
+    return {"reference_site": ref_site, "computed_at": now, "min_alt_deg": sh.GUIDE_MIN_ALT_DEG,
+            "radiant_min_alt_deg": sh.RADIANT_MIN_ALT_DEG, "max_items_per_slot": sh.MAX_ITEMS_PER_SLOT,
+            "showers": showers, "by_night": by_night}
+
+
 def compute_timing_line(compute_sec: dict | None) -> str | None:
     """見込みの計算(stage_outlook)と --nights の計算(requested_nights.evaluate)の秒(2026-11-27、画面表示のみ)。
     --nights を付けないときは見込みだけ。探索が途中で止まったとき(材料が無い)は None。"""
@@ -1227,6 +1246,8 @@ def compute_timing_line(compute_sec: dict | None) -> str | None:
     parts = [f"見込みの計算 {compute_sec.get('outlook', 0.0):.1f} 秒"]
     if "requested_nights" in compute_sec:
         parts.append(f"聞かれた夜(--nights)の計算 {compute_sec['requested_nights']:.1f} 秒")
+    if "highlights" in compute_sec:
+        parts.append(f"見どころ(--json-out)の計算 {compute_sec['highlights']:.1f} 秒")
     return "実行時間の内訳(計算): " + " / ".join(parts)
 
 
@@ -1266,6 +1287,7 @@ def write_explore_json(path, result: dict | None, cache, args) -> Path:
         fetch_summary=cache.summary(), fetch_failures=list(getattr(cache, "failures", [])),
         sites=result.get("sites", {}), site_index=result.get("site_index", ()),
         requested_nights=result.get("requested_nights"), winter_bands=result.get("winter_bands"),
+        highlights=result.get("highlights"),
     )
     return ej.write_json_atomic(path, doc)
 
@@ -1274,6 +1296,8 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink
     try:
         # 走査した全部の夜(scanned_nights)は --json-out のときだけ集める
         kwargs = {"collect_scan": bool(getattr(args, "json_out", None))}
+        if kwargs["collect_scan"]:
+            kwargs["collect_highlights"] = True     # 夜ごとの見どころも --json-out のときだけ(2026-11-27)
         if getattr(args, "nights", None):
             kwargs["requested_dates"] = args.nights
         result = _explore(cache, args.target, astro, **kwargs)
@@ -1303,10 +1327,11 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink
 
 def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
              astro: AstroNightCache | None = None, collect_scan: bool = False,
-             requested_dates: list[date] | None = None) -> dict:
+             requested_dates: list[date] | None = None, collect_highlights: bool = False) -> dict:
     """探索して結果を画面に出す。戻り値は --json-out 用の材料(2026-11-16。画面の出力は変えていない)。
     collect_scan が真なら、第1段階で走査した全部の夜を scanned_nights として返す(計算は増えない)。
-    requested_dates(--nights)があれば、その夜を requested_nights.py で調べる(通信は増えない。候補には混ぜない)。"""
+    requested_dates(--nights)があれば、その夜を requested_nights.py で調べる(通信は増えない。候補には混ぜない)。
+    collect_highlights(--json-out のとき)が真なら、走査した夜ごとの見どころ(sky_highlights)を highlights として返す。"""
     t_start = time.time()
 
     ts = load.timescale()
@@ -1384,6 +1409,14 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
         for line in rn.summary_lines(requested):
             print(line)
 
+    highlights = None
+    if collect_highlights and scan is not None:
+        # 夜ごとの見どころ(2026-11-27、--json-out のときだけ)。レポートの「この時期の見どころ」と同じ関数・同じ基準
+        # (基準地点・高度の基準)で、走査した夜ごとに作る。探索・順位・スコアには使わない。通信しない
+        t_highlights = time.perf_counter()
+        highlights = night_highlights(ts, eph, ref_site, scan)
+        compute_sec["highlights"] = time.perf_counter() - t_highlights
+
     t_end = time.time()
     if target_mode == "milkyway" and len(finals) + len(outlooks) < MILKYWAY_FEW_RESULTS:
         print("\n候補が少ない場合は `--target stars` で星空・星座向けの候補を探せます。")
@@ -1401,6 +1434,8 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
     }
     if requested is not None:
         result["requested_nights"] = requested
+    if highlights is not None:
+        result["highlights"] = highlights
     if scan is not None:
         result["scanned_nights"] = scan
         result["winter_bands"] = winter_bands
