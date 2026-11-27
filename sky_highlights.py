@@ -29,6 +29,10 @@ NEXT_VISIBLE_MONTHS = 12       # 「次に見えるのは○月ごろ」を探�
 
 SLOTS = (("evening", "宵"), ("midnight", "夜半"), ("dawn", "明け方"))
 PLANETS = (("金星", "venus"), ("火星", "mars barycenter"), ("木星", "jupiter barycenter"), ("土星", "saturn barycenter"))
+# 惑星の ID(--json-out の見どころで対象を見分けるため。2026-11-27)
+PLANET_IDS = {"金星": "venus", "火星": "mars", "木星": "jupiter", "土星": "saturn"}
+GUIDE_MIN_ALT_DEG = 15.0       # 「見える」の高度の基準(レポートと --json-out の見どころで共通。2026-11-27 に generate_report から移した)
+UNVERIFIED_MARK = "未照合"      # targets.json の source にこの語がある対象は、座標を星表と照らしていない
 FAINT_KINDS = ("星団", "星雲", "銀河", "天の川")
 
 METEOR_CAVEAT = "理想の条件での目安で、実際に見える数はこれより少ない。突発的な増減は予測できない"
@@ -39,6 +43,11 @@ class Member:
     name: str
     az: tuple
     alt: tuple
+
+
+def coordinates_unverified(target) -> bool:
+    """座標を星表と照らしていない対象か(targets.json の source に「未照合」と書いた対象。2026-11-24 に足した19件)。"""
+    return UNVERIFIED_MARK in (target.source or "")
 
 
 def _utc(ts, times):
@@ -122,7 +131,8 @@ def slot_items(times, planets, targets, min_alt: float, moon_up: bool) -> list[d
     for name, az, alt in planets:
         r = _listed_range(times, az, alt, min_alt)
         if r is not None:
-            seen.append({"name": name, "kind": "惑星", "faint_in_moonlight": False, **r})
+            seen.append({"id": PLANET_IDS[name], "name": name, "kind": "惑星", "faint_in_moonlight": False,
+                         "coordinates_unverified": False, **r})
     if seen:
         items.append({"type": "planets", "name": "惑星", "in_season": None, "has_first_magnitude": True, "members": seen})
 
@@ -134,8 +144,9 @@ def slot_items(times, planets, targets, min_alt: float, moon_up: bool) -> list[d
         label = target.group or target.name
         g = groups.setdefault(label, {"type": "target", "name": label, "in_season": False, "has_first_magnitude": False,
                                       "members": [], "_order": order})
-        g["members"].append({"name": target.name, "kind": target.kind,
-                             "faint_in_moonlight": moon_up and target.kind in FAINT_KINDS, **r})
+        g["members"].append({"id": target.id, "name": target.name, "kind": target.kind,
+                             "faint_in_moonlight": moon_up and target.kind in FAINT_KINDS,
+                             "coordinates_unverified": coordinates_unverified(target), **r})
         g["in_season"] = g["in_season"] or _transits_inside(alt)
         g["has_first_magnitude"] = g["has_first_magnitude"] or target.first_magnitude
     ordered = sorted(groups.values(), key=lambda g: ((not g["has_first_magnitude"]) if moon_up else False,
@@ -228,7 +239,7 @@ def upcoming_showers(ex, ts, eph, lat, lon, now: datetime, days: int = METEOR_DA
             key = (r is None, max(timedelta(0), lo - peak, peak - hi))
             if best is None or key < best[0]:
                 best = (key, d, start, end, r)
-        rec = {"name": s["name"], "peak_time": peak, "zhr": s["zhr"], "source": s["source"], "caveat": METEOR_CAVEAT,
+        rec = {"id": s["id"], "name": s["name"], "peak_time": peak, "zhr": s["zhr"], "source": s["source"], "caveat": METEOR_CAVEAT,
                "night_date": None, "radiant_start": None, "radiant_end": None, "moon_up_intervals": [],
                "moon_illuminated_fraction": None}
         if best is not None:
@@ -243,13 +254,16 @@ def upcoming_showers(ex, ts, eph, lat, lon, now: datetime, days: int = METEOR_DA
 
 
 def build(ex, ts, eph, lat: float, lon: float, night_date: date, dark_start: datetime | None, dark_end: datetime | None,
-          now: datetime, min_alt: float, winter_band: dict | None = None) -> dict:
-    """見どころの値。ex は explore_hoshibiyori モジュール(天文薄明・月の計算を借りる)。"""
+          now: datetime, min_alt: float, winter_band: dict | None = None, showers: list[dict] | None = None) -> dict:
+    """見どころの値。ex は explore_hoshibiyori モジュール(天文薄明・月の計算を借りる)。
+    showers を渡すと、その流星群の値をそのまま使う(--json-out で夜ごとに同じ計算を繰り返さないため。中身は
+    upcoming_showers(ex, ts, eph, lat, lon, now) と同じもの。省略時は従来どおりここで計算する)。"""
     import winter_milkyway as wm
     from catalog import load_targets
     from sky_engine import altaz_at_time
     out = {"night_date": night_date, "min_alt_deg": min_alt, "slots": [], "not_visible": [],
-           "showers": upcoming_showers(ex, ts, eph, lat, lon, now), "winter_band": winter_band}
+           "showers": upcoming_showers(ex, ts, eph, lat, lon, now) if showers is None else showers,
+           "winter_band": winter_band}
     if dark_start is None or dark_end is None:
         return out
     targets = load_targets()
@@ -276,9 +290,13 @@ def build(ex, ts, eph, lat: float, lon: float, night_date: date, dark_start: dat
             hidden.setdefault(x.group or x.name, []).append(x)
     hidden_planets = [name for name, _ in PLANETS if name not in visible]
     nxt = _next_visible(ex, ts, eph, lat, lon, night_date, [x for g in hidden.values() for x in g], hidden_planets, min_alt)
-    out["not_visible"] = [{"name": n, "next_month": nxt.get(n)} for n in hidden_planets]
+    # ids・kinds・coordinates_unverified は --json-out 用(2026-11-27。レポートの文は name と next_month だけを使う)
+    out["not_visible"] = [{"name": n, "next_month": nxt.get(n), "ids": [PLANET_IDS[n]], "kinds": ["惑星"],
+                           "coordinates_unverified": False} for n in hidden_planets]
     for label, members in hidden.items():
         # 組の「次に見える」は、組の代表(組と同じ名前の対象、無ければ先頭)の月
         rep = next((x for x in members if x.name == label), members[0])
-        out["not_visible"].append({"name": label, "next_month": nxt.get(rep.name)})
+        out["not_visible"].append({"name": label, "next_month": nxt.get(rep.name), "ids": [x.id for x in members],
+                                   "kinds": sorted({x.kind for x in members}),
+                                   "coordinates_unverified": any(coordinates_unverified(x) for x in members)})
     return out

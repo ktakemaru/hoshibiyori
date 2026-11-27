@@ -109,7 +109,7 @@ MAP_REF_POINTS = [
 CORE_TARGET_ID = "galactic_center"
 SEASONAL_TARGET_IDS = ["summer_triangle", "winter_triangle", "orion", "cassiopeia"]
 MAX_SEASONAL_TARGETS = 2
-MIN_GUIDE_ALT_DEG = 15.0
+MIN_GUIDE_ALT_DEG = sky_highlights.GUIDE_MIN_ALT_DEG   # 15.0(2026-11-27 に sky_highlights へ移した。値は同じ)
 
 _SEASON_STATUS_PRIORITY = {"in_season": 0, "coming_soon": 1, "leaving_soon": 2}
 

@@ -30,12 +30,21 @@ class FakeTs:
     def from_datetime(self, dt):
         return dt
 
+    def from_datetimes(self, dts):
+        # 2026-11-27: compute_target_window が時刻の列をまとめて渡すようになったため(期待値は変えていない)
+        return list(dts)
+
 
 def altitude_fn(f):
-    """時刻(START からの分)→ 高度 の関数から、altaz_at_time の代わりを作る。方位は 180°固定。"""
+    """時刻(START からの分)→ 高度 の関数から、altaz_at_time の代わりを作る。方位は 180°固定。
+    時刻の列(from_datetimes の戻り値)を渡されたら、方位と高度の列を返す。"""
+    def one(t):
+        return f((t - START.astimezone(timezone.utc)).total_seconds() / 60.0)
+
     def fake(t_sf, eph, lat, lon, elev, target):
-        minutes = (t_sf - START.astimezone(timezone.utc)).total_seconds() / 60.0
-        return 180.0, f(minutes)
+        if isinstance(t_sf, list):
+            return [180.0] * len(t_sf), [one(t) for t in t_sf]
+        return 180.0, one(t_sf)
     return fake
 
 

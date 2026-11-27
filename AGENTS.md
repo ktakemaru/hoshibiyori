@@ -55,6 +55,7 @@ py -m venv .venv
 | 探索・星空・星座モード・全897地点・`--nights` 1夜・JSON つき(雲量の保存なし) | `explore_hoshibiyori.py` `--target stars --nights … --json-out …` | 約4分 | 2026-11-24、Windows、利用者の実測1回(243.1秒、API 456回・失敗0、天文計算の保存は14夜のうち4夜) |
 | 探索・天の川モード・全897地点(保存が足りない) | `explore_hoshibiyori.py` | 未実測 | — |
 | 探索・天の川モード・全897地点(保存がそろっている) | `explore_hoshibiyori.py` | 未実測 | — |
+| 探索・天の川モード・全897地点・`--nights` 14夜・JSON つき(予報の保存あり。1.2.0、計算の短縮の前) | `explore_hoshibiyori.py` `--nights … --json-out …` | 約10分 | 2026-11-25、Windows、利用者の実測1回(583.2秒、通信0回) |
 | レポートの生成・天の川モード・主軸146地点(保存が足りない) | `generate_report.py` | 未実測 | — |
 | レポートの生成・天の川モード・主軸146地点(雲量が保存済み) | `generate_report.py` | 約2分 | 2026-11-15、Windows・自宅回線、利用者の実測(1.9分、通信0回) |
 | レポートの生成・星空・星座モード・主軸146地点(保存が足りない) | `generate_report.py` `--target stars` | 未実測 | — |
@@ -73,8 +74,9 @@ py -m venv .venv
 - `explore_hoshibiyori.py` も引数なし(探索結果をコンソールに出す)。
 - `explore_hoshibiyori.py --json-out <ファイル>`: 探索結果を JSON(スキーマ `hoshibiyori-explore/1`、`schemas/hoshibiyori-explore.schema.json`)で書き出す。近日中(`finals`)・見込み(`outlooks`)の候補を全件、閾値・夜・取得の集計・版と commit とともに入れる。終了コード0のときだけ書き(`fetch.status` が `ok`/`partial`)、2のときは書かず既存のファイルにも触れない。通信の量は付けないときと同じ。`--target`・`--astro-grid` と併用できる。
   - `scanned_nights`: 走査した全部の夜(日付順)。`selected`(候補の夜か)・`regime`(選ばれた夜だけ MSM/ECMWF)・`not_selected_reason`(`no_sunset_or_sunrise`/`no_astronomical_darkness`/`no_moon_free_window`/`not_in_top_n`)。スキーマの必須項目。
-  - `site_id`(候補・一覧)と `site_index`(全地点の一覧: `site_id`・名前・`label`[見分けるための言い方]・市町村・緯度経度・主軸か参考か・リフト要): 同じ名前の地点が37組あるので、地点は名前でなく `site_id` で見分ける。
-- `explore_hoshibiyori.py --nights 2026-11-28,2026-11-29`(夜の始まりの日付): 候補の上位6夜に入らない夜も雲量を調べ、`--json-out` の `requested_nights[]` と画面の数行に出す(候補の一覧・順位・`finals`・`outlooks` は変わらない。スコアは出さない)。**通信は増えない**(その回の通常の探索が取ったセルと期限内の保存だけを読む。取っていないセルの地点は `not_examined`)。「調べていない」(`window_kind: none`・`status: not_examined`)と「条件を通らなかった」(`status: failed`)を混ぜて答えない。`window_kind: dark` の夜は月が出ている(`moon` を添える)。`forecast_regime: ECMWF` の雲量は目安。
+  - `highlights`(夜ごとの見どころ。レポートの「この時期の見どころ」と同じ値): `by_night["YYYY-MM-DD"]` に時間帯ごとの対象(ID・名前・種類・見える時間帯・最も高い時刻と高度)と今夜は見えない対象、`showers` に流星群(1回だけ)。基準の地点・平らな地平線の目安で、地形・雲は見ていない(`basis`)。`coordinates_unverified: true` の対象は座標を星表と照らしていない。出現数は例年の目安で、注意の文(`caveat`)を必ず添える。暗い時間帯が無い夜は `null`。
+  - `site_id`(候補・一覧)と `site_index`(全地点の一覧: `site_id`・名前・`label`[見分けるための言い方]・市町村・緯度経度・主軸か参考か・リフト要・`origin`[出どころ。候補の `origin` と同じ値]): 同じ名前の地点が37組あるので、地点は名前でなく `site_id` で見分ける。
+- `explore_hoshibiyori.py --nights 2026-11-28,2026-11-29`(夜の始まりの日付): 候補の上位6夜に入らない夜も雲量を調べ、`--json-out` の `requested_nights[]` と画面の数行に出す(候補の一覧・順位・`finals`・`outlooks` は変わらない。スコアは出さない)。地点の `night_rank` はその夜の中の順位(`passed` だけ、`group` ごと。星空・星座モードはどの夜も `outlooks` と同じ「ALR が小さい→月の影響が小さい時間が長い順」で、MSM の夜の `finals` とは違うことがある。天の川モードはスコア順で、MSM の夜は `finals`、ECMWF の夜は `outlooks` の式)。**通信は増えない**(その回の通常の探索が取ったセルと期限内の保存だけを読む。取っていないセルの地点は `not_examined`)。「調べていない」(`window_kind: none`・`status: not_examined`)と「条件を通らなかった」(`status: failed`)を混ぜて答えない。`window_kind: dark` の夜は月が出ている(`moon` を添える)。その夜の `passed` は月を条件にしていない。`forecast_regime: ECMWF` の雲量は目安。
 - 薄明・月の時刻は既定で0.25度格子(ECMWFと同じ)の代表点で計算し、`<データ領域>/step1_astronomy/astro_cache/`(git管理外)に保存して次の実行から読むだけにする(本人の決定、2026-11-13。地点ごとの計算との差は薄明で1分未満)。地点ごとの従来の計算に戻すのは `--astro-grid site`(explore・generate_report 共通。保存は読まない・書かない)。先に計算しておくのは `py -X utf8 scripts/warm_astro_cache.py --days 30`(通信しない)。
 - ユーザーが「天の川にこだわらない」「星座」「冬」「明るい星・惑星を見たい」などと言ったら `--target stars`(星空・星座モード。銀河中心の高度・地形を条件にしない。出力は `report_stars.html` で `report.html` を上書きしない)を使う。天の川を撮るときは既定の `milkyway`。
 - 「空の開け具合」(`sky_openness`)と「冬の天の川の帯」(`winter_milky_way`)は参考の情報で、順位・足切りには使っていない。「ECMWFだけの予報(目安)」の印の付いた夜は、雲量で足切りしていない。

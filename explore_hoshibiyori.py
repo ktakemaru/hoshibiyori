@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import sys
 import time
 from dataclasses import dataclass
@@ -415,7 +416,108 @@ def compute_target_window(ts, eph, site: dict, target, window_start: datetime, w
     window_start/window_endはその地点自身の座標で計算した無月時間帯(compute_site_night_window参照)。
     地形地平線を上回っている(profileが無ければ高度0°を上回っている)連続区間のうち
     最長のものを返す。戻り値: (見頃開始, 見頃終了, 見頃内で最も高度が高い時刻とその高度・方位角)。
+
+    2026-11-27(処理時間の短縮): 時刻の列を Skyfield に1回で渡して(方位, 高度)をまとめて計算し、見える・見えないの
+    判定と最も高い時刻の選択に使う。まとめた計算は1時刻ずつの計算と末尾の桁で違うことがあるため、
+    - 返す高度・方位は、選んだ時刻だけを従来と同じ1時刻の計算でやり直した値にする(値は従来と1ビットも違わない)。
+    - 判定が末尾の桁で入れ替わりうるサンプル(地平線・稜線の高度との差、稜線の方位の丸めの境目[x.5°]との差、
+      最も高い2つの時刻の高度の差が TARGET_TRACK_GUARD_DEG 未満)が1つでもあれば、従来の1時刻ずつの計算
+      (_compute_target_window_scalar)に切り替える。決まり・刻み・閾値は変えていない。
     """
+    times, t_sf = _sample_times(ts, window_start, window_end, sample_interval_min)
+    if not times:
+        return None, None, None, None, None
+    az_arr, alt_arr = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
+    az_list = [float(a) for a in az_arr]
+    alt_list = [float(a) for a in alt_arr]
+
+    guard = TARGET_TRACK_GUARD_DEG
+    visible_flags = []
+    for az, alt in zip(az_list, alt_list):
+        if profile is not None:
+            frac = az - math.floor(az)
+            if abs(frac - 0.5) < guard:
+                return _target_window_fallback(ts, eph, site, target, window_start, window_end, profile, sample_interval_min)
+            horizon = horizon_alt_at(profile, az)
+        else:
+            horizon = 0.0
+        if abs(alt - horizon) < guard:
+            return _target_window_fallback(ts, eph, site, target, window_start, window_end, profile, sample_interval_min)
+        visible_flags.append(alt > horizon)
+
+    # 最長の連続区間(従来と同じ決まり。時刻の列と見える・見えないの並びだけで決まる)
+    best_start, best_end, best_len = None, None, timedelta(0)
+    cur_start = None
+    for t, vis in zip(times, visible_flags):
+        if vis and cur_start is None:
+            cur_start = t
+        elif not vis and cur_start is not None:
+            length = t - cur_start
+            if length > best_len:
+                best_start, best_end, best_len = cur_start, t, length
+            cur_start = None
+    if cur_start is not None:
+        length = times[-1] - cur_start
+        if length > best_len:
+            best_start, best_end = cur_start, times[-1]
+
+    if best_start is None:
+        return None, None, None, None, None
+
+    in_window = [i for i, t in enumerate(times) if best_start <= t <= best_end]
+    peak_i = max(in_window, key=lambda i: alt_list[i])   # 同じ高さなら先の時刻(従来の max と同じ)
+    others = [alt_list[i] for i in in_window if i != peak_i]
+    if others and alt_list[peak_i] - max(others) < guard:
+        return _target_window_fallback(ts, eph, site, target, window_start, window_end, profile, sample_interval_min)
+    peak_time = times[peak_i]
+    # 返す値は、従来と同じ1時刻の計算でやり直す
+    peak_az, peak_alt = altaz_at_time(ts.from_datetime(peak_time.astimezone(timezone.utc)), eph,
+                                      site["lat"], site["lon"], site["elevation_m"], target)
+    return best_start, best_end, peak_time, peak_az, peak_alt
+
+
+# まとめた計算と1時刻ずつの計算の差(実測で約1e-13°)より十分大きく、判定の入れ替わりを防ぐための余裕(度)。
+# この余裕の中にサンプルがあれば従来の計算に切り替えるだけで、判定の決まりそのものには使わない。
+TARGET_TRACK_GUARD_DEG = 1e-6
+# 従来の計算に切り替えた回数(確かめ用。結果には使わない)
+target_window_fallbacks = 0
+
+# 時刻の列の使い回し(同じ夜・同じ格子の地点は時間帯が同じ)。鍵には時刻の表し方(タイムゾーン)も入れる
+# (同じ瞬間でもタイムゾーンが違えば返す時刻の表示が変わるため)。大きくなりすぎたら空にする。
+_SAMPLE_TIMES_MEMO: dict = {}
+_SAMPLE_TIMES_MEMO_MAX = 4096
+sample_times_stats = {"hits": 0, "misses": 0}
+
+
+def _sample_times(ts, start: datetime, end: datetime, interval_min: int):
+    """start から end まで(end を含む)interval_min 分刻みの時刻のリストと、その Skyfield の Time(配列)。"""
+    key = (id(ts), start, repr(start.tzinfo), end, repr(end.tzinfo), interval_min)
+    hit = _SAMPLE_TIMES_MEMO.get(key)
+    if hit is not None and hit[0] is ts:
+        sample_times_stats["hits"] += 1
+        return hit[1], hit[2]
+    sample_times_stats["misses"] += 1
+    times = []
+    t = start
+    while t <= end:
+        times.append(t)
+        t += timedelta(minutes=interval_min)
+    t_sf = ts.from_datetimes([x.astimezone(timezone.utc) for x in times]) if times else None
+    if len(_SAMPLE_TIMES_MEMO) >= _SAMPLE_TIMES_MEMO_MAX:
+        _SAMPLE_TIMES_MEMO.clear()
+    _SAMPLE_TIMES_MEMO[key] = (ts, times, t_sf)
+    return times, t_sf
+
+
+def _target_window_fallback(ts, eph, site, target, window_start, window_end, profile, sample_interval_min):
+    global target_window_fallbacks
+    target_window_fallbacks += 1
+    return _compute_target_window_scalar(ts, eph, site, target, window_start, window_end, profile, sample_interval_min)
+
+
+def _compute_target_window_scalar(ts, eph, site: dict, target, window_start: datetime, window_end: datetime,
+                                  profile: dict[int, float] | None, sample_interval_min: int = 15):
+    """従来(1.2.0まで)の1時刻ずつの計算。compute_target_window の切り替え先と、テストでの照合に使う。"""
     samples = []
     t = window_start
     while t <= window_end:
@@ -655,6 +757,62 @@ STARS_FINAL_ORDER = "晴れ時間が長い→平均雲量が低い→光害(ALR)
 STARS_OUTLOOK_ORDER = "光害(ALR)が小さい→月の影響が小さい時間が長い順"
 
 
+def final_score(mean_obstruction: float, best_alt: float, h_alt: float | None, clear_hours: float,
+                brightness_ratio: float) -> float:
+    """近日中(FinalCandidate.score、天の川モード)のスコア。式は 1.2.0 の stage3_direction_filter のまま
+    (2026-11-27 に関数へ移しただけ。聞かれた夜の順位 night_rank でも同じ式を使うため)。"""
+    return (
+        (100.0 - mean_obstruction) * 1.0
+        + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
+        + clear_hours * 3.0
+        - brightness_ratio * 10.0
+    )
+
+
+def outlook_score(brightness_ratio: float, peak_alt: float, horizon_alt: float, moon_free_hours: float) -> float:
+    """見込み(OutlookCandidate.score、天の川モード)のスコア。horizon_alt は最も高い時刻の方位の稜線(地形データが無ければ 0.0)。
+    式は 1.2.0 の stage_outlook のまま(2026-11-27 に関数へ移しただけ)。"""
+    return (
+        (100.0 - brightness_ratio * 10.0)
+        + max(0.0, peak_alt - horizon_alt) * 0.5
+        + moon_free_hours * 3.0
+    )
+
+
+def peak_altitude_scalar(ts, eph, site: dict, target, window_start: datetime, window_end: datetime,
+                         sample_interval_min: int = 15):
+    """時間帯の中で対象天体が最も高い時刻(15分刻み、同じ高さなら先の時刻)の (高度, 方位, 時刻)。サンプルが無ければ
+    (-90.0, None, None)。1.2.0 の stage3_direction_filter のループのまま(2026-11-27 に関数へ移しただけ)。"""
+    best_alt, best_az, best_time = -90.0, None, None
+    t = window_start
+    while t <= window_end:
+        t_sf = ts.from_datetime(t.astimezone(timezone.utc))
+        az, alt = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
+        if alt > best_alt:
+            best_alt, best_az, best_time = alt, az, t
+        t += timedelta(minutes=sample_interval_min)
+    return best_alt, best_az, best_time
+
+
+def peak_altitude(ts, eph, site: dict, target, window_start: datetime, window_end: datetime,
+                  sample_interval_min: int = 15):
+    """peak_altitude_scalar と同じ結果を、時刻の列をまとめた計算で速く求める(聞かれた夜の順位で使う)。
+    最も高い2時刻の差が TARGET_TRACK_GUARD_DEG 未満なら peak_altitude_scalar に切り替える。返す値は選んだ時刻の1時刻の計算。"""
+    times, t_sf = _sample_times(ts, window_start, window_end, sample_interval_min)
+    if not times:
+        return -90.0, None, None
+    _az, alt_arr = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
+    alts = [float(a) for a in alt_arr]
+    best_i = max(range(len(alts)), key=lambda i: alts[i])      # 同じ高さなら先の時刻
+    others = [a for i, a in enumerate(alts) if i != best_i]
+    if (others and alts[best_i] - max(others) < TARGET_TRACK_GUARD_DEG) or alts[best_i] - (-90.0) < TARGET_TRACK_GUARD_DEG:
+        return peak_altitude_scalar(ts, eph, site, target, window_start, window_end, sample_interval_min)
+    best_time = times[best_i]
+    az, alt = altaz_at_time(ts.from_datetime(best_time.astimezone(timezone.utc)), eph,
+                            site["lat"], site["lon"], site["elevation_m"], target)
+    return alt, az, best_time
+
+
 def final_rank_key(f: "FinalCandidate", target_mode: str = DEFAULT_TARGET_MODE):
     """降順ソート用のキー(大きいほど上位)。milkywayは従来のスコア。
     starsは、晴れ時間が長い → 平均雲量が低い → ALRが小さい → 月の影響が小さい時間が長い、の辞書式順序。"""
@@ -708,14 +866,7 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
                 horizon_profile_cache[site["horizon_csv"]] = load_horizon_profile(site["horizon_csv"])
             profile = horizon_profile_cache[site["horizon_csv"]]
 
-        best_alt, best_az, best_time = -90.0, None, None
-        t = window_start
-        while t <= window_end:
-            t_sf = ts.from_datetime(t.astimezone(timezone.utc))
-            az, alt = altaz_at_time(t_sf, eph, site["lat"], site["lon"], site["elevation_m"], target)
-            if alt > best_alt:
-                best_alt, best_az, best_time = alt, az, t
-            t += timedelta(minutes=15)
+        best_alt, best_az, best_time = peak_altitude_scalar(ts, eph, site, target, window_start, window_end)
 
         if best_time is None:
             continue
@@ -736,12 +887,7 @@ def stage3_direction_filter(ts, eph, survivors: list[dict], lp_store: BmLightPol
         if clears_horizon and clears_light_pollution:
             if not terrain_available:
                 no_terrain_count += 1   # 通過した候補のうち地形データが無いもの(2026-11-24、光害の足切りの後に数える)
-            score = (
-                (100.0 - s["mean_obstruction"]) * 1.0
-                + max(0.0, best_alt - (h_alt or 0.0)) * 0.5
-                + s["clear_hours"] * 3.0
-                - lp_result.brightness_ratio * 10.0
-            )
+            score = final_score(s["mean_obstruction"], best_alt, h_alt, s["clear_hours"], lp_result.brightness_ratio)
             finals.append(FinalCandidate(
                 night_date=night.night_date, site_name=site["name"], municipality=site["municipality"],
                 origin=site["origin"], site_lat=site["lat"], site_lon=site["lon"],
@@ -816,11 +962,8 @@ def stage_outlook(ts, eph, nights: list["NightCandidate"], sites: list[dict],
             if stars_mode:
                 score = 0.0   # 並び順は outlook_rank_key が決める(銀河中心の項が無いため)
             else:
-                score = (
-                    (100.0 - lp_result.brightness_ratio * 10.0)
-                    + max(0.0, peak_alt - (horizon_alt_at(profile, peak_az) if profile is not None else 0.0)) * 0.5
-                    + moon_free_hours * 3.0
-                )
+                score = outlook_score(lp_result.brightness_ratio, peak_alt,
+                                      horizon_alt_at(profile, peak_az) if profile is not None else 0.0, moon_free_hours)
 
             results.append(OutlookCandidate(
                 night_date=night.night_date, site_name=site["name"], municipality=site["municipality"],
@@ -1065,12 +1208,47 @@ def main(argv=None) -> int:
         finish_astro_cache(astro)
         # 全体の秒数と通信以外の秒数(画面表示のみ。終了コード2の経路でも出す)
         print(timing_line(time.perf_counter() - t0, cache.summary()))
+        compute_line = compute_timing_line((sink.get("result") or {}).get("compute_sec"))
+        if compute_line:
+            print(compute_line)
     json_out = getattr(args, "json_out", None)
     if code == 0 and json_out:
         # 2026-11-16: 終了コード0の経路だけ書く(2のときは書かず、既存のファイルにも触れない)
         path = write_explore_json(json_out, sink.get("result"), cache, args)
         print(f"探索結果の JSON を書きました: {path}")
     return code
+
+
+def night_highlights(ts, eph, ref_site: dict, scan: list, now: datetime | None = None) -> dict:
+    """走査した夜ごとの見どころ(sky_highlights.build の値)。暗い時間帯が無い夜は None。流星群は夜によらないので1回だけ計算して
+    各夜に渡す(build に渡す showers。中身は build が自分で計算するものと同じ)。冬の天の川の帯は scanned_nights の側にあるので渡さない。"""
+    import sky_highlights as sh
+    now = datetime.now(JST) if now is None else now
+    me = sys.modules[__name__]
+    showers = sh.upcoming_showers(me, ts, eph, ref_site["lat"], ref_site["lon"], now)
+    by_night = {}
+    for n, _reason in scan:
+        if n.dark_start is None or n.dark_end is None:
+            by_night[n.night_date] = None
+            continue
+        by_night[n.night_date] = sh.build(me, ts, eph, ref_site["lat"], ref_site["lon"], n.night_date, n.dark_start,
+                                          n.dark_end, now, sh.GUIDE_MIN_ALT_DEG, None, showers)
+    return {"reference_site": ref_site, "computed_at": now, "min_alt_deg": sh.GUIDE_MIN_ALT_DEG,
+            "radiant_min_alt_deg": sh.RADIANT_MIN_ALT_DEG, "max_items_per_slot": sh.MAX_ITEMS_PER_SLOT,
+            "showers": showers, "by_night": by_night}
+
+
+def compute_timing_line(compute_sec: dict | None) -> str | None:
+    """見込みの計算(stage_outlook)と --nights の計算(requested_nights.evaluate)の秒(2026-11-27、画面表示のみ)。
+    --nights を付けないときは見込みだけ。探索が途中で止まったとき(材料が無い)は None。"""
+    if not compute_sec:
+        return None
+    parts = [f"見込みの計算 {compute_sec.get('outlook', 0.0):.1f} 秒"]
+    if "requested_nights" in compute_sec:
+        parts.append(f"聞かれた夜(--nights)の計算 {compute_sec['requested_nights']:.1f} 秒")
+    if "highlights" in compute_sec:
+        parts.append(f"見どころ(--json-out)の計算 {compute_sec['highlights']:.1f} 秒")
+    return "実行時間の内訳(計算): " + " / ".join(parts)
 
 
 def explore_thresholds(alr_threshold: float) -> dict:
@@ -1109,6 +1287,7 @@ def write_explore_json(path, result: dict | None, cache, args) -> Path:
         fetch_summary=cache.summary(), fetch_failures=list(getattr(cache, "failures", [])),
         sites=result.get("sites", {}), site_index=result.get("site_index", ()),
         requested_nights=result.get("requested_nights"), winter_bands=result.get("winter_bands"),
+        highlights=result.get("highlights"),
     )
     return ej.write_json_atomic(path, doc)
 
@@ -1117,6 +1296,8 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink
     try:
         # 走査した全部の夜(scanned_nights)は --json-out のときだけ集める
         kwargs = {"collect_scan": bool(getattr(args, "json_out", None))}
+        if kwargs["collect_scan"]:
+            kwargs["collect_highlights"] = True     # 夜ごとの見どころも --json-out のときだけ(2026-11-27)
         if getattr(args, "nights", None):
             kwargs["requested_dates"] = args.nights
         result = _explore(cache, args.target, astro, **kwargs)
@@ -1146,10 +1327,11 @@ def _run(cache: GridCloudCache, args, astro: AstroNightCache | None = None, sink
 
 def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
              astro: AstroNightCache | None = None, collect_scan: bool = False,
-             requested_dates: list[date] | None = None) -> dict:
+             requested_dates: list[date] | None = None, collect_highlights: bool = False) -> dict:
     """探索して結果を画面に出す。戻り値は --json-out 用の材料(2026-11-16。画面の出力は変えていない)。
     collect_scan が真なら、第1段階で走査した全部の夜を scanned_nights として返す(計算は増えない)。
-    requested_dates(--nights)があれば、その夜を requested_nights.py で調べる(通信は増えない。候補には混ぜない)。"""
+    requested_dates(--nights)があれば、その夜を requested_nights.py で調べる(通信は増えない。候補には混ぜない)。
+    collect_highlights(--json-out のとき)が真なら、走査した夜ごとの見どころ(sky_highlights)を highlights として返す。"""
     t_start = time.time()
 
     ts = load.timescale()
@@ -1205,20 +1387,35 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
         print("\n[精密予報パート] 該当する候補夜がありません(現時点では候補日が全てMSM予報期間の外)。")
     t_stage2_end = time.time()
 
+    # 計算の内訳(2026-11-27): 見込みの計算と --nights の計算の秒(「実行時間の内訳(計算)」の行に出すだけ)
+    compute_sec: dict = {}
+    t_outlook = time.perf_counter()
     if ecmwf_nights:
         outlooks = stage_outlook(ts, eph, ecmwf_nights, sites, lp_store, cache, target_mode, astro)
+        compute_sec["outlook"] = time.perf_counter() - t_outlook
         print_outlook_report(outlooks, target_mode=target_mode)
     else:
         outlooks = []
+        compute_sec["outlook"] = 0.0
         print("\n[見込みパート] 該当する候補夜がありません。")
 
     requested = None
     if requested_dates:
         import requested_nights as rn
+        t_requested = time.perf_counter()
         requested = rn.evaluate(sys.modules[__name__], ts, eph, requested_dates, scan, {n.night_date for n in nights},
                                 {n.night_date for n in msm_nights}, sites, ref_site, cache, lp_store, target_mode, astro)
+        compute_sec["requested_nights"] = time.perf_counter() - t_requested
         for line in rn.summary_lines(requested):
             print(line)
+
+    highlights = None
+    if collect_highlights and scan is not None:
+        # 夜ごとの見どころ(2026-11-27、--json-out のときだけ)。レポートの「この時期の見どころ」と同じ関数・同じ基準
+        # (基準地点・高度の基準)で、走査した夜ごとに作る。探索・順位・スコアには使わない。通信しない
+        t_highlights = time.perf_counter()
+        highlights = night_highlights(ts, eph, ref_site, scan)
+        compute_sec["highlights"] = time.perf_counter() - t_highlights
 
     t_end = time.time()
     if target_mode == "milkyway" and len(finals) + len(outlooks) < MILKYWAY_FEW_RESULTS:
@@ -1233,10 +1430,12 @@ def _explore(cache: GridCloudCache, target_mode: str = DEFAULT_TARGET_MODE,
                   "with_horizon": sum(1 for s in sites if s["horizon_csv"])},
         "reference_site": ref_site, "nights": nights, "msm_dates": [n.night_date for n in msm_nights],
         "finals": finals, "outlooks": outlooks, "alr_threshold": lp_store.alr_threshold,
-        "site_index": sites,
+        "site_index": sites, "compute_sec": compute_sec,
     }
     if requested is not None:
         result["requested_nights"] = requested
+    if highlights is not None:
+        result["highlights"] = highlights
     if scan is not None:
         result["scanned_nights"] = scan
         result["winter_bands"] = winter_bands

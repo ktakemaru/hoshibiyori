@@ -45,6 +45,10 @@ ESTIMATES: tuple[Estimate, ...] = (
              _USER_1124 + "(243.1秒、API 456回・失敗0、天文計算の保存は14夜のうち4夜)"),
     Estimate("explore/milkyway/cold", "探索・天の川モード・全897地点(保存が足りない)", _EXPLORE, None, UNMEASURED, "—"),
     Estimate("explore/milkyway/warm", "探索・天の川モード・全897地点(保存がそろっている)", _EXPLORE, None, UNMEASURED, "—"),
+    # 2026-11-27: 1.2.0(計算の短縮の前)の実測。短縮後の全897地点の値は、利用者が測るまで書かない
+    Estimate("explore/milkyway/nights", "探索・天の川モード・全897地点・`--nights` 14夜・JSON つき(予報の保存あり。1.2.0、計算の短縮の前)",
+             f"{_EXPLORE} `--nights … --json-out …`", 583.2, "約10分",
+             "2026-11-25、Windows、利用者の実測1回(583.2秒、通信0回)"),
     Estimate("report/milkyway/cold", "レポートの生成・天の川モード・主軸146地点(保存が足りない)", _REPORT, None, UNMEASURED, "—"),
     Estimate("report/milkyway/warm", "レポートの生成・天の川モード・主軸146地点(雲量が保存済み)", _REPORT, 114.0,
              "約2分", _USER_1115 + "(1.9分、通信0回)"),

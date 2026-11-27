@@ -39,7 +39,70 @@ SCANNED_NOTE = "scanned_nights は走査した全部の夜です。selected が 
 # 聞かれた夜(--nights)を付けたときだけ足す注記。2026-11-24。
 REQUESTED_NOTE = ("requested_nights は --nights で指定した夜です。候補(finals・outlooks)とは別で、score は出しません。"
                   "雲量はこの回に取った分だけを使い、status が not_examined の地点は調べていません(条件を通らなかったのではありません)。"
-                  "forecast_regime が ECMWF の夜の雲量は目安です。")
+                  "forecast_regime が ECMWF の夜の雲量は目安です。"
+                  "window_kind が dark の夜の passed は、月を条件にしていません(月の無い時間帯が無いか短いため、暗い時間帯ぜんぶで調べています)。"
+                  "night_rank はその夜の中の順位です。星空・星座モードはどの夜も outlooks と同じ「光害(ALR)が小さい→月の影響が小さい時間が長い順」"
+                  "(予報が MSM の夜の finals とは並びが違うことがあります)、天の川モードはスコア順(予報が MSM の夜は finals、ECMWF の夜は outlooks の式)です。")
+
+
+# 見どころ(highlights)の目安の基準(2026-11-27)。コンシェルがそのまま文に使える短い語
+HIGHLIGHTS_BASIS_TEXT = "基準の地点・平らな地平線の目安(地形・雲は見ていない)"
+SHOWER_ZHR_NOTE = "例年の目安(理想の条件での1時間あたりの出現数。その年の予報ではない)"
+HIGHLIGHTS_NOTE = ("highlights はレポートの「この時期の見どころ」と同じ値です(sky_highlights.build)。基準の地点・平らな地平線の目安で、"
+                   "地形・雲は見ていません。by_night は走査した夜の日付で引き、暗い時間帯が無い夜は null、走査した夜の外の夜はキーがありません。"
+                   "時刻は丸めていません(レポートは30分単位に丸めて表示)。coordinates_unverified が true の対象は座標を星表と照らしていません。")
+
+
+def highlights_record(highlights: dict | None) -> dict | None:
+    """見どころの値(explore の _explore が sky_highlights で作ったもの)を JSON の形にする。無ければ None。
+
+    中身は sky_highlights.build と upcoming_showers の値をそのまま(項目の追加だけ)。流星群は夜によらないので1回だけ持ち、
+    夜ごとの値(by_night)は時間帯(slots)と今夜は見えない対象(not_visible)だけにする(同じ中身を2回持たない)。
+    冬の天の川の帯は scanned_nights[].winter_milky_way にある。"""
+    if highlights is None:
+        return None
+    ref = highlights["reference_site"]
+    showers = []
+    for sh in highlights["showers"]:
+        rec = {"id": sh["id"], "name": sh["name"], "kind": "流星群", "peak_time": json_value(sh["peak_time"]),
+               "zhr": json_value(sh["zhr"]), "zhr_note": SHOWER_ZHR_NOTE, "caveat": sh["caveat"], "source": sh["source"],
+               "night_date": json_value(sh["night_date"]),
+               "radiant_min_alt_deg": json_value(highlights["radiant_min_alt_deg"]),
+               "radiant_start": json_value(sh["radiant_start"]), "radiant_end": json_value(sh["radiant_end"]),
+               "moon_up_intervals": json_value(sh["moon_up_intervals"]),
+               "moon_illuminated_fraction": json_value(sh["moon_illuminated_fraction"])}
+        showers.append(rec)
+    by_night = {}
+    for d, g in highlights["by_night"].items():
+        by_night[json_value(d)] = None if g is None else {
+            "night_date": json_value(g["night_date"]),
+            "slots": _blank_kind_to_null(json_value(g["slots"])),
+            "not_visible": _blank_kind_to_null(json_value(g["not_visible"])),
+        }
+    return {
+        "basis": {"text": HIGHLIGHTS_BASIS_TEXT,
+                  "reference_site": {"name": ref.get("name"), "lat": json_value(ref.get("lat")), "lon": json_value(ref.get("lon"))},
+                  "flat_horizon": True, "terrain": False, "clouds": False,
+                  "min_alt_deg": json_value(highlights["min_alt_deg"]),
+                  "max_items_per_slot": highlights["max_items_per_slot"]},
+        "computed_at": json_value(highlights["computed_at"]),
+        "showers": showers,
+        "by_night": by_night,
+    }
+
+
+def _blank_kind_to_null(value):
+    """種類(kind・kinds)が空の文字列の対象(targets.json に種類を書いていない従来からの対象)は null にする(推測で埋めない)。"""
+    if isinstance(value, list):
+        return [_blank_kind_to_null(v) for v in value]
+    if isinstance(value, dict):
+        out = {k: _blank_kind_to_null(v) for k, v in value.items()}
+        if out.get("kind") == "":
+            out["kind"] = None
+        if isinstance(out.get("kinds"), list):
+            out["kinds"] = [k if k != "" else None for k in out["kinds"]]
+        return out
+    return value
 
 
 def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool]) -> list[dict]:
@@ -58,6 +121,7 @@ def site_index_records(sites: Iterable[dict], is_primary: Callable[[str], bool])
             "municipality": s["municipality"], "lat": json_value(s["lat"]), "lon": json_value(s["lon"]),
             "is_primary": primary, "group": "primary" if primary else "reference",
             "requires_lift_access": bool(s.get("requires_lift_access", False)),
+            "origin": s["origin"],      # 2026-11-27: 地点の出どころ(候補の origin と同じ値)
         })
     return out
 
@@ -122,19 +186,28 @@ def ranked_records(items: Iterable, rank_key: Callable, is_primary: Callable[[st
     """画面(print_final_report / print_outlook_report)と同じ並び: 主要候補を順位キーの降順、続いて参考候補を同じく降順。
     順位(rank)は各グループの中で1から(画面の「[N位]」と同じ)。
     score_unused が真(星空・星座モード)なら score を null にする(並び・順位は変えない)。"""
-    items = list(items)
     out: list[dict] = []
+    for group, primary, i, x in ranked_groups(items, rank_key, is_primary):
+        rec = dataclass_record(x)
+        if score_unused:
+            rec["score"] = None
+        rec["score_kind"] = score_kind
+        rec["is_primary"] = primary
+        rec["group"] = group
+        rec["rank"] = i
+        out.append(rec)
+    return out
+
+
+def ranked_groups(items: Iterable, rank_key: Callable, is_primary: Callable[[str], bool]) -> list[tuple]:
+    """(group, is_primary, rank, item) の並び。主要候補を順位キーの降順、続いて参考候補を同じく降順。順位は各グループの中で1から。
+    同じキーどうしは元の並びのまま(安定な並べ替え)。ranked_records(finals・outlooks)と、聞かれた夜の night_rank が使う
+    (2026-11-27、並べ方を1か所にするため ranked_records から分けた)。"""
+    items = list(items)
+    out: list[tuple] = []
     for group, primary in (("primary", True), ("reference", False)):
         members = sorted((x for x in items if bool(is_primary(x.origin)) == primary), key=rank_key, reverse=True)
-        for i, x in enumerate(members, 1):
-            rec = dataclass_record(x)
-            if score_unused:
-                rec["score"] = None
-            rec["score_kind"] = score_kind
-            rec["is_primary"] = primary
-            rec["group"] = group
-            rec["rank"] = i
-            out.append(rec)
+        out.extend((group, primary, i, x) for i, x in enumerate(members, 1))
     return out
 
 
@@ -170,7 +243,8 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
                        final_rank_key: Callable, outlook_rank_key: Callable, is_primary: Callable[[str], bool],
                        fetch_summary, fetch_failures: Iterable, sites: dict,
                        scanned_nights: Iterable, site_index: Iterable[dict] = (),
-                       requested_nights: list[dict] | None = None, winter_bands: dict | None = None) -> dict:
+                       requested_nights: list[dict] | None = None, winter_bands: dict | None = None,
+                       highlights: dict | None = None) -> dict:
     """探索結果の JSON(dict)を組み立てる。通信・天文計算・ファイルの読み書きはしない。
 
     final_rank_key / outlook_rank_key は1引数の関数(target を束ねたもの)。msm_dates は精密予報(MSM)側の夜の日付。
@@ -209,9 +283,12 @@ def build_explore_json(*, generated_at: datetime, version: str | None, commit: s
         "scanned_nights": scanned_night_records(scanned_nights, [n.night_date for n in nights], msm_dates, winter_bands),
         "finals": ranked_records(finals, final_rank_key, is_primary, "final", score_unused=stars),
         "outlooks": ranked_records(outlooks, outlook_rank_key, is_primary, "outlook", score_unused=stars),
+        "highlights": highlights_record(highlights),     # 2026-11-27。無ければ null
         "fetch": fetch_record(fetch_summary, fetch_failures),
         "notes": list(NOTES) + [SCANNED_NOTE] + ([STARS_NOTE] if stars else []),
     }
+    if highlights is not None:
+        doc["notes"].append(HIGHLIGHTS_NOTE)
     if requested_nights is not None:
         doc["requested_nights"] = json_value(requested_nights)
         doc["notes"].append(REQUESTED_NOTE)

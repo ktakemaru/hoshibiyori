@@ -18,6 +18,7 @@
 - --site-stride N : 全地点(主要+参考)から N 件おきに選んだ地点と石廊崎(第1段階の基準点)だけで実行する(全897地点の代わりの抜き取り)。
 - --astro-grid ecmwf|site : explore に --astro-grid を渡す(省略時は渡さない)。--astro-cache-dir : 天文計算の保存先(2026-11-13)。
 - --json-out : explore に --json-out をそのまま渡す(省略時は渡さない。2026-11-16)。
+- --nights : explore に --nights をそのまま渡す(省略時は渡さない。2026-11-27)。
 - --code-root : explore_hoshibiyori.py を読むリポジトリ(既定はこのスクリプトの親)。変更前のコードの写しを測るのに使う。
 - --max-minutes : この分数を超えたら出力を書き出して強制終了する(既定60分、終了コード9)。
 - 秒数のJSONには、全体(壁時計)・通信・通信以外に加えて、このプロセスのCPU時間(cpu_sec、time.process_time)も入れる
@@ -28,6 +29,7 @@
 「同じ」の判定で除く行(COMPARE_EXCLUDE): 秒数・分・実行日時・API呼び出しとキャッシュヒットの回数が入る行。
   - 「実行時間」で始まる行(「実行時間: 全体 N分…」「実行時間の内訳: …」)
   - 「API呼び出し」または「キャッシュヒット」を含む行(第2段階の途中経過・格子セルキャッシュの行・最終統計・予報取得の集計)
+  - 「天文計算のキャッシュ:」で始まる行、「探索結果の JSON を書きました:」で始まる行(書き出し先は実行ごとに違う。2026-11-27)
 explore は実行日時を画面に出さない(夜の日付は「今日」から決まるため、比べる2つは同じ日付[JST]の中で実行する)。
 """
 from __future__ import annotations
@@ -55,6 +57,8 @@ COMPARE_EXCLUDE = [
     re.compile(r"キャッシュヒット"),
     # 2026-11-13: 天文計算のキャッシュの集計(計算した件数・保存済みを使った件数。保存の有無で変わる)
     re.compile(r"^天文計算のキャッシュ:"),
+    # 2026-11-27: JSON の書き出し先(実行ごとに --out-dir が違うため)
+    re.compile(r"^探索結果の JSON を書きました:"),
 ]
 
 
@@ -224,6 +228,8 @@ def run(args) -> int:
                     main_args += ["--astro-grid", args.astro_grid]
                 if args.json_out:  # 指定したときだけ渡す(2026-11-16)
                     main_args += ["--json-out", args.json_out]
+                if args.nights:  # 指定したときだけ渡す(2026-11-27)
+                    main_args += ["--nights", args.nights]
                 code = ex.main(main_args)
             finally:
                 if prof:
@@ -286,6 +292,8 @@ def main(argv=None) -> int:
                    help="天文計算の保存先(explore_hoshibiyori.ASTRO_CACHE_DIR を差し替える)。ecmwf で測るときは必ず指定する")
     r.add_argument("--json-out", default=None,
                    help="explore に --json-out をそのまま渡す(省略時は渡さない)")
+    r.add_argument("--nights", default=None,
+                   help="explore に --nights をそのまま渡す(省略時は渡さない。2026-11-27)")
     r.add_argument("--site-stride", type=int, default=0,
                    help="全地点(主要+参考)のうち N 件おき(先頭から)と石廊崎だけで実行する(全体の確かめの代わりの抜き取り)")
     c = sub.add_parser("compare")
